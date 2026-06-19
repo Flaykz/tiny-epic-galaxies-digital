@@ -1,0 +1,87 @@
+# Tiny Epic Galaxies — Digital Port
+
+A digital implementation of Scott Almes' **Tiny Epic Galaxies** (Gamelyn Games),
+built on the [`digital-boardgame-framework`](https://www.npmjs.com/package/digital-boardgame-framework).
+
+- **Rules**: [official rulebook v9](https://www.gamelyngames.com/wp-content/uploads/2020/09/TEG_rulebook_v9.pdf)
+- **Art**: the card, dice, mat, and ship-token images are the real components,
+  fetched from the official [VASSAL module](https://obj.vassalengine.org/images/0/00/Tiny_Epic_Galaxies_0.2.vmod).
+  **This project does not redistribute that copyrighted art** — you download it
+  yourself with `npm run setup-assets` (see below). The asset folders
+  (`public/cards`, `public/dice`, `public/mats`, `public/ships`) are git-ignored.
+
+## Play modes
+
+| Mode | How |
+| --- | --- |
+| **Local hotseat** | 2–5 humans on one screen |
+| **vs AI** | mix humans + greedy-heuristic AI players |
+| **Solo (Rogue Galaxy)** | one human vs the automated Rogue opponent |
+| **Async multiplayer** | server-backed games with per-seat invite links |
+
+## Running
+
+```bash
+npm install
+
+# One-time: download the card/dice/mat/ship art from the VASSAL module.
+npm run setup-assets
+
+# Local / AI / solo play (everything runs in the browser):
+npm run dev            # http://localhost:5173
+
+# Async multiplayer also needs the game server:
+npm run server         # http://localhost:8787  (Vite proxies /api to it)
+
+npm test               # engine unit + full self-play tests
+npm run build          # production bundle
+```
+
+For multiplayer: open the app → **Multiplayer** → create a game → share each
+seat's invite link. The server persists games to `.data/` via the framework's
+`FsStore`, redacts opponents' secret missions per-seat, and validates turns.
+
+## Architecture
+
+```
+src/engine/        Pure game logic (framework-agnostic)
+  types.ts           State + Action model
+  planets.ts         40 planet cards (transcribed from the real art)
+  missions.ts        12 secret missions
+  empire.ts          Empire/upgrade track (dice, ships, VP, costs)
+  setup.ts           Initial state + seeded dice rolls (Rng in state)
+  helpers.ts         Movement, colonization, scoring, mission evaluation
+  planetEffects.ts   Per-planet surface/colony action effects
+  adapter.ts         GameAdapter: legalActions / applyAction / viewFor / result
+  ai.ts              Greedy AI used for AI seats and the Rogue Galaxy
+src/client/        Local engine driver, React hook, HTTP client, labels
+src/ui/            React UI (lobby, board, multiplayer) + real card art
+server/            Node GameServer over FsStore (async multiplayer)
+tests/             Vitest engine + self-play tests
+```
+
+The engine is a pure, deterministic `GameAdapter<GameState, Action, string>`:
+every action is fully specified and enumerable, randomness lives in a serialized
+seeded RNG inside the state, so the same framework powers both local play and the
+server with no game-specific server code.
+
+## Faithfulness notes
+
+Implemented to the rulebook: dice rolling by empire level, the six die actions
+(move / acquire energy / acquire culture / advance diplomacy / advance economy /
+utilize colony), orbiting & colonization, empire upgrades (4d/2s → 7d/4s),
+the free-then-paid reroll, the Converter, **following** (pay 1 culture to copy an
+action), 21-VP end trigger with a final round, secret-mission scoring, tie-breakers,
+and the solo Rogue instant-win condition.
+
+Pragmatic approximations (clearly marked in code/log):
+
+- **Empire-track VP values** are read from the Galaxy Mat art; the per-level VP
+  array in `empire.ts` is a single editable constant if you want to fine-tune it.
+- **Some exotic planet surface actions** with ambiguous targeting use an
+  auto-chosen target in this build (e.g. follow targets, multi-ship effects).
+- The **Rogue Galaxy** uses the shared greedy AI rather than the precise
+  "roll one die at a time" Rogue procedure from the solo rules.
+- Following supplies an auto-chosen target for the copied action in the UI.
+
+These are isolated in `planetEffects.ts` / `ai.ts` and don't affect the core loop.

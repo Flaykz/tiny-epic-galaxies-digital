@@ -1,0 +1,16 @@
+node_modules/
+dist/
+
+# Copyrighted art extracted from the VASSAL module — never commit/redistribute.
+# Each user fetches it themselves via `npm run setup-assets`.
+public/cards/
+public/dice/
+public/mats/
+public/ships/
+teg.vmod
+
+.data/
+*.tgz
+teg_rules.pdf
+vassal/
+package/

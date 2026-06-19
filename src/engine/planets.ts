@@ -1,0 +1,50 @@
+import type { Planet } from './types.js';
+
+// 40 planet cards transcribed from the real card art in the VASSAL module.
+// Each card image is available at /cards/<id>.jpg.
+export const PLANETS: Planet[] = [
+  { id: 'cp1', name: 'LEANDRA', resourceType: 'energy', orbitTrackLength: 2, colonizeType: 'diplomacy', action: 'Advance +1 economy', vp: 1 },
+  { id: 'cp2', name: 'OMICRON FENZI', resourceType: 'culture', orbitTrackLength: 3, colonizeType: 'diplomacy', action: 'Convert any number of energy into culture', vp: 3 },
+  { id: 'cp3', name: 'ZAVODNICK', resourceType: 'energy', orbitTrackLength: 4, colonizeType: 'economy', action: 'Perform any 1 action; all other players may follow that action for free (only once per turn)', vp: 5 },
+  { id: 'cp4', name: 'DREWKAIDEN', resourceType: 'culture', orbitTrackLength: 1, colonizeType: 'economy', action: 'Advance +1 diplomacy', vp: 1 },
+  { id: 'cp5', name: 'MAIA', resourceType: 'culture', orbitTrackLength: 4, colonizeType: 'diplomacy', action: 'Discard 2 inactive dice, acquire 2 energy and 2 culture', vp: 5 },
+  { id: 'cp6', name: 'WALSFEO', resourceType: 'energy', orbitTrackLength: 4, colonizeType: 'economy', action: 'Pay 1 culture to a player to utilize one of their colonized planets', vp: 5 },
+  { id: 'cp7', name: 'BSW-10-1', resourceType: 'energy', orbitTrackLength: 4, colonizeType: 'diplomacy', action: 'Regress one of your ships -1, then advance another one of your ships +1', vp: 5 },
+  { id: 'cp8', name: 'HELIOS', resourceType: 'culture', orbitTrackLength: 2, colonizeType: 'diplomacy', action: 'Discard an un-occupied planet in the middle and replace it with a new planet', vp: 2 },
+  { id: 'cp9', name: 'GYORE', resourceType: 'culture', orbitTrackLength: 5, colonizeType: 'economy', action: 'Set 1 inactive die to a face of your choice', vp: 7 },
+  { id: 'cp10', name: 'JORG', resourceType: 'culture', orbitTrackLength: 3, colonizeType: 'diplomacy', action: 'Spend 2 culture to regress 1 enemy ship by -2', vp: 3 },
+  { id: 'cp11', name: 'MARED', resourceType: 'energy', orbitTrackLength: 2, colonizeType: 'economy', action: 'If your empire level is the lowest, upgrade your empire for 1 less energy/culture', vp: 2 },
+  { id: 'cp12', name: 'MJ-120210', resourceType: 'energy', orbitTrackLength: 2, colonizeType: 'diplomacy', action: 'Acquire 2 energy', vp: 2 },
+  { id: 'cp13', name: 'JAC-110912', resourceType: 'culture', orbitTrackLength: 4, colonizeType: 'economy', action: 'Acquire 2 culture, all other players acquire 1 culture', vp: 5 },
+  { id: 'cp14', name: 'SHOUHUA', resourceType: 'energy', orbitTrackLength: 5, colonizeType: 'diplomacy', action: 'Advance a ship +1', vp: 7 },
+  { id: 'cp15', name: 'LUREENA', resourceType: 'culture', orbitTrackLength: 2, colonizeType: 'economy', action: 'Immediately upgrade your empire, you may spend energy and/or culture', vp: 2 },
+  { id: 'cp16', name: 'GLEAM-ZANIER', resourceType: 'energy', orbitTrackLength: 4, colonizeType: 'diplomacy', action: 'Acquire 2 energy, all other players acquire 1 energy', vp: 5 },
+  { id: 'cp17', name: 'BIRNOMIUS', resourceType: 'culture', orbitTrackLength: 1, colonizeType: 'diplomacy', action: 'If you are followed on this turn, acquire 1 culture per follow', vp: 1 },
+  { id: 'cp18', name: 'JAKKS', resourceType: 'culture', orbitTrackLength: 1, colonizeType: 'diplomacy', action: 'Acquire 1 culture', vp: 1 },
+  { id: 'cp19', name: 'HOEFKER', resourceType: 'culture', orbitTrackLength: 2, colonizeType: 'economy', action: 'Spend 1 energy to acquire 2 culture', vp: 2 },
+  { id: 'cp20', name: 'LA-TORRES', resourceType: 'culture', orbitTrackLength: 2, colonizeType: 'diplomacy', action: 'Steal 1 energy from another player (only once per turn)', vp: 2 },
+  { id: 'cp21', name: 'NAGATO', resourceType: 'energy', orbitTrackLength: 3, colonizeType: 'economy', action: 'Spend 1 culture to move 2 of your ships (only once per turn)', vp: 3 },
+  { id: 'cp22', name: 'GORT', resourceType: 'energy', orbitTrackLength: 5, colonizeType: 'economy', action: 'Move 1 of your ships to another colony track at an equal level', vp: 7 },
+  { id: 'cp23', name: 'PIEDES', resourceType: 'energy', orbitTrackLength: 5, colonizeType: 'economy', action: 'Repeat the action on an already activated die', vp: 7 },
+  { id: 'cp24', name: 'TERRA-BETTIA', resourceType: 'energy', orbitTrackLength: 5, colonizeType: 'diplomacy', action: 'Other players advance a ship +1, then you advance a ship +2', vp: 7 },
+  { id: 'cp25', name: 'ZALAX', resourceType: 'culture', orbitTrackLength: 2, colonizeType: 'diplomacy', action: 'Reroll any number of your inactive dice', vp: 2 },
+  { id: 'cp26', name: 'BISSCHOP', resourceType: 'energy', orbitTrackLength: 1, colonizeType: 'economy', action: 'If you are followed on this turn, acquire 1 energy per follow', vp: 1 },
+  { id: 'cp27', name: 'NAKAGAWAKOZI', resourceType: 'energy', orbitTrackLength: 3, colonizeType: 'diplomacy', action: 'Spend 2 energy to advance +2 economy', vp: 3 },
+  { id: 'cp28', name: 'UMBRA-FORUM', resourceType: 'culture', orbitTrackLength: 3, colonizeType: 'economy', action: 'Utilize the action of an un-colonized planet', vp: 3 },
+  { id: 'cp29', name: 'VICI-KS156', resourceType: 'energy', orbitTrackLength: 1, colonizeType: 'economy', action: 'Acquire 1 energy', vp: 1 },
+  { id: 'cp30', name: 'AUGHMOORE', resourceType: 'energy', orbitTrackLength: 5, colonizeType: 'diplomacy', action: 'Acquire culture for every ship landed in your galaxy', vp: 7 },
+  { id: 'cp31', name: 'CLJ-0517', resourceType: 'energy', orbitTrackLength: 2, colonizeType: 'economy', action: 'Steal 1 culture from another player (only once per turn)', vp: 2 },
+  { id: 'cp32', name: 'K-WIDOW', resourceType: 'culture', orbitTrackLength: 5, colonizeType: 'economy', action: 'Regress an enemy ship -1', vp: 7 },
+  { id: 'cp33', name: 'TIFNOD', resourceType: 'culture', orbitTrackLength: 1, colonizeType: 'economy', action: 'Spend 1 energy to regress 1 enemy ship -1', vp: 1 },
+  { id: 'cp34', name: 'VIZCARRA', resourceType: 'energy', orbitTrackLength: 1, colonizeType: 'diplomacy', action: 'Spend 1 economy to regress 1 enemy ship -1', vp: 1 },
+  { id: 'cp35', name: 'SARGUS-36', resourceType: 'culture', orbitTrackLength: 4, colonizeType: 'diplomacy', action: 'Pay 1 energy to a player to utilize one of their colonized planets', vp: 5 },
+  { id: 'cp36', name: 'PEMBERTONIA-MAJOR', resourceType: 'energy', orbitTrackLength: 3, colonizeType: 'economy', action: 'Convert any number of culture into energy', vp: 3 },
+  { id: 'cp37', name: 'PADRAIGIN-3110', resourceType: 'culture', orbitTrackLength: 3, colonizeType: 'economy', action: 'Spend 2 culture to advance +2 diplomacy', vp: 3 },
+  { id: 'cp38', name: 'NIBIRU', resourceType: 'culture', orbitTrackLength: 5, colonizeType: 'diplomacy', action: 'Enemies must pay 2 culture per follow this turn', vp: 7 },
+  { id: 'cp39', name: 'ANDELLOUXIAN-6', resourceType: 'culture', orbitTrackLength: 4, colonizeType: 'economy', action: "Displace 1 of your orbiting ships, acquire energy/culture = ship's level", vp: 5 },
+  { id: 'cp40', name: 'BRUMBAUGH', resourceType: 'energy', orbitTrackLength: 3, colonizeType: 'diplomacy', action: 'Spend 2 energy to regress 2 enemy ships by -1', vp: 3 },
+];
+
+export const PLANETS_BY_ID: Record<string, Planet> = Object.fromEntries(
+  PLANETS.map((p) => [p.id, p]),
+);
