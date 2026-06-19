@@ -4,11 +4,15 @@ A digital implementation of Scott Almes' **Tiny Epic Galaxies** (Gamelyn Games),
 built on the [`digital-boardgame-framework`](https://www.npmjs.com/package/digital-boardgame-framework).
 
 - **Rules**: [official rulebook v9](https://www.gamelyngames.com/wp-content/uploads/2020/09/TEG_rulebook_v9.pdf)
-- **Art**: the card, dice, mat, and ship-token images are the real components,
-  fetched from the official [VASSAL module](https://obj.vassalengine.org/images/0/00/Tiny_Epic_Galaxies_0.2.vmod).
-  **This project does not redistribute that copyrighted art** — you download it
-  yourself with `npm run setup-assets` (see below). The asset folders
-  (`public/cards`, `public/dice`, `public/mats`, `public/ships`) are git-ignored.
+- **Art**: the card, dice, mat, and ship-token images are the real components
+  from the official [VASSAL module](https://obj.vassalengine.org/images/0/00/Tiny_Epic_Galaxies_0.2.vmod).
+  **This project does not redistribute that copyrighted art.** Bring your own:
+  - **In the app** (incl. the live deploy): an in-app dialog prompts you to
+    download the VASSAL module and *choose* the `.vmod` — it's extracted in your
+    browser and cached locally (IndexedDB), never uploaded. (Framework drop-in:
+    `useVmodAssets` + `VmodSetupDialog`.)
+  - **For local dev**, you can instead run `npm run setup-assets` to populate
+    `public/`. Those asset folders are git-ignored.
 
 ## Play modes
 

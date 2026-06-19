@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { UpdateBanner } from 'digital-boardgame-framework/client';
+import { UpdateBanner, VmodSetupDialog } from 'digital-boardgame-framework/client';
+import { AssetContext, useGameAssets, VMOD_URL } from '../client/assets.js';
 import { Board } from './Board.js';
 import { useLocalGame } from '../client/useLocalGame.js';
 import type { LocalSeat } from '../client/localEngine.js';
@@ -13,12 +14,23 @@ type Mode =
 export function App() {
   const [mode, setMode] = useState<Mode>({ kind: 'lobby' });
 
+  const assets = useGameAssets();
+
   return (
-    <>
-      <AssetCheck />
+    <AssetContext.Provider value={assets.resolve}>
       {mode.kind === 'lobby' && <Lobby onStart={setMode} />}
       {mode.kind === 'multiplayer' && <MultiplayerApp onExit={() => setMode({ kind: 'lobby' })} />}
       {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} onExit={() => setMode({ kind: 'lobby' })} />}
+      {/* Bring-your-own-art: when the build ships no images, prompt the user to
+          download + choose the official VASSAL module (cached locally). */}
+      {assets.needsSetup && (
+        <VmodSetupDialog
+          api={assets.vmod}
+          gameName="Tiny Epic Galaxies"
+          moduleName="Tiny Epic Galaxies 0.2"
+          moduleUrl={VMOD_URL}
+        />
+      )}
       {/* Shows a "new version — Reload" bar at the bottom only when a newer build is deployed. */}
       <UpdateBanner
         currentBuild={typeof __DBF_BUILD_ID__ !== 'undefined' ? __DBF_BUILD_ID__ : 'dev'}
@@ -27,25 +39,7 @@ export function App() {
         unstyled
         className="update-banner"
       />
-    </>
-  );
-}
-
-/** Shows a one-time notice if the VASSAL-derived art hasn't been fetched yet. */
-function AssetCheck() {
-  const [missing, setMissing] = useState(false);
-  React.useEffect(() => {
-    const img = new Image();
-    img.onerror = () => setMissing(true);
-    img.src = '/cards/cp1.jpg';
-  }, []);
-  if (!missing) return null;
-  return (
-    <div className="asset-notice">
-      <strong>Card art not found.</strong> This project doesn't ship the copyrighted
-      game art. Download it from the official VASSAL module by running{' '}
-      <code>npm run setup-assets</code>, then reload.
-    </div>
+    </AssetContext.Provider>
   );
 }
 

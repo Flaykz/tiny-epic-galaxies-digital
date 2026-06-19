@@ -13,6 +13,7 @@ import {
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
 import { MatTokens, PlanetTokens } from './Tokens.js';
 import { downloadText, logText, problemReport } from '../client/report.js';
+import { useAsset } from '../client/assets.js';
 
 const DIE_IMG: Record<DieFace, string> = {
   move: '/dice/move.jpg',
@@ -154,6 +155,7 @@ function resourceDots(n: number) {
 
 function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean }) {
   const lvl = empire(p.empireLevel);
+  const asset = useAsset();
   return (
     <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''}`}>
       <div className="pp-head">
@@ -161,7 +163,7 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
         <span className="pp-vp">{baseVp(state, p)} VP</span>
       </div>
       <div className="pp-mat">
-        <img src={`/mats/pads-${p.color}.jpg`} alt={`${p.name} galaxy mat`} loading="lazy" />
+        <img src={asset(`/mats/pads-${p.color}.jpg`)} alt={`${p.name} galaxy mat`} loading="lazy" />
         <MatTokens p={p} />
         <span className="mat-badge level" title="Current empire level">L{p.empireLevel}</span>
         <span className="mat-badge energy" title="Energy">⚡{p.energy}</span>
@@ -187,7 +189,7 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
               const cp = PLANETS_BY_ID[id];
               return (
                 <div key={id} className="colony-card" title={`${cp?.name}: ${cp?.action}`}>
-                  <img src={`/cards/${id}.jpg`} alt={cp?.name} loading="lazy" />
+                  <img src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" />
                   <span className="cc-vp">+{cp?.vp}</span>
                   <span className="cc-name">{cp?.name}</span>
                 </div>
@@ -206,6 +208,7 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
 }
 
 function PlanetCardView({ planet, state }: { planet: Planet; state: GameState }) {
+  const asset = useAsset();
   // Ships currently on/around this planet.
   const here: string[] = [];
   for (const pl of state.players) {
@@ -217,7 +220,7 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
   return (
     <div className="planet-card">
       <div className="pc-art">
-        <img src={`/cards/${planet.id}.jpg`} alt={planet.name} loading="lazy" />
+        <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" />
         <PlanetTokens planet={planet} state={state} />
       </div>
       <div className="pc-meta">
@@ -242,6 +245,7 @@ function DiceTray({
   selectedDie: number | null;
   onSelect: (id: number) => void;
 }) {
+  const asset = useAsset();
   return (
     <div className="dice-tray">
       <h3>Dice {canAct && <span className="muted small">— click a die to activate it</span>}</h3>
@@ -263,7 +267,7 @@ function DiceTray({
               onClick={() => usable && onSelect(d.id)}
               title={`${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
             >
-              <img src={DIE_IMG[d.face]} alt={FACE_LABEL[d.face]} />
+              <img src={asset(DIE_IMG[d.face])} alt={FACE_LABEL[d.face]} />
               <span>{FACE_LABEL[d.face]}</span>
             </button>
           );

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Color, GameState, Planet, PlayerState } from '../engine/index.js';
+import { useAsset } from '../client/assets.js';
 
 // ---- Calibrated overlay positions (percentages of the underlying image) ----
 
@@ -72,6 +73,7 @@ function rocket(color: string) {
 export function MatTokens({ p }: { p: PlayerState }) {
   const homeShips = p.ships.filter((s) => s.kind === 'galaxy').length;
   const lockedShips = p.ships.filter((s) => s.kind === 'locked').length;
+  const asset = useAsset();
   const tf = matTransform(p.color);
   const ep = tf(EMPIRE_POS[p.empireLevel] ?? EMPIRE_POS[1]);
   return (
@@ -79,7 +81,7 @@ export function MatTokens({ p }: { p: PlayerState }) {
       {/* Empire level token on the hexagon track */}
       <img
         className="tok empire-tok"
-        src={`/ships/${p.color}-level.png`}
+        src={asset(`/ships/${p.color}-level.png`)}
         alt={`empire level ${p.empireLevel}`}
         style={{ left: `${ep.x}%`, top: `${ep.y}%` }}
         title={`Empire level ${p.empireLevel}`}
@@ -91,7 +93,7 @@ export function MatTokens({ p }: { p: PlayerState }) {
           <img
             key={`h${i}`}
             className="tok ship-tok standing"
-            src={rocket(p.color)}
+            src={asset(rocket(p.color))}
             alt="home ship"
             style={{ left: `${q.x}%`, top: `${q.y}%` }}
             title="Ship on your Galaxy Mat"
@@ -105,7 +107,7 @@ export function MatTokens({ p }: { p: PlayerState }) {
           <img
             key={`l${i}`}
             className="tok ship-tok locked"
-            src={rocket(p.color)}
+            src={asset(rocket(p.color))}
             alt="locked ship"
             style={{ left: `${q.x}%`, top: `${q.y}%` }}
             title="Locked — unlock by upgrading your empire"
@@ -119,6 +121,7 @@ export function MatTokens({ p }: { p: PlayerState }) {
 // ---- Planet-card overlay: surface ship + orbiting ships ----
 
 export function PlanetTokens({ planet, state }: { planet: Planet; state: GameState }) {
+  const asset = useAsset();
   const tokens: React.ReactNode[] = [];
   for (const pl of state.players) {
     pl.ships.forEach((s, idx) => {
@@ -127,7 +130,7 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
           <img
             key={`${pl.id}-s${idx}`}
             className="tok ship-tok standing on-card"
-            src={rocket(pl.color)}
+            src={asset(rocket(pl.color))}
             alt={`${pl.name} on surface`}
             style={{ left: '50%', top: '40%' }}
             title={`${pl.name}: landed on the surface`}
@@ -140,7 +143,7 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
           <img
             key={`${pl.id}-o${idx}`}
             className="tok ship-tok orbit on-card"
-            src={rocket(pl.color)}
+            src={asset(rocket(pl.color))}
             alt={`${pl.name} orbiting`}
             style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             title={`${pl.name}: ${s.level === 0 ? 'orbit start' : `orbit space ${s.level} / ${planet.orbitTrackLength}`}`}
