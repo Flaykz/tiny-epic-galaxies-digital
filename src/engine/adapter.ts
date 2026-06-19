@@ -156,11 +156,15 @@ function checkEnd(state: GameState, p: PlayerState): void {
 function openFollowWindow(state: GameState, face: DieFace): void {
   if (state.rogueId) return; // solo: no follow window
   if (!state.followEnabled) return; // async multiplayer: follows are auto-declined
+  const cost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
   const order = state.order;
   const activeIdx = order.indexOf(state.turn.active);
   const queue: string[] = [];
   for (let i = 1; i < order.length; i++) {
-    queue.push(order[(activeIdx + i) % order.length]);
+    const id = order[(activeIdx + i) % order.length];
+    // Only offer the follow to players who can actually afford it — don't make
+    // someone with too little culture click "decline".
+    if (player(state, id).culture >= cost) queue.push(id);
   }
   if (queue.length === 0) return;
   state.turn.pendingFollow = { face, queue, sourcePlayer: state.turn.active };

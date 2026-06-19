@@ -343,6 +343,20 @@ function ActionPanel({
     );
   }
 
+  // Guarded submit: confirm before moving a ship OFF an orbit (you'd abandon the
+  // track progress you've invested in getting there).
+  const submit = (a: Action) => {
+    if (a.type === 'activateMove') {
+      const sh = actorShips[a.shipIdx];
+      if (sh?.kind === 'orbit') {
+        const pl = PLANETS_BY_ID[sh.planetId];
+        const where = sh.level === 0 ? 'the start of its orbit' : `space ${sh.level}/${pl?.orbitTrackLength}`;
+        if (!window.confirm(`Move ship #${a.shipIdx + 1} off ${pl?.name}? It abandons its orbit progress (${where}).`)) return;
+      }
+    }
+    onAction(a);
+  };
+
   // Target-choice prompt for a planet action.
   const choiceActions = legalActions.filter((a) => a.type === 'resolvePlanet' || a.type === 'skipPlanet');
   if (state.turn.pendingChoice && choiceActions.length > 0) {
@@ -396,7 +410,7 @@ function ActionPanel({
         <div className="actions">
           <p className="muted small">Selected die: <strong>{selectedDieFace && FACE_LABEL[selectedDieFace]}</strong></p>
           {forDie(selectedDie).map((a, i) => (
-            <button key={i} className="act-btn" onClick={() => onAction(a)} title={actionTooltip(a)}>
+            <button key={i} className="act-btn" onClick={() => submit(a)} title={actionTooltip(a)}>
               {actionLabel(a, actorShips)}
             </button>
           ))}

@@ -25,10 +25,10 @@ type Pt = { x: number; y: number };
 const BLUE_REF = { p1: EMPIRE_POS[1], p6: EMPIRE_POS[6] };
 const MAT_REF: Record<Color, { p1: Pt; p6: Pt }> = {
   blue: BLUE_REF,
-  green: { p1: { x: 52, y: 73 }, p6: { x: 64, y: 8 } },
-  red: { p1: { x: 50, y: 70 }, p6: { x: 60, y: 7 } },
-  yellow: { p1: { x: 53, y: 75 }, p6: { x: 63, y: 7 } },
-  black: { p1: { x: 52, y: 73 }, p6: { x: 63, y: 7 } },
+  green: { p1: { x: 49, y: 71 }, p6: { x: 61, y: 6 } },
+  red: { p1: { x: 47, y: 68 }, p6: { x: 57, y: 5 } },
+  yellow: { p1: { x: 50, y: 73 }, p6: { x: 60, y: 5 } },
+  black: { p1: { x: 49, y: 71 }, p6: { x: 60, y: 5 } },
 };
 
 /** Build the blue→color transform (translation + rotation + uniform scale). */
@@ -137,20 +137,17 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
       }
       if (s.kind === 'orbit' && s.planetId === planet.id) {
         const pos = orbitPos(s.level, planet.orbitTrackLength);
-        // Badge shows the orbit space (so "which space" is unambiguous); the
-        // owning ship # is in the tooltip and the card's ship list.
-        const spaceLabel = s.level === 0 ? '◦' : `${s.level}`;
+        // The token already sits on its numbered space; the tooltip + card ship
+        // list give the exact space, so no badge is needed here.
         tokens.push(
-          <span key={`${pl.id}-o${idx}`}>
-            <img
-              className="tok ship-tok orbit on-card"
-              src={asset(rocket(pl.color))}
-              alt={`${pl.name} ship #${idx + 1} orbiting`}
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-              title={`${pl.name} — ship #${idx + 1}: ${s.level === 0 ? 'orbit start' : `space ${s.level} / ${planet.orbitTrackLength}`}`}
-            />
-            <span className="tok-num orbit" style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>{spaceLabel}</span>
-          </span>,
+          <img
+            key={`${pl.id}-o${idx}`}
+            className="tok ship-tok orbit on-card"
+            src={asset(rocket(pl.color))}
+            alt={`${pl.name} ship #${idx + 1} orbiting`}
+            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            title={`${pl.name} — ship #${idx + 1}: ${s.level === 0 ? 'orbit start' : `space ${s.level} / ${planet.orbitTrackLength}`}`}
+          />,
         );
       }
     });
