@@ -12,7 +12,12 @@ type Mode =
   | { kind: 'multiplayer' };
 
 export function App() {
-  const [mode, setMode] = useState<Mode>({ kind: 'lobby' });
+  // An invite link (?game=…&token=…) must open straight into the multiplayer
+  // game, not the lobby — otherwise the params are ignored and you bounce back.
+  const [mode, setMode] = useState<Mode>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('game') && p.get('token') ? { kind: 'multiplayer' } : { kind: 'lobby' };
+  });
 
   const assets = useGameAssets();
 
