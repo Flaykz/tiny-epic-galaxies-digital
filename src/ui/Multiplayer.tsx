@@ -21,6 +21,13 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
   const [gameId, setGameId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copy = (seat: string, link: string) => {
+    navigator.clipboard?.writeText(link);
+    setCopied(seat);
+    setTimeout(() => setCopied((c) => (c === seat ? null : c)), 1500);
+  };
 
   const create = async () => {
     setBusy(true);
@@ -57,18 +64,28 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
           </>
         ) : (
           <div className="invites">
-            <p>Game <code>{gameId}</code> created. Share one link per player:</p>
+            <p>Game <code>{gameId}</code> created. Open <strong>your</strong> seat and send the others their link:</p>
             <ul>
-              {Object.entries(invites).map(([seat, link]) => (
+              {Object.entries(invites).map(([seat, link], i) => (
                 // `link` is already the full invite URL the server built (gameUrl).
                 <li key={seat}>
-                  <strong>{seat}</strong>:{' '}
-                  <a href={link}>{link}</a>{' '}
-                  <button onClick={() => navigator.clipboard?.writeText(link)}>copy</button>
+                  <div className="invite-row">
+                    <strong>{seat}{i === 0 ? ' (you)' : ''}</strong>
+                    <button
+                      className="primary small"
+                      onClick={() => window.open(link, '_blank', 'noopener')}
+                    >
+                      Open seat ↗
+                    </button>
+                    <button onClick={() => copy(seat, link)}>
+                      {copied === seat ? 'Copied!' : 'Copy link'}
+                    </button>
+                  </div>
+                  <a className="invite-link" href={link} target="_blank" rel="noreferrer">{link}</a>
                 </li>
               ))}
             </ul>
-            <p className="muted small">Open your own seat's link to start playing.</p>
+            <p className="muted small">Each seat opens in a new tab so this list stays put.</p>
           </div>
         )}
       </div>

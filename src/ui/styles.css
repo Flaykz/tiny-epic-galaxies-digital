@@ -52,7 +52,11 @@ button.primary {
 button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .invites ul { list-style: none; padding: 0; }
 .invites li { margin: .5rem 0; padding: .5rem; background: #0004; border-radius: 8px; }
-.invites button { margin-left: .4rem; border: none; background: var(--panel2); color: var(--ink); border-radius: 6px; padding: 2px 8px; }
+.invites button { border: none; background: var(--panel2); color: var(--ink); border-radius: 6px; padding: 4px 10px; }
+.invite-row { display: flex; align-items: center; gap: .5rem; }
+.invite-row strong { flex: 1; }
+.invites button.primary.small { background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700; }
+.invite-link { display: block; font-size: .72rem; color: var(--muted); margin-top: .25rem; word-break: break-all; }
 
 /* ---------- Game shell ---------- */
 .game-shell { padding: 1rem; max-width: 1400px; margin: 0 auto; }
