@@ -49,6 +49,29 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
       return json(200, { reportId });
     }
 
+    // ---- Report triage (public-read, fingerprint stripped; public-write resolve) ----
+    if (parts[0] === 'reports') {
+      const store = new KvStore(env.GAMES);
+      const strip = (r: any) => { if (!r) return r; const { userAgent, ...rest } = r; return rest; };
+      // GET /api/reports — list (newest first), without state/log for brevity.
+      if (request.method === 'GET' && !parts[1]) {
+        const unresolved = url.searchParams.get('unresolved') === '1';
+        const rows = await store.listReports(unresolved ? { unresolved: true } : undefined);
+        rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+        return json(200, rows.map((r) => { const { serverSnapshot, reporterView, clientLog, userAgent, ...rest } = r as any; return rest; }));
+      }
+      // GET /api/reports/:id — full detail (incl. log + state), fingerprint stripped.
+      if (request.method === 'GET' && parts[1]) {
+        return json(200, strip(await store.getReport(parts[1])));
+      }
+      // POST /api/reports/:id/resolve — routine, reversible triage.
+      if (request.method === 'POST' && parts[1] && parts[2] === 'resolve') {
+        const b: any = await request.json().catch(() => ({}));
+        await store.resolveReport(parts[1], String(b.note ?? 'resolved').slice(0, 1000));
+        return json(200, { ok: true });
+      }
+    }
+
     // POST /api/games — create a game
     if (request.method === 'POST' && parts.length === 1 && parts[0] === 'games') {
       const body: any = await request.json().catch(() => ({}));

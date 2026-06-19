@@ -72,6 +72,27 @@ const http = createServer(async (req, res) => {
       return json(res, 200, { reportId });
     }
 
+    // ---- Report triage (public-read, fingerprint stripped; public-write resolve) ----
+    if (parts[0] === 'reports') {
+      if (req.method === 'GET' && !parts[1]) {
+        const unresolved = url.searchParams.get('unresolved') === '1';
+        const rows = await server.listReports(unresolved ? { unresolved: true } : undefined);
+        rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+        return json(res, 200, rows.map((r) => { const { serverSnapshot, reporterView, clientLog, userAgent, ...rest } = r as any; return rest; }));
+      }
+      if (req.method === 'GET' && parts[1]) {
+        const rows = await server.listReports();
+        const r = rows.find((x) => x.reportId === parts[1]) as any;
+        if (r) { const { userAgent, ...rest } = r; return json(res, 200, rest); }
+        return json(res, 404, { error: 'not found' });
+      }
+      if (req.method === 'POST' && parts[1] && parts[2] === 'resolve') {
+        const b = await readBody(req);
+        await server.resolveReport(parts[1], String(b.note ?? 'resolved').slice(0, 1000));
+        return json(res, 200, { ok: true });
+      }
+    }
+
     // POST /api/games  -> create a game
     if (req.method === 'POST' && parts[0] === 'games' && parts.length === 1) {
       const body = await readBody(req);

@@ -76,6 +76,7 @@ export class KvStore implements SnapshotStore {
   }
 
   putReport(row: BugReportRow) { return this.putJSON(`report:${row.reportId}`, row); }
+  getReport(id: string) { return this.getJSON<BugReportRow>(`report:${id}`); }
   async listReports(f?: ReportFilter) {
     const { keys } = await this.kv.list({ prefix: 'report:' });
     let rows: BugReportRow[] = [];
