@@ -13,7 +13,7 @@ import {
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
 import { MatTokens, PlanetTokens } from './Tokens.js';
 import { downloadText, logText, problemReport } from '../client/report.js';
-import { useAsset } from '../client/assets.js';
+import { useAsset, useArtless } from '../client/assets.js';
 
 const DIE_IMG: Record<DieFace, string> = {
   move: '/dice/move.jpg',
@@ -156,19 +156,22 @@ function resourceDots(n: number) {
 function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean }) {
   const lvl = empire(p.empireLevel);
   const asset = useAsset();
+  const artless = useArtless();
   return (
     <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''}`}>
       <div className="pp-head">
         <span className="pp-name">{p.name}{p.isRogue ? ' ☠' : ''}</span>
         <span className="pp-vp">{baseVp(state, p)} VP</span>
       </div>
-      <div className="pp-mat">
-        <img src={asset(`/mats/pads-${p.color}.jpg`)} alt={`${p.name} galaxy mat`} loading="lazy" />
-        <MatTokens p={p} />
-        <span className="mat-badge level" title="Current empire level">L{p.empireLevel}</span>
-        <span className="mat-badge energy" title="Energy">⚡{p.energy}</span>
-        <span className="mat-badge culture" title="Culture">🏛{p.culture}</span>
-      </div>
+      {!artless && (
+        <div className="pp-mat">
+          <img src={asset(`/mats/pads-${p.color}.jpg`)} alt={`${p.name} galaxy mat`} loading="lazy" />
+          <MatTokens p={p} />
+          <span className="mat-badge level" title="Current empire level">L{p.empireLevel}</span>
+          <span className="mat-badge energy" title="Energy">⚡{p.energy}</span>
+          <span className="mat-badge culture" title="Culture">🏛{p.culture}</span>
+        </div>
+      )}
       <div className="pp-stats">
         <span title="Empire level">🏛 L{p.empireLevel} ({lvl.dice}d/{lvl.ships}s)</span>
         <span title="Energy" className="res energy">⚡ {p.energy}</span>
@@ -187,6 +190,13 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
           <div className="colony-cards">
             {p.colonized.map((id) => {
               const cp = PLANETS_BY_ID[id];
+              if (artless) {
+                return (
+                  <span key={id} className="colony-chip" title={cp?.action}>
+                    {cp?.name} (+{cp?.vp})
+                  </span>
+                );
+              }
               return (
                 <div key={id} className="colony-card" title={`${cp?.name}: ${cp?.action}`}>
                   <img src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" />
@@ -209,6 +219,7 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
 
 function PlanetCardView({ planet, state }: { planet: Planet; state: GameState }) {
   const asset = useAsset();
+  const artless = useArtless();
   // Ships currently on/around this planet.
   const here: string[] = [];
   for (const pl of state.players) {
@@ -217,17 +228,33 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
       if (s.kind === 'orbit' && s.planetId === planet.id) here.push(`${pl.name}: ${s.level === 0 ? 'orbit start' : `orbit ${s.level}/${planet.orbitTrackLength}`}`);
     });
   }
+  const meta = (
+    <div className="pc-meta">
+      <strong>{planet.name}</strong>
+      <span>{planet.resourceType === 'energy' ? '⚡' : '🏛'} · {planet.colonizeType} · colonize in {planet.orbitTrackLength + 1} · {planet.vp}VP</span>
+      {here.length > 0 && <span className="pc-ships">{here.join(' | ')}</span>}
+    </div>
+  );
+
+  if (artless) {
+    return (
+      <div className={`planet-card text ${planet.colonizeType}`}>
+        <div className="pc-text-head">
+          <strong>{planet.name}</strong>
+          <span className="pc-vp-badge">{planet.vp}</span>
+        </div>
+        <div className="pc-text-action">{planet.action}</div>
+        {meta}
+      </div>
+    );
+  }
   return (
     <div className="planet-card">
       <div className="pc-art">
         <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" />
         <PlanetTokens planet={planet} state={state} />
       </div>
-      <div className="pc-meta">
-        <strong>{planet.name}</strong>
-        <span>{planet.resourceType === 'energy' ? '⚡' : '🏛'} · {planet.colonizeType} · colonize in {planet.orbitTrackLength + 1} · {planet.vp}VP</span>
-        {here.length > 0 && <span className="pc-ships">{here.join(' | ')}</span>}
-      </div>
+      {meta}
     </div>
   );
 }
@@ -246,6 +273,10 @@ function DiceTray({
   onSelect: (id: number) => void;
 }) {
   const asset = useAsset();
+  const artless = useArtless();
+  const FACE_GLYPH: Record<DieFace, string> = {
+    move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛',
+  };
   return (
     <div className="dice-tray">
       <h3>Dice {canAct && <span className="muted small">— click a die to activate it</span>}</h3>
@@ -254,6 +285,7 @@ function DiceTray({
           const usable = canAct && activatableDieIds.has(d.id);
           const cls = [
             'die',
+            artless ? 'text' : '',
             d.activated ? 'activated' : '',
             d.inConverter ? 'converter' : '',
             usable ? 'usable' : '',
@@ -267,7 +299,9 @@ function DiceTray({
               onClick={() => usable && onSelect(d.id)}
               title={`${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
             >
-              <img src={asset(DIE_IMG[d.face])} alt={FACE_LABEL[d.face]} />
+              {artless
+                ? <span className="die-glyph">{FACE_GLYPH[d.face]}</span>
+                : <img src={asset(DIE_IMG[d.face])} alt={FACE_LABEL[d.face]} />}
               <span>{FACE_LABEL[d.face]}</span>
             </button>
           );

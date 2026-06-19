@@ -171,6 +171,19 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .log-panel ul { list-style: none; padding: 0; margin: 0; font-size: .82rem; }
 .log-panel li { padding: .25rem 0; border-bottom: 1px solid #ffffff0a; color: var(--muted); }
 
+/* ---------- Text / lo-fi mode (no art loaded) ---------- */
+.planet-card.text { padding: .6rem; display: flex; flex-direction: column; gap: .4rem; }
+.planet-card.text.diplomacy { border-left: 4px solid #6fb0ff; }
+.planet-card.text.economy { border-left: 4px solid var(--gold); }
+.pc-text-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.pc-text-head strong { font-size: .95rem; }
+.pc-vp-badge { background: var(--blue); color: #fff; border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex: 0 0 auto; }
+.pc-text-action { font-size: .82rem; color: var(--ink); background: #0004; border-radius: 8px; padding: .5rem; min-height: 3.4em; }
+.die.text { background: var(--panel2); border: 2px solid #ffffff22; border-radius: 10px; width: 64px; height: 80px; justify-content: center; }
+.die.text.usable { border-color: var(--accent); box-shadow: 0 0 10px #4db8ff55; }
+.die.text.sel { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold); }
+.die-glyph { font-size: 1.7rem; line-height: 1; }
+
 /* ---------- Missing-asset notice ---------- */
 .asset-notice {
   background: #4a3a00; color: var(--gold); border-bottom: 1px solid #ffcc4444;

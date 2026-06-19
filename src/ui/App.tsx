@@ -17,7 +17,7 @@ export function App() {
   const assets = useGameAssets();
 
   return (
-    <AssetContext.Provider value={assets.resolve}>
+    <AssetContext.Provider value={{ resolve: assets.resolve, artless: assets.artless }}>
       {mode.kind === 'lobby' && <Lobby onStart={setMode} />}
       {mode.kind === 'multiplayer' && <MultiplayerApp onExit={() => setMode({ kind: 'lobby' })} />}
       {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} onExit={() => setMode({ kind: 'lobby' })} />}

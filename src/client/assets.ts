@@ -22,12 +22,21 @@ for (const c of COLORS) {
 export const TEG_MANIFEST: VmodManifest = { files };
 export const VMOD_URL = 'https://obj.vassalengine.org/images/0/00/Tiny_Epic_Galaxies_0.2.vmod';
 
-/** Resolve a logical asset path to a usable URL (identity until overridden). */
-export const AssetContext = createContext<(path: string) => string>((p) => p);
-export const useAsset = () => useContext(AssetContext);
+/** Asset access for the UI: a path resolver plus an `artless` flag that turns on
+ *  the text/lo-fi rendering when no art is available. */
+export interface AssetCtx {
+  resolve: (path: string) => string;
+  artless: boolean;
+}
+export const AssetContext = createContext<AssetCtx>({ resolve: (p) => p, artless: false });
+export const useAsset = () => useContext(AssetContext).resolve;
+/** True when the game art isn't loaded — render the simplified text UI. */
+export const useArtless = () => useContext(AssetContext).artless;
 
 export interface GameAssets {
   ready: boolean;
+  /** Render the simplified text UI (no art available, or forced via ?artless=1). */
+  artless: boolean;
   /** Show the "load your VASSAL module" dialog (deployed build with no art). */
   needsSetup: boolean;
   resolve: (path: string) => string;
@@ -48,8 +57,11 @@ export function useGameAssets(): GameAssets {
     img.onerror = () => setServed(false);
     img.src = '/cards/cp1.jpg';
   }, []);
-  const ready = served === true || vmod.ready;
+  // ?artless=1 forces the text UI (for testing/preview) without the setup dialog.
+  const force = typeof location !== 'undefined' && new URLSearchParams(location.search).get('artless') === '1';
+  const ready = !force && (served === true || vmod.ready);
   const resolve = served === true ? (p: string) => p : vmod.resolve;
-  const needsSetup = served === false && !vmod.ready;
-  return { ready, needsSetup, resolve, vmod };
+  const needsSetup = !force && served === false && !vmod.ready;
+  const artless = force || needsSetup;
+  return { ready, artless, needsSetup, resolve, vmod };
 }
