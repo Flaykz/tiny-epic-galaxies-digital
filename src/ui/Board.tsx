@@ -12,8 +12,9 @@ import {
 } from '../engine/index.js';
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
 import { MatTokens, PlanetTokens } from './Tokens.js';
-import { downloadText, logText, problemReport, submitReport } from '../client/report.js';
+import { downloadText, logText } from '../client/report.js';
 import { useAsset, useArtless } from '../client/assets.js';
+import { ReportDialog, GameOverDialog } from './Dialogs.js';
 
 const DIE_IMG: Record<DieFace, string> = {
   move: '/dice/move.jpg',
@@ -54,6 +55,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   const activeP = state.players.find((p) => p.id === state.turn.active)!;
   const pending = state.turn.pendingFollow;
   const gameOver = state.phase === 'gameOver';
+
+  // Dialog state: report (with optional default severity) + the game-over popup.
+  const [reportOpen, setReportOpen] = useState<null | 'bug' | 'feedback'>(null);
+  const [gameOverDismissed, setGameOverDismissed] = useState(false);
 
   // Which die is selected for activation. Lives here so the dice tray and the
   // action list stay in sync — clicking a real die in the tray selects it.
@@ -134,28 +139,29 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))}>
           ⬇ Download log
         </button>
-        <button className="ghost-btn" onClick={() => reportProblem(state)}>
+        <button className="ghost-btn" onClick={() => setReportOpen('bug')}>
           🐞 Report a problem
         </button>
       </footer>
+
+      {reportOpen && (
+        <ReportDialog
+          state={state}
+          defaultSeverity={reportOpen === 'feedback' ? 'feedback' : 'bug'}
+          title={reportOpen === 'feedback' ? 'Submit game log' : 'Report a problem'}
+          onClose={() => setReportOpen(null)}
+        />
+      )}
+      {gameOver && !gameOverDismissed && (
+        <GameOverDialog
+          state={state}
+          viewer={viewer}
+          onSubmitLog={() => setReportOpen('feedback')}
+          onClose={() => setGameOverDismissed(true)}
+        />
+      )}
     </div>
   );
-}
-
-async function reportProblem(state: GameState, severity: 'bug' | 'feedback' = 'bug') {
-  const prompt = severity === 'feedback'
-    ? 'Add a note for this game log (optional):'
-    : 'Describe the problem (what happened vs. what you expected):';
-  const message = window.prompt(prompt);
-  if (message === null) return; // cancelled
-  try {
-    const id = await submitReport({ message: message || '(no description)', severity, state });
-    window.alert(`Thanks! Submitted to the server (id ${id}).`);
-  } catch (e: any) {
-    // Never lose a report: fall back to a local download.
-    downloadText(`teg-report-turn${state.turnNumber}.json`, problemReport(state, message), 'application/json');
-    window.alert(`Couldn't reach the server, so a report file was downloaded instead — please attach it.\n(${e?.message ?? e})`);
-  }
 }
 
 function resourceDots(n: number) {
@@ -487,14 +493,6 @@ function GameOver({ state }: { state: GameState }) {
           </li>
         ))}
       </ul>
-      <div className="gameover-actions">
-        <button className="ghost-btn" onClick={() => reportProblem(state, 'feedback')}>
-          ⬆ Submit game log
-        </button>
-        <button className="ghost-btn" onClick={() => downloadText(`teg-final-log.txt`, logText(state))}>
-          ⬇ Download log
-        </button>
-      </div>
     </div>
   );
 }

@@ -13,6 +13,18 @@ export function downloadText(filename: string, text: string, mime = 'text/plain'
   URL.revokeObjectURL(url);
 }
 
+/** Capture a PNG screenshot of the board as a data URL (best-effort). */
+export async function captureScreenshot(): Promise<string | undefined> {
+  try {
+    const { default: html2canvas } = await import('html2canvas');
+    const el = (document.querySelector('.board') as HTMLElement) ?? document.body;
+    const canvas = await html2canvas(el, { backgroundColor: '#0a0e1a', scale: 0.6, logging: false, useCORS: true });
+    return canvas.toDataURL('image/png');
+  } catch {
+    return undefined;
+  }
+}
+
 /** Build a plain-text game log for download/upload. */
 export function logText(state: GameState): string {
   const header = `Tiny Epic Galaxies — game log\nturn ${state.turnNumber} · phase ${state.phase}\n` +
@@ -29,6 +41,8 @@ export async function submitReport(body: {
   message: string;
   severity?: 'bug' | 'rules-question' | 'feedback';
   state: GameState;
+  /** Optional base64 PNG data URL. */
+  screenshot?: string;
 }): Promise<string> {
   const res = await fetch('/api/report', {
     method: 'POST',
@@ -39,6 +53,7 @@ export async function submitReport(body: {
       turn: body.state.turnNumber,
       log: body.state.log,
       state: body.state,
+      screenshot: body.screenshot,
       build: typeof __DBF_BUILD_ID__ !== 'undefined' ? __DBF_BUILD_ID__ : 'dev',
       userAgent: navigator.userAgent,
     }),

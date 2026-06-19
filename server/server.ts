@@ -68,7 +68,8 @@ const http = createServer(async (req, res) => {
         clientBuild: b.build,
         userAgent: b.userAgent,
         createdAt: new Date().toISOString(),
-      });
+        screenshot: typeof b.screenshot === 'string' ? b.screenshot.slice(0, 4_000_000) : undefined,
+      } as any);
       return json(res, 200, { reportId });
     }
 

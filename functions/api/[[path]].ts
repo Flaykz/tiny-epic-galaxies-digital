@@ -45,7 +45,9 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
         clientBuild: b.build,
         userAgent: b.userAgent ?? request.headers.get('user-agent') ?? undefined,
         createdAt: new Date().toISOString(),
-      });
+        // Optional base64 PNG screenshot (data URL), stored for visual context.
+        screenshot: typeof b.screenshot === 'string' ? b.screenshot.slice(0, 4_000_000) : undefined,
+      } as any);
       return json(200, { reportId });
     }
 
@@ -58,7 +60,7 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
         const unresolved = url.searchParams.get('unresolved') === '1';
         const rows = await store.listReports(unresolved ? { unresolved: true } : undefined);
         rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-        return json(200, rows.map((r) => { const { serverSnapshot, reporterView, clientLog, userAgent, ...rest } = r as any; return rest; }));
+        return json(200, rows.map((r) => { const { serverSnapshot, reporterView, clientLog, userAgent, screenshot, ...rest } = r as any; return { ...rest, hasScreenshot: !!screenshot }; }));
       }
       // GET /api/reports/:id — full detail (incl. log + state), fingerprint stripped.
       if (request.method === 'GET' && parts[1]) {
