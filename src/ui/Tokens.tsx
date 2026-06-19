@@ -1,11 +1,10 @@
 import React from 'react';
-import type { GameState, Planet, PlayerState } from '../engine/index.js';
+import type { Color, GameState, Planet, PlayerState } from '../engine/index.js';
 
 // ---- Calibrated overlay positions (percentages of the underlying image) ----
 
 // Empire-upgrade track: the hexagon arc on the FAR RIGHT of the Galaxy Mat
-// (★ at the bottom climbing up). Levels 1..7. The left spiral is the resource
-// track and is not where the empire token belongs.
+// (★ at the bottom climbing up), calibrated on the BLUE mat. Levels 1..6.
 const EMPIRE_POS: Record<number, { x: number; y: number }> = {
   1: { x: 53, y: 72 }, // ★ start
   2: { x: 61, y: 58 },
@@ -16,6 +15,35 @@ const EMPIRE_POS: Record<number, { x: number; y: number }> = {
 };
 // Centre of the galaxy swirl on the mat — where standing (home) ships sit.
 const GALAXY_CENTER = { x: 21, y: 37 };
+
+// The 5 mat scans are translated/scaled differently, so blue-space coordinates
+// don't line up on the others. We map every blue anchor through a per-mat
+// similarity transform derived from two measured reference points: the level-1
+// (★) and level-6 hexagon centres on each mat.
+type Pt = { x: number; y: number };
+const BLUE_REF = { p1: EMPIRE_POS[1], p6: EMPIRE_POS[6] };
+const MAT_REF: Record<Color, { p1: Pt; p6: Pt }> = {
+  blue: BLUE_REF,
+  green: { p1: { x: 52, y: 73 }, p6: { x: 64, y: 8 } },
+  red: { p1: { x: 50, y: 70 }, p6: { x: 60, y: 7 } },
+  yellow: { p1: { x: 53, y: 75 }, p6: { x: 63, y: 7 } },
+  black: { p1: { x: 52, y: 73 }, p6: { x: 63, y: 7 } },
+};
+
+/** Build the blue→color transform (translation + rotation + uniform scale). */
+function matTransform(color: Color): (p: Pt) => Pt {
+  const ref = MAT_REF[color] ?? BLUE_REF;
+  const A1 = BLUE_REF.p1, A2 = BLUE_REF.p6, B1 = ref.p1, B2 = ref.p6;
+  const dAx = A2.x - A1.x, dAy = A2.y - A1.y;
+  const dBx = B2.x - B1.x, dBy = B2.y - B1.y;
+  const denom = dAx * dAx + dAy * dAy || 1;
+  const mr = (dBx * dAx + dBy * dAy) / denom; // real part of dB/dA
+  const mi = (dBy * dAx - dBx * dAy) / denom; // imag part
+  return (p) => {
+    const px = p.x - A1.x, py = p.y - A1.y;
+    return { x: B1.x + (mr * px - mi * py), y: B1.y + (mi * px + mr * py) };
+  };
+}
 
 // Calibrated orbit-track positions per track length (percent of card), read off
 // the real card art (VIZCARRA/LEANDRA/JORG/SARGUS/GYORE). Index 0 is the START
@@ -44,10 +72,11 @@ function rocket(color: string) {
 export function MatTokens({ p }: { p: PlayerState }) {
   const homeShips = p.ships.filter((s) => s.kind === 'galaxy').length;
   const lockedShips = p.ships.filter((s) => s.kind === 'locked').length;
-  const ep = EMPIRE_POS[p.empireLevel] ?? EMPIRE_POS[1];
+  const tf = matTransform(p.color);
+  const ep = tf(EMPIRE_POS[p.empireLevel] ?? EMPIRE_POS[1]);
   return (
     <div className="token-layer">
-      {/* Empire level token on the spiral */}
+      {/* Empire level token on the hexagon track */}
       <img
         className="tok empire-tok"
         src={`/ships/${p.color}-level.png`}
@@ -56,27 +85,33 @@ export function MatTokens({ p }: { p: PlayerState }) {
         title={`Empire level ${p.empireLevel}`}
       />
       {/* Standing ships on the home galaxy */}
-      {Array.from({ length: homeShips }).map((_, i) => (
-        <img
-          key={`h${i}`}
-          className="tok ship-tok standing"
-          src={rocket(p.color)}
-          alt="home ship"
-          style={{ left: `${GALAXY_CENTER.x + (i - (homeShips - 1) / 2) * 7}%`, top: `${GALAXY_CENTER.y}%` }}
-          title="Ship on your Galaxy Mat"
-        />
-      ))}
+      {Array.from({ length: homeShips }).map((_, i) => {
+        const q = tf({ x: GALAXY_CENTER.x + (i - (homeShips - 1) / 2) * 7, y: GALAXY_CENTER.y });
+        return (
+          <img
+            key={`h${i}`}
+            className="tok ship-tok standing"
+            src={rocket(p.color)}
+            alt="home ship"
+            style={{ left: `${q.x}%`, top: `${q.y}%` }}
+            title="Ship on your Galaxy Mat"
+          />
+        );
+      })}
       {/* Locked (not yet unlocked) ships parked dim at the ship track */}
-      {Array.from({ length: lockedShips }).map((_, i) => (
-        <img
-          key={`l${i}`}
-          className="tok ship-tok locked"
-          src={rocket(p.color)}
-          alt="locked ship"
-          style={{ left: `${72 + i * 6}%`, top: `92%` }}
-          title="Locked — unlock by upgrading your empire"
-        />
-      ))}
+      {Array.from({ length: lockedShips }).map((_, i) => {
+        const q = tf({ x: 72 + i * 6, y: 92 });
+        return (
+          <img
+            key={`l${i}`}
+            className="tok ship-tok locked"
+            src={rocket(p.color)}
+            alt="locked ship"
+            style={{ left: `${q.x}%`, top: `${q.y}%` }}
+            title="Locked — unlock by upgrading your empire"
+          />
+        );
+      })}
     </div>
   );
 }
