@@ -31,6 +31,17 @@ const MAT_REF: Record<Color, { p1: Pt; p6: Pt }> = {
   black: { p1: { x: 49, y: 71 }, p6: { x: 60, y: 5 } },
 };
 
+// Empire-token positions per color, measured directly per level (the hex arc
+// curves differently on each mat scan, so a single transform can't fit them).
+// Index 0..5 = empire levels 1..6.
+const EMPIRE_BY_COLOR: Record<Color, Pt[]> = {
+  blue: [EMPIRE_POS[1], EMPIRE_POS[2], EMPIRE_POS[3], EMPIRE_POS[4], EMPIRE_POS[5], EMPIRE_POS[6]],
+  green: [{ x: 49, y: 71 }, { x: 61, y: 54 }, { x: 66, y: 43 }, { x: 69, y: 30 }, { x: 68, y: 18 }, { x: 61, y: 7 }],
+  red: [{ x: 43, y: 66 }, { x: 54, y: 53 }, { x: 60, y: 42 }, { x: 63, y: 30 }, { x: 61, y: 17 }, { x: 55, y: 6 }],
+  yellow: [{ x: 48, y: 72 }, { x: 61, y: 55 }, { x: 67, y: 43 }, { x: 70, y: 30 }, { x: 68, y: 18 }, { x: 63, y: 6 }],
+  black: [{ x: 45, y: 69 }, { x: 57, y: 54 }, { x: 63, y: 42 }, { x: 66, y: 30 }, { x: 64, y: 18 }, { x: 58, y: 6 }],
+};
+
 /** Build the blue→color transform (translation + rotation + uniform scale). */
 function matTransform(color: Color): (p: Pt) => Pt {
   const ref = MAT_REF[color] ?? BLUE_REF;
@@ -89,7 +100,9 @@ export function MatTokens({ p }: { p: PlayerState }) {
     if (s.kind === 'galaxy') galaxyIdx.push(i);
     else if (s.kind === 'locked') lockedIdx.push(i);
   });
-  const ep = tf(EMPIRE_POS[p.empireLevel] ?? EMPIRE_POS[1]);
+  // Empire token uses the directly-measured per-color position (not the transform).
+  const empTable = EMPIRE_BY_COLOR[p.color] ?? EMPIRE_BY_COLOR.blue;
+  const ep = empTable[Math.min(Math.max(p.empireLevel - 1, 0), empTable.length - 1)];
   return (
     <div className="token-layer">
       {/* Empire level token on the hexagon track */}
