@@ -25,6 +25,30 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
     new Response(JSON.stringify(body), { status: code, headers: { 'content-type': 'application/json' } });
 
   try {
+    // POST /api/report — standalone bug/feedback report (works for local & solo
+    // games that have no server-side game to attach to).
+    if (request.method === 'POST' && parts.length === 1 && parts[0] === 'report') {
+      const b: any = await request.json().catch(() => ({}));
+      const reportId = (globalThis.crypto?.randomUUID?.() ?? `r${Date.now()}`);
+      const store = new KvStore(env.GAMES);
+      await store.putReport({
+        reportId,
+        gameId: b.gameId ?? 'standalone',
+        reporterSide: b.reporterSide ?? 'local',
+        turnNumber: b.turn ?? 0,
+        serverSnapshot: typeof b.state === 'string' ? b.state : JSON.stringify(b.state ?? null),
+        reporterView: '',
+        clientLog: Array.isArray(b.log) ? b.log : [],
+        message: String(b.message ?? '').slice(0, 4000),
+        severity: b.severity ?? 'bug',
+        category: b.category ?? 'game',
+        clientBuild: b.build,
+        userAgent: b.userAgent ?? request.headers.get('user-agent') ?? undefined,
+        createdAt: new Date().toISOString(),
+      });
+      return json(200, { reportId });
+    }
+
     // POST /api/games — create a game
     if (request.method === 'POST' && parts.length === 1 && parts[0] === 'games') {
       const body: any = await request.json().catch(() => ({}));

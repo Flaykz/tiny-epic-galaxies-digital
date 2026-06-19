@@ -29,6 +29,8 @@ export function App() {
           gameName="Tiny Epic Galaxies"
           moduleName="Tiny Epic Galaxies 0.2"
           moduleUrl={VMOD_URL}
+          onSkip={assets.dismiss}
+          skipLabel="Play without images (text mode)"
         />
       )}
       {/* Shows a "new version — Reload" bar at the bottom only when a newer build is deployed. */}

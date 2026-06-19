@@ -39,6 +39,10 @@ export interface GameAssets {
   artless: boolean;
   /** Show the "load your VASSAL module" dialog (deployed build with no art). */
   needsSetup: boolean;
+  /** Dismiss the setup dialog and play in text mode. */
+  dismiss: () => void;
+  /** Re-open the setup dialog (e.g. from a "Load art" button). */
+  promptSetup: () => void;
   resolve: (path: string) => string;
   vmod: VmodAssetsApi;
 }
@@ -51,6 +55,7 @@ export interface GameAssets {
 export function useGameAssets(): GameAssets {
   const vmod = useVmodAssets(TEG_MANIFEST, { dbName: 'teg-vmod' });
   const [served, setServed] = useState<boolean | null>(null);
+  const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
     const img = new Image();
     img.onload = () => setServed(true);
@@ -59,9 +64,19 @@ export function useGameAssets(): GameAssets {
   }, []);
   // ?artless=1 forces the text UI (for testing/preview) without the setup dialog.
   const force = typeof location !== 'undefined' && new URLSearchParams(location.search).get('artless') === '1';
+  const noArt = served === false && !vmod.ready;
   const ready = !force && (served === true || vmod.ready);
   const resolve = served === true ? (p: string) => p : vmod.resolve;
-  const needsSetup = !force && served === false && !vmod.ready;
-  const artless = force || needsSetup;
-  return { ready, artless, needsSetup, resolve, vmod };
+  // Show the dialog only until the user loads a module or chooses to skip.
+  const needsSetup = !force && noArt && !dismissed;
+  const artless = force || noArt;
+  return {
+    ready,
+    artless,
+    needsSetup,
+    dismiss: () => setDismissed(true),
+    promptSetup: () => setDismissed(false),
+    resolve,
+    vmod,
+  };
 }

@@ -132,6 +132,16 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .ship-tok.orbit { transform: translate(-50%, -50%) rotate(35deg); }
 .ship-tok.locked { opacity: .4; filter: grayscale(.4) drop-shadow(0 2px 3px #000a); }
 .planet-card .ship-tok { width: 20%; max-width: 30px; }
+
+/* Small number badge on each ship token (which ship / which orbit space). */
+.tok-num {
+  position: absolute; transform: translate(40%, -90%);
+  min-width: 14px; height: 14px; padding: 0 3px; border-radius: 8px;
+  background: #000c; color: #fff; font-size: 10px; font-weight: 800; line-height: 14px;
+  text-align: center; border: 1px solid #ffffffaa; pointer-events: none; z-index: 5;
+}
+.tok-num.orbit { background: var(--gold); color: #1a1a1a; border-color: #fff; }
+.tok-num.locked { opacity: .5; }
 .pc-meta { padding: .4rem; display: flex; flex-direction: column; gap: .15rem; font-size: .72rem; }
 .pc-ships { color: var(--green); }
 
@@ -209,6 +219,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .ghost-btn { background: var(--panel); border: 1px solid #ffffff22; color: var(--muted); border-radius: 8px; padding: .45rem .9rem; font-size: .85rem; }
 .ghost-btn:hover { color: var(--ink); border-color: var(--accent); }
 .gameover .ghost-btn { margin-top: .5rem; }
+.gameover-actions { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
 
 /* ---------- Game over ---------- */
 .gameover { text-align: right; }

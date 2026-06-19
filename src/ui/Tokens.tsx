@@ -70,11 +70,25 @@ function rocket(color: string) {
 
 // ---- Galaxy-mat overlay: empire token + home ships ----
 
+/** A positioned ship token plus a small number badge (its ship #). */
+function Piece({ src, x, y, n, cls, title }: { src: string; x: number; y: number; n: number; cls: string; title: string }) {
+  return (
+    <>
+      <img className={`tok ship-tok ${cls}`} src={src} alt="" style={{ left: `${x}%`, top: `${y}%` }} title={title} />
+      <span className={`tok-num ${cls}`} style={{ left: `${x}%`, top: `${y}%` }}>{n}</span>
+    </>
+  );
+}
+
 export function MatTokens({ p }: { p: PlayerState }) {
-  const homeShips = p.ships.filter((s) => s.kind === 'galaxy').length;
-  const lockedShips = p.ships.filter((s) => s.kind === 'locked').length;
   const asset = useAsset();
   const tf = matTransform(p.color);
+  const galaxyIdx: number[] = [];
+  const lockedIdx: number[] = [];
+  p.ships.forEach((s, i) => {
+    if (s.kind === 'galaxy') galaxyIdx.push(i);
+    else if (s.kind === 'locked') lockedIdx.push(i);
+  });
   const ep = tf(EMPIRE_POS[p.empireLevel] ?? EMPIRE_POS[1]);
   return (
     <div className="token-layer">
@@ -86,33 +100,15 @@ export function MatTokens({ p }: { p: PlayerState }) {
         style={{ left: `${ep.x}%`, top: `${ep.y}%` }}
         title={`Empire level ${p.empireLevel}`}
       />
-      {/* Standing ships on the home galaxy */}
-      {Array.from({ length: homeShips }).map((_, i) => {
-        const q = tf({ x: GALAXY_CENTER.x + (i - (homeShips - 1) / 2) * 7, y: GALAXY_CENTER.y });
-        return (
-          <img
-            key={`h${i}`}
-            className="tok ship-tok standing"
-            src={asset(rocket(p.color))}
-            alt="home ship"
-            style={{ left: `${q.x}%`, top: `${q.y}%` }}
-            title="Ship on your Galaxy Mat"
-          />
-        );
+      {/* Standing ships on the home galaxy, labelled with their ship number */}
+      {galaxyIdx.map((shipI, k) => {
+        const q = tf({ x: GALAXY_CENTER.x + (k - (galaxyIdx.length - 1) / 2) * 7, y: GALAXY_CENTER.y });
+        return <Piece key={`h${shipI}`} src={asset(rocket(p.color))} x={q.x} y={q.y} n={shipI + 1} cls="standing" title={`Ship #${shipI + 1} — on your Galaxy Mat`} />;
       })}
       {/* Locked (not yet unlocked) ships parked dim at the ship track */}
-      {Array.from({ length: lockedShips }).map((_, i) => {
-        const q = tf({ x: 72 + i * 6, y: 92 });
-        return (
-          <img
-            key={`l${i}`}
-            className="tok ship-tok locked"
-            src={asset(rocket(p.color))}
-            alt="locked ship"
-            style={{ left: `${q.x}%`, top: `${q.y}%` }}
-            title="Locked — unlock by upgrading your empire"
-          />
-        );
+      {lockedIdx.map((shipI, k) => {
+        const q = tf({ x: 72 + k * 6, y: 92 });
+        return <Piece key={`l${shipI}`} src={asset(rocket(p.color))} x={q.x} y={q.y} n={shipI + 1} cls="locked" title={`Ship #${shipI + 1} — locked (upgrade to unlock)`} />;
       })}
     </div>
   );
@@ -127,27 +123,34 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
     pl.ships.forEach((s, idx) => {
       if (s.kind === 'surface' && s.planetId === planet.id) {
         tokens.push(
-          <img
-            key={`${pl.id}-s${idx}`}
-            className="tok ship-tok standing on-card"
-            src={asset(rocket(pl.color))}
-            alt={`${pl.name} on surface`}
-            style={{ left: '50%', top: '40%' }}
-            title={`${pl.name}: landed on the surface`}
-          />,
+          <span key={`${pl.id}-s${idx}`}>
+            <img
+              className="tok ship-tok standing on-card"
+              src={asset(rocket(pl.color))}
+              alt={`${pl.name} ship #${idx + 1} on surface`}
+              style={{ left: '50%', top: '40%' }}
+              title={`${pl.name} — ship #${idx + 1} landed on the surface`}
+            />
+            <span className="tok-num standing" style={{ left: '50%', top: '40%' }}>{idx + 1}</span>
+          </span>,
         );
       }
       if (s.kind === 'orbit' && s.planetId === planet.id) {
         const pos = orbitPos(s.level, planet.orbitTrackLength);
+        // Badge shows the orbit space (so "which space" is unambiguous); the
+        // owning ship # is in the tooltip and the card's ship list.
+        const spaceLabel = s.level === 0 ? '◦' : `${s.level}`;
         tokens.push(
-          <img
-            key={`${pl.id}-o${idx}`}
-            className="tok ship-tok orbit on-card"
-            src={asset(rocket(pl.color))}
-            alt={`${pl.name} orbiting`}
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-            title={`${pl.name}: ${s.level === 0 ? 'orbit start' : `orbit space ${s.level} / ${planet.orbitTrackLength}`}`}
-          />,
+          <span key={`${pl.id}-o${idx}`}>
+            <img
+              className="tok ship-tok orbit on-card"
+              src={asset(rocket(pl.color))}
+              alt={`${pl.name} ship #${idx + 1} orbiting`}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+              title={`${pl.name} — ship #${idx + 1}: ${s.level === 0 ? 'orbit start' : `space ${s.level} / ${planet.orbitTrackLength}`}`}
+            />
+            <span className="tok-num orbit" style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>{spaceLabel}</span>
+          </span>,
         );
       }
     });

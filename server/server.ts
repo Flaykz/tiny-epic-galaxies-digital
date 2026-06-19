@@ -50,6 +50,28 @@ const http = createServer(async (req, res) => {
 
     if (req.method === 'OPTIONS') return json(res, 204, {});
 
+    // POST /api/report -> standalone bug/feedback report (local & solo games)
+    if (req.method === 'POST' && parts[0] === 'report' && parts.length === 1) {
+      const b = await readBody(req);
+      const reportId = `r${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      await store.putReport({
+        reportId,
+        gameId: b.gameId ?? 'standalone',
+        reporterSide: b.reporterSide ?? 'local',
+        turnNumber: b.turn ?? 0,
+        serverSnapshot: typeof b.state === 'string' ? b.state : JSON.stringify(b.state ?? null),
+        reporterView: '',
+        clientLog: Array.isArray(b.log) ? b.log : [],
+        message: String(b.message ?? '').slice(0, 4000),
+        severity: b.severity ?? 'bug',
+        category: b.category ?? 'game',
+        clientBuild: b.build,
+        userAgent: b.userAgent,
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, 200, { reportId });
+    }
+
     // POST /api/games  -> create a game
     if (req.method === 'POST' && parts[0] === 'games' && parts.length === 1) {
       const body = await readBody(req);

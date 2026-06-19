@@ -12,7 +12,7 @@ import {
 } from '../engine/index.js';
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
 import { MatTokens, PlanetTokens } from './Tokens.js';
-import { downloadText, logText, problemReport } from '../client/report.js';
+import { downloadText, logText, problemReport, submitReport } from '../client/report.js';
 import { useAsset, useArtless } from '../client/assets.js';
 
 const DIE_IMG: Record<DieFace, string> = {
@@ -124,7 +124,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport 
         <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))}>
           ⬇ Download log
         </button>
-        <button className="ghost-btn" onClick={() => reportProblem(state, onReport)}>
+        <button className="ghost-btn" onClick={() => reportProblem(state)}>
           🐞 Report a problem
         </button>
       </footer>
@@ -132,20 +132,19 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport 
   );
 }
 
-async function reportProblem(state: GameState, onReport?: (m: string) => Promise<string | void>) {
-  const message = window.prompt('Describe the problem (what happened vs. what you expected):');
-  if (!message) return;
-  if (onReport) {
-    try {
-      const id = await onReport(message);
-      window.alert(id ? `Thanks! Report submitted (id ${id}).` : 'Thanks! Report submitted.');
-    } catch (e: any) {
-      window.alert(`Could not submit to the server — downloading a local report instead.\n(${e?.message ?? e})`);
-      downloadText(`teg-report-turn${state.turnNumber}.json`, problemReport(state, message), 'application/json');
-    }
-  } else {
+async function reportProblem(state: GameState, severity: 'bug' | 'feedback' = 'bug') {
+  const prompt = severity === 'feedback'
+    ? 'Add a note for this game log (optional):'
+    : 'Describe the problem (what happened vs. what you expected):';
+  const message = window.prompt(prompt);
+  if (message === null) return; // cancelled
+  try {
+    const id = await submitReport({ message: message || '(no description)', severity, state });
+    window.alert(`Thanks! Submitted to the server (id ${id}).`);
+  } catch (e: any) {
+    // Never lose a report: fall back to a local download.
     downloadText(`teg-report-turn${state.turnNumber}.json`, problemReport(state, message), 'application/json');
-    window.alert('A problem report (with the game log + state) was downloaded. Attach it when you send the bug.');
+    window.alert(`Couldn't reach the server, so a report file was downloaded instead — please attach it.\n(${e?.message ?? e})`);
   }
 }
 
@@ -178,11 +177,18 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
         <span title="Culture" className="res culture">🏛 {p.culture}</span>
       </div>
       <div className="pp-ships">
-        {p.ships.map((s, i) => (
-          <span key={i} className={`ship ${s.kind}`} title={`Ship #${i + 1}: ${s.kind}`}>
-            {s.kind === 'galaxy' ? '▲' : s.kind === 'locked' ? '▽' : s.kind === 'surface' ? '⬢' : `◔${s.level}`}
-          </span>
-        ))}
+        {p.ships.map((s, i) => {
+          const where = s.kind === 'galaxy' ? 'home'
+            : s.kind === 'locked' ? 'locked'
+            : s.kind === 'surface' ? `on ${PLANETS_BY_ID[s.planetId]?.name}`
+            : `orbit ${PLANETS_BY_ID[s.planetId]?.name} ${s.level === 0 ? 'start' : `sp.${s.level}`}`;
+          const glyph = s.kind === 'galaxy' ? '▲' : s.kind === 'locked' ? '▽' : s.kind === 'surface' ? '⬢' : `◔${s.level}`;
+          return (
+            <span key={i} className={`ship ${s.kind}`} title={`Ship #${i + 1}: ${where}`}>
+              <b>{i + 1}</b>{glyph}
+            </span>
+          );
+        })}
       </div>
       {p.colonized.length > 0 && (
         <div className="pp-colonies">
@@ -444,9 +450,14 @@ function GameOver({ state }: { state: GameState }) {
           </li>
         ))}
       </ul>
-      <button className="ghost-btn" onClick={() => downloadText(`teg-final-log.txt`, logText(state))}>
-        ⬇ Download full game log
-      </button>
+      <div className="gameover-actions">
+        <button className="ghost-btn" onClick={() => reportProblem(state, 'feedback')}>
+          ⬆ Submit game log
+        </button>
+        <button className="ghost-btn" onClick={() => downloadText(`teg-final-log.txt`, logText(state))}>
+          ⬇ Download log
+        </button>
+      </div>
     </div>
   );
 }
