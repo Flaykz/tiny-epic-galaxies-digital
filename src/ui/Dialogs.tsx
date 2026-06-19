@@ -43,6 +43,13 @@ export function ReportDialog({
     }
   };
 
+  const fieldLabel = severity === 'feedback' ? 'Notes (optional)'
+    : severity === 'rules-question' ? 'Your rules question'
+    : 'What happened? (and what you expected)';
+  const placeholder = severity === 'feedback' ? 'Anything to add about this game? (optional)'
+    : severity === 'rules-question' ? 'Which rule seems wrong, and what did you expect?'
+    : 'Describe the problem and what you expected…';
+
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-card">
@@ -57,9 +64,9 @@ export function ReportDialog({
         ) : (
           <>
             <label className="field">
-              <span>What happened? (and what you expected)</span>
+              <span>{fieldLabel}</span>
               <textarea rows={5} value={message} onChange={(e) => setMessage(e.target.value)} autoFocus
-                placeholder="Describe the problem, rules question, or feedback…" />
+                placeholder={placeholder} />
             </label>
             <label className="field">
               <span>Type</span>
