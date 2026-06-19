@@ -59,16 +59,14 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
           <div className="invites">
             <p>Game <code>{gameId}</code> created. Share one link per player:</p>
             <ul>
-              {Object.entries(invites).map(([seat, tok]) => {
-                const link = `${window.location.origin}/?game=${gameId}&token=${tok}`;
-                return (
-                  <li key={seat}>
-                    <strong>{seat}</strong>:{' '}
-                    <a href={link}>{link}</a>{' '}
-                    <button onClick={() => navigator.clipboard?.writeText(link)}>copy</button>
-                  </li>
-                );
-              })}
+              {Object.entries(invites).map(([seat, link]) => (
+                // `link` is already the full invite URL the server built (gameUrl).
+                <li key={seat}>
+                  <strong>{seat}</strong>:{' '}
+                  <a href={link}>{link}</a>{' '}
+                  <button onClick={() => navigator.clipboard?.writeText(link)}>copy</button>
+                </li>
+              ))}
             </ul>
             <p className="muted small">Open your own seat's link to start playing.</p>
           </div>
