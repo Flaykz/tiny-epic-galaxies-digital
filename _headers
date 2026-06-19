@@ -1,0 +1,8 @@
+# Always revalidate the HTML + version manifest so a new deploy is picked up on a
+# normal reload (the hashed /assets/* files are immutable and cache fine).
+/
+  Cache-Control: no-cache, must-revalidate
+/index.html
+  Cache-Control: no-cache, must-revalidate
+/version.json
+  Cache-Control: no-cache, must-revalidate
