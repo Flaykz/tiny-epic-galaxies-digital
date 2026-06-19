@@ -7,12 +7,12 @@ import type { GameState, Planet, PlayerState } from '../engine/index.js';
 // (★ at the bottom climbing up). Levels 1..7. The left spiral is the resource
 // track and is not where the empire token belongs.
 const EMPIRE_POS: Record<number, { x: number; y: number }> = {
-  1: { x: 54, y: 73 }, // ★ start
-  2: { x: 60, y: 60 },
-  3: { x: 63, y: 46 },
-  4: { x: 65, y: 32 },
-  5: { x: 64, y: 19 },
-  6: { x: 60, y: 8 }, // max level
+  1: { x: 53, y: 72 }, // ★ start
+  2: { x: 61, y: 58 },
+  3: { x: 66, y: 44 },
+  4: { x: 68, y: 32 },
+  5: { x: 67, y: 22 },
+  6: { x: 66, y: 7 }, // max level
 };
 // Centre of the galaxy swirl on the mat — where standing (home) ships sit.
 const GALAXY_CENTER = { x: 21, y: 37 };
