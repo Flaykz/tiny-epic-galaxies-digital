@@ -222,6 +222,8 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .board-footer { display: flex; gap: .6rem; margin: 1rem 0 2rem; }
 .ghost-btn { background: var(--panel); border: 1px solid #ffffff22; color: var(--muted); border-radius: 8px; padding: .45rem .9rem; font-size: .85rem; }
 .ghost-btn:hover { color: var(--ink); border-color: var(--accent); }
+.ghost-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ghost-btn.undo:not(:disabled) { color: var(--gold); border-color: #ffcc4455; }
 .gameover .ghost-btn { margin-top: .5rem; }
 .gameover-actions { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
 

@@ -44,9 +44,12 @@ export interface BoardProps {
   /** Submit a problem report to the server (multiplayer). When absent, the
    *  "Report a problem" button downloads a local JSON report instead. */
   onReport?: (message: string) => Promise<string | void>;
+  /** Local games only: take back the last move (until new info is revealed). */
+  canUndo?: boolean;
+  onUndo?: () => void;
 }
 
-export function Board({ state, viewer, canAct, legalActions, onAction, onReport }: BoardProps) {
+export function Board({ state, viewer, canAct, legalActions, onAction, onReport, canUndo, onUndo }: BoardProps) {
   const me = state.players.find((p) => p.id === viewer)!;
   const activeP = state.players.find((p) => p.id === state.turn.active)!;
   const pending = state.turn.pendingFollow;
@@ -121,6 +124,11 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport 
       <LogPanel log={state.log} />
 
       <footer className="board-footer">
+        {onUndo && (
+          <button className="ghost-btn undo" disabled={!canUndo} onClick={onUndo} title="Take back your last move (until new info is revealed)">
+            ↶ Undo
+          </button>
+        )}
         <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))}>
           ⬇ Download log
         </button>

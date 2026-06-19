@@ -22,12 +22,28 @@ export class LocalEngine {
   private listeners = new Set<() => void>();
   private aiTimer: ReturnType<typeof setTimeout> | null = null;
   aiThinkMs: number;
+  // Snapshots of prior states for undo. Only deterministic, no-new-info actions
+  // by the current human are undoable; revealing new info clears the stack.
+  private undoStack: GameState[] = [];
 
   constructor(seats: LocalSeat[], seed: number, aiThinkMs = 650) {
     this.seats = seats;
     this.aiThinkMs = aiThinkMs;
     this.state = createInitialState({ seats, seed });
     this.scheduleAi();
+  }
+
+  /** Whether the last human move can be taken back (no new info revealed since). */
+  canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  undo(): void {
+    const prev = this.undoStack.pop();
+    if (!prev) return;
+    if (this.aiTimer) clearTimeout(this.aiTimer);
+    this.state = prev;
+    this.emit();
   }
 
   subscribe(fn: () => void): () => void {
@@ -56,7 +72,18 @@ export class LocalEngine {
   /** Submit a human action. */
   submit(action: Action, actor: string): void {
     if (tegAdapter.currentActor(this.state) !== actor) return;
-    this.state = tegAdapter.applyAction(this.state, action, actor);
+    const before = this.state;
+    const after = tegAdapter.applyAction(this.state, action, actor);
+    // "New information revealed" = dice (re)rolled (rngState changed), a new
+    // planet drawn (centerRow changed), or the turn passed to another player.
+    // Past such a point you can't take a move back; before it, you can.
+    const revealed =
+      after.rngState !== before.rngState ||
+      after.turn.active !== before.turn.active ||
+      JSON.stringify(after.centerRow) !== JSON.stringify(before.centerRow);
+    this.state = after;
+    if (revealed) this.undoStack = [];
+    else this.undoStack.push(before);
     this.emit();
     this.scheduleAi();
   }
@@ -71,6 +98,7 @@ export class LocalEngine {
       if (!a || this.seatControl(a) !== 'ai') return;
       const action = chooseAction(this.state, a, this.state.turnNumber * 31 + 7);
       this.state = tegAdapter.applyAction(this.state, action, a);
+      this.undoStack = []; // can't undo across an AI/Rogue move
       this.emit();
       this.scheduleAi();
     }, this.aiThinkMs);

@@ -138,6 +138,8 @@ function LocalGame({ seats, seed, onExit }: { seats: LocalSeat[]; seed: number; 
         canAct={canAct}
         legalActions={legalActions}
         onAction={(a) => actor && engine.submit(a, actor)}
+        canUndo={canAct && engine.canUndo()}
+        onUndo={() => engine.undo()}
       />
     </div>
   );
