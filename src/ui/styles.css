@@ -147,6 +147,13 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .tok-num.orbit { background: var(--gold); color: #1a1a1a; border-color: #fff; }
 .tok-num.locked { opacity: .5; }
 .pc-meta { padding: .4rem; display: flex; flex-direction: column; gap: .15rem; font-size: .72rem; }
+/* Hover-to-enlarge: a big fixed preview so it isn't clipped by the scroll row. */
+.pc-zoom {
+  display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(360px, 42vw); border-radius: 14px; z-index: 3000; pointer-events: none;
+  box-shadow: 0 24px 70px #000d, 0 0 0 2px #ffffff33;
+}
+.planet-card:hover .pc-zoom { display: block; }
 .pc-ships { color: var(--green); }
 
 /* ---------- Play area ---------- */
@@ -178,6 +185,10 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .act-btn.global { background: #243a52; }
 .action-panel.follow { box-shadow: 0 0 0 2px var(--gold); }
 .action-panel.choose { box-shadow: 0 0 0 2px var(--accent); }
+.ap-head { display: flex; align-items: center; justify-content: space-between; }
+.undo-btn { background: #3a2f00; color: var(--gold); border: 1px solid #ffcc4466; border-radius: 8px; padding: .35rem .8rem; font-weight: 700; cursor: pointer; }
+.undo-btn:hover:not(:disabled) { background: #4a3d00; }
+.undo-btn:disabled { opacity: .35; cursor: not-allowed; }
 .action-panel.waiting .muted { font-style: italic; }
 
 /* ---------- Log ---------- */

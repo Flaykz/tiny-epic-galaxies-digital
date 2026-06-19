@@ -117,6 +117,8 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             viewerName={me.name}
             actorShips={me.ships}
             selectedDie={selectedDie}
+            canUndo={canUndo}
+            onUndo={onUndo}
           />
         </section>
       )}
@@ -269,6 +271,8 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
         <PlanetTokens planet={planet} state={state} />
       </div>
       {meta}
+      {/* Hover to enlarge (escapes the scrolling row via fixed positioning). */}
+      <img className="pc-zoom" src={asset(`/cards/${planet.id}.jpg`)} alt="" aria-hidden="true" />
     </div>
   );
 }
@@ -333,6 +337,8 @@ function ActionPanel({
   viewerName,
   actorShips,
   selectedDie,
+  canUndo,
+  onUndo,
 }: {
   state: GameState;
   canAct: boolean;
@@ -341,6 +347,8 @@ function ActionPanel({
   viewerName: string;
   actorShips: import('../engine/index.js').ShipLocation[];
   selectedDie: number | null;
+  canUndo?: boolean;
+  onUndo?: () => void;
 }) {
   if (!canAct) {
     return (
@@ -410,7 +418,14 @@ function ActionPanel({
 
   return (
     <div className="action-panel">
-      <h3>Your actions</h3>
+      <div className="ap-head">
+        <h3>Your actions</h3>
+        {onUndo && (
+          <button className="undo-btn" disabled={!canUndo} onClick={onUndo} title="Take back your last move (until new info is revealed)">
+            ↶ Undo
+          </button>
+        )}
+      </div>
 
       {selectedDie == null ? (
         <p className="muted">Click one of your dice on the left to see what it can do.</p>
