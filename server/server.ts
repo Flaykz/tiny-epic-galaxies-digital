@@ -101,6 +101,7 @@ const http = createServer(async (req, res) => {
       const initialState = createInitialState({
         seats: names.map((name: string) => ({ name })),
         seed: Math.floor(Math.random() * 1e9),
+        followEnabled: false, // async multiplayer: skip the per-die follow prompt
       });
       const result = await server.createGame({ initialState, players });
       return json(res, 200, result);

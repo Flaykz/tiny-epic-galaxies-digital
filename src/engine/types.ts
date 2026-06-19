@@ -114,6 +114,10 @@ export interface GameState {
   winners: string[] | null;
   /** Solo mode: the rogue galaxy player id, if any. */
   rogueId: string | null;
+  /** Whether the per-activation "follow" prompt is offered. Enabled for local
+   *  hotseat (instant); disabled for async multiplayer, where prompting every
+   *  opponent after every die is a network round-trip per the framework playbook. */
+  followEnabled: boolean;
 }
 
 /** The flat, fully-specified action union. Every action is atomic & enumerable. */

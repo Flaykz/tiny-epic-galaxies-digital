@@ -16,6 +16,9 @@ export interface SeatSpec {
 export interface SetupOptions {
   seats: SeatSpec[]; // human/AI seats in seating order
   seed: number;
+  /** Offer the per-activation follow prompt. Default true (local hotseat). Set
+   *  false for async multiplayer, where it would be a per-die network round-trip. */
+  followEnabled?: boolean;
   /** Solo mode against the Rogue Galaxy. When true, exactly one seat should be isRogue. */
 }
 
@@ -84,6 +87,7 @@ export function createInitialState(opts: SetupOptions): GameState {
     log: [],
     winners: null,
     rogueId: players.find((p) => p.isRogue)?.id ?? null,
+    followEnabled: opts.followEnabled ?? true,
   };
 
   // Roll the first player's dice.

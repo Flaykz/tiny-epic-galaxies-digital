@@ -95,7 +95,7 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
 
 function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: string; onExit: () => void }) {
   const client = useMemo(() => makeHttpClient(gameId, token), [gameId, token]);
-  const game = useGame<GameState, Action>(client, { pollMs: 2500 });
+  const game = useGame<GameState, Action>(client, { pollMs: 1500 });
 
   if (game.loading && !game.view) return <div className="loading">Connecting…</div>;
   if (game.error) return <div className="loading error">Error: {game.error.message}</div>;

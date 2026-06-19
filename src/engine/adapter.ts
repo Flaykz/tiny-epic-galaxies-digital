@@ -154,7 +154,8 @@ function checkEnd(state: GameState, p: PlayerState): void {
 // ---------- Follow window ----------
 
 function openFollowWindow(state: GameState, face: DieFace): void {
-  if (state.rogueId) return; // solo: rogue/human follow handled separately (kept simple: no window)
+  if (state.rogueId) return; // solo: no follow window
+  if (!state.followEnabled) return; // async multiplayer: follows are auto-declined
   const order = state.order;
   const activeIdx = order.indexOf(state.turn.active);
   const queue: string[] = [];
