@@ -156,7 +156,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         <GameOverDialog
           state={state}
           viewer={viewer}
-          onSubmitLog={() => setReportOpen('feedback')}
+          onSubmitLog={() => { setGameOverDismissed(true); setReportOpen('feedback'); }}
           onClose={() => setGameOverDismissed(true)}
         />
       )}
@@ -221,9 +221,10 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
               }
               return (
                 <div key={id} className="colony-card" title={`${cp?.name}: ${cp?.action}`}>
-                  <img src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" />
+                  <img className="cc-thumb" src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" />
                   <span className="cc-vp">+{cp?.vp}</span>
                   <span className="cc-name">{cp?.name}</span>
+                  <img className="pc-zoom" src={asset(`/cards/${id}.jpg`)} alt="" aria-hidden="true" />
                 </div>
               );
             })}

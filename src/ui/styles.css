@@ -103,8 +103,8 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .pp-colonies { margin-top: .5rem; }
 .pp-colonies-label { font-size: .68rem; color: var(--muted); }
 .colony-cards { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .25rem; }
-.colony-card { position: relative; width: 56px; border-radius: 6px; overflow: hidden; border: 1px solid #ffffff22; }
-.colony-card img { width: 100%; display: block; }
+.colony-card { position: relative; width: 56px; border-radius: 6px; border: 1px solid #ffffff22; }
+.colony-card .cc-thumb { width: 100%; display: block; border-radius: 6px; }
 .cc-vp { position: absolute; top: 2px; right: 2px; font-size: .6rem; font-weight: 700; color: var(--gold); background: #000a; border-radius: 8px; padding: 0 4px; }
 .cc-name { position: absolute; bottom: 0; left: 0; right: 0; font-size: .52rem; text-align: center; background: #000a; color: var(--ink); }
 .pp-mission { margin-top: .5rem; font-size: .75rem; color: var(--gold); background: #ffcc4411; padding: .35rem; border-radius: 6px; }
@@ -153,7 +153,8 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   width: 340px; max-width: 80vw; height: auto; border-radius: 14px; z-index: 3000; pointer-events: none;
   box-shadow: 0 24px 70px #000d, 0 0 0 2px #ffffff33;
 }
-.planet-card:hover .pc-zoom { display: block; }
+.planet-card:hover .pc-zoom,
+.colony-card:hover .pc-zoom { display: block; }
 .pc-ships { color: var(--green); }
 
 /* ---------- Play area ---------- */
