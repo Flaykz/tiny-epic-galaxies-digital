@@ -36,10 +36,10 @@ const MAT_REF: Record<Color, { p1: Pt; p6: Pt }> = {
 // Index 0..5 = empire levels 1..6.
 const EMPIRE_BY_COLOR: Record<Color, Pt[]> = {
   blue: [EMPIRE_POS[1], EMPIRE_POS[2], EMPIRE_POS[3], EMPIRE_POS[4], EMPIRE_POS[5], EMPIRE_POS[6]],
-  green: [{ x: 49, y: 71 }, { x: 61, y: 54 }, { x: 66, y: 43 }, { x: 69, y: 30 }, { x: 68, y: 18 }, { x: 61, y: 7 }],
-  red: [{ x: 43, y: 66 }, { x: 54, y: 53 }, { x: 60, y: 42 }, { x: 63, y: 30 }, { x: 61, y: 17 }, { x: 55, y: 6 }],
-  yellow: [{ x: 48, y: 72 }, { x: 61, y: 55 }, { x: 67, y: 43 }, { x: 70, y: 30 }, { x: 68, y: 18 }, { x: 63, y: 6 }],
-  black: [{ x: 45, y: 69 }, { x: 57, y: 54 }, { x: 63, y: 42 }, { x: 66, y: 30 }, { x: 64, y: 18 }, { x: 58, y: 6 }],
+  green: [{ x: 46, y: 68 }, { x: 63, y: 52 }, { x: 65, y: 40 }, { x: 67, y: 28 }, { x: 65, y: 15 }, { x: 59, y: 6 }],
+  red: [{ x: 46, y: 68 }, { x: 58, y: 52 }, { x: 64, y: 40 }, { x: 66, y: 28 }, { x: 64, y: 15 }, { x: 60, y: 5 }],
+  yellow: [{ x: 48, y: 71 }, { x: 61, y: 54 }, { x: 66, y: 42 }, { x: 68, y: 29 }, { x: 66, y: 16 }, { x: 64, y: 5 }],
+  black: [{ x: 47, y: 68 }, { x: 59, y: 52 }, { x: 65, y: 40 }, { x: 67, y: 28 }, { x: 66, y: 15 }, { x: 61, y: 5 }],
 };
 
 /** Build the blue→color transform (translation + rotation + uniform scale). */
