@@ -150,17 +150,18 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
       }
       if (s.kind === 'orbit' && s.planetId === planet.id) {
         const pos = orbitPos(s.level, planet.orbitTrackLength);
-        // The token already sits on its numbered space; the tooltip + card ship
-        // list give the exact space, so no badge is needed here.
         tokens.push(
-          <img
-            key={`${pl.id}-o${idx}`}
-            className="tok ship-tok orbit on-card"
-            src={asset(rocket(pl.color))}
-            alt={`${pl.name} ship #${idx + 1} orbiting`}
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-            title={`${pl.name} — ship #${idx + 1}: ${s.level === 0 ? 'orbit start' : `space ${s.level} / ${planet.orbitTrackLength}`}`}
-          />,
+          <span key={`${pl.id}-o${idx}`}>
+            <img
+              className="tok ship-tok orbit on-card"
+              src={asset(rocket(pl.color))}
+              alt={`${pl.name} ship #${idx + 1} orbiting`}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+              title={`${pl.name} — ship #${idx + 1}: ${s.level === 0 ? 'orbit start' : `space ${s.level} / ${planet.orbitTrackLength}`}`}
+            />
+            {/* Ship number so it matches the "ship #N" choice buttons. */}
+            <span className="tok-num" style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>{idx + 1}</span>
+          </span>,
         );
       }
     });

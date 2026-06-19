@@ -228,6 +228,16 @@ function opt(choice: PlanetActionChoice, label: string): Action {
   return { type: 'resolvePlanet', choice, label };
 }
 
+/** Short description of where ship #idx currently is (for choice button labels). */
+function shipDesc(p: PlayerState, idx: number): string {
+  const s = p.ships[idx];
+  if (!s) return '';
+  if (s.kind === 'galaxy') return 'home';
+  if (s.kind === 'locked') return 'locked';
+  if (s.kind === 'surface') return `on ${PLANET(s.planetId)?.name}`;
+  return `orbiting ${PLANET(s.planetId)?.name} ${s.level === 0 ? 'start' : `sp.${s.level}`}`;
+}
+
 function myOrbiting(p: PlayerState, type?: ColonizeType): number[] {
   const out: number[] = [];
   p.ships.forEach((s, i) => {
@@ -311,8 +321,8 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
       const out: Action[] = [];
       myOrbiting(p).forEach((i) => {
         const lvl = (p.ships[i] as { level: number }).level;
-        out.push(opt({ shipIdx: i, resource: 'energy' }, `Displace ship #${i + 1} → +${lvl} energy`));
-        out.push(opt({ shipIdx: i, resource: 'culture' }, `Displace ship #${i + 1} → +${lvl} culture`));
+        out.push(opt({ shipIdx: i, resource: 'energy' }, `Displace ship #${i + 1} (${shipDesc(p, i)}) → +${lvl} energy`));
+        out.push(opt({ shipIdx: i, resource: 'culture' }, `Displace ship #${i + 1} (${shipDesc(p, i)}) → +${lvl} culture`));
       });
       return out;
     }
@@ -324,7 +334,7 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
           if (pid === s.planetId) continue;
           const pl = PLANET(pid);
           if (!pl || s.level > pl.orbitTrackLength || playerOrbiting(p, pid) != null) continue;
-          out.push(opt({ shipIdx: i, dest: { kind: 'orbit', planetId: pid, level: s.level } }, `Move ship #${i + 1} → ${pl.name} (space ${s.level})`));
+          out.push(opt({ shipIdx: i, dest: { kind: 'orbit', planetId: pid, level: s.level } }, `Move ship #${i + 1} (${shipDesc(p, i)}) → ${pl.name} (space ${s.level})`));
         }
       });
       return out;
@@ -334,7 +344,7 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
       const ships = myOrbiting(p);
       for (const a of ships) for (const b of ships) {
         if (a === b) continue;
-        out.push(opt({ shipIdx: a, shipIdx2: b }, `Regress ship #${a + 1}, then advance ship #${b + 1}`));
+        out.push(opt({ shipIdx: a, shipIdx2: b }, `Regress ship #${a + 1} (${shipDesc(p, a)}), advance ship #${b + 1} (${shipDesc(p, b)})`));
       }
       return out;
     }
