@@ -154,7 +154,6 @@ function checkEnd(state: GameState, p: PlayerState): void {
 // ---------- Follow window ----------
 
 function openFollowWindow(state: GameState, face: DieFace): void {
-  if (state.rogueId) return; // solo: no follow window
   if (!state.followEnabled) return; // async multiplayer: follows are auto-declined
   const cost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
   const order = state.order;
@@ -162,8 +161,9 @@ function openFollowWindow(state: GameState, face: DieFace): void {
   const queue: string[] = [];
   for (let i = 1; i < order.length; i++) {
     const id = order[(activeIdx + i) % order.length];
-    // Only offer the follow to players who can actually afford it — don't make
-    // someone with too little culture click "decline".
+    // The Rogue Galaxy never takes a follow offer (it plays by its own rules),
+    // but the human may follow it. Only offer to players who can afford the cost.
+    if (id === state.rogueId) continue;
     if (player(state, id).culture >= cost) queue.push(id);
   }
   if (queue.length === 0) return;

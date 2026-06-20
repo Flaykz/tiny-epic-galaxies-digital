@@ -147,15 +147,19 @@ export function checkEndTrigger(state: GameState, p: PlayerState): void {
   }
 }
 
-/** Acquire resources for an Acquire die: 1 per ship on/orbiting a matching planet + galaxy. */
+/**
+ * Acquire resources for an Acquire die (rulebook p.6): +1 of the resource for
+ * each of your ships on/orbiting a planet with the matching symbol, PLUS +1
+ * ENERGY for each of your ships on your Galaxy Card (the home galaxy produces
+ * energy; it does not produce culture).
+ */
 export function acquireFromGalaxy(state: GameState, p: PlayerState, kind: 'energy' | 'culture'): number {
-  let count = 1; // the galaxy itself always produces 1 of each
+  let count = 0;
   for (const s of p.ships) {
-    let planetId: string | null = null;
-    if (s.kind === 'surface') planetId = s.planetId;
-    else if (s.kind === 'orbit') planetId = s.planetId;
-    if (planetId) {
-      const planet = PLANET(planetId);
+    if (s.kind === 'galaxy') {
+      if (kind === 'energy') count++; // each home ship yields 1 energy
+    } else if (s.kind === 'surface' || s.kind === 'orbit') {
+      const planet = PLANET(s.planetId);
       if (planet && planet.resourceType === kind) count++;
     }
   }
