@@ -69,20 +69,26 @@ export class LocalEngine {
     return tegAdapter.legalActions(this.state, seat);
   }
 
+  /**
+   * "New information revealed" since `before` = dice (re)rolled (rngState changed),
+   * a new planet drawn (centerRow changed), or the turn passed to another player.
+   * Past such a point a move can't be taken back; before it, it can.
+   */
+  private revealedInfo(before: GameState, after: GameState): boolean {
+    return (
+      after.rngState !== before.rngState ||
+      after.turn.active !== before.turn.active ||
+      JSON.stringify(after.centerRow) !== JSON.stringify(before.centerRow)
+    );
+  }
+
   /** Submit a human action. */
   submit(action: Action, actor: string): void {
     if (tegAdapter.currentActor(this.state) !== actor) return;
     const before = this.state;
     const after = tegAdapter.applyAction(this.state, action, actor);
-    // "New information revealed" = dice (re)rolled (rngState changed), a new
-    // planet drawn (centerRow changed), or the turn passed to another player.
-    // Past such a point you can't take a move back; before it, you can.
-    const revealed =
-      after.rngState !== before.rngState ||
-      after.turn.active !== before.turn.active ||
-      JSON.stringify(after.centerRow) !== JSON.stringify(before.centerRow);
     this.state = after;
-    if (revealed) this.undoStack = [];
+    if (this.revealedInfo(before, after)) this.undoStack = [];
     else this.undoStack.push(before);
     this.emit();
     this.scheduleAi();
@@ -97,8 +103,12 @@ export class LocalEngine {
       const a = tegAdapter.currentActor(this.state);
       if (!a || this.seatControl(a) !== 'ai') return;
       const action = chooseAction(this.state, a, this.state.turnNumber * 31 + 7);
-      this.state = tegAdapter.applyAction(this.state, action, a);
-      this.undoStack = []; // can't undo across an AI/Rogue move
+      const before = this.state;
+      this.state = tegAdapter.applyAction(before, action, a);
+      // An AI's OWN turn (or any board-revealing follow) ends undo; but an AI just
+      // declining a follow window the human opened reveals nothing, so the human
+      // can still take back the move that opened it.
+      if (this.revealedInfo(before, this.state)) this.undoStack = [];
       this.emit();
       this.scheduleAi();
     }, this.aiThinkMs);

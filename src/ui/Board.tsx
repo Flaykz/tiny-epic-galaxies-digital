@@ -444,7 +444,14 @@ function ActionPanel({
     const planet = PLANETS_BY_ID[state.turn.pendingChoice.planetId];
     return (
       <div className="action-panel choose">
-        <h3>Choose a target</h3>
+        <div className="ap-head">
+          <h3>Choose a target</h3>
+          {onUndo && (
+            <button className="undo-btn" disabled={!canUndo} onClick={onUndo} title="Take back the move that triggered this (until new info is revealed)">
+              ↶ Undo
+            </button>
+          )}
+        </div>
         <p><strong>{planet?.name}</strong>: {planet?.action}</p>
         <div className="actions">
           {choiceActions.map((a, i) => (
