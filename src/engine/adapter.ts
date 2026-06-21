@@ -490,7 +490,10 @@ function applyFollowEffect(state: GameState, p: PlayerState, face: DieFace, para
       acquireFromGalaxy(state, p, face);
       return true;
     case 'move':
-      if (params.shipIdx != null && params.dest) { arrive(state, p, params.shipIdx, params.dest); return true; }
+      // Interactive so a surface landing still prompts for its action choice (the
+      // follower becomes the current actor via pendingChoice; the follow queue then
+      // resumes). thenFollow stays null — we're already inside a follow window.
+      if (params.shipIdx != null && params.dest) { arrive(state, p, params.shipIdx, params.dest, { interactive: true }); return true; }
       return false;
     case 'diplomacy':
     case 'economy':

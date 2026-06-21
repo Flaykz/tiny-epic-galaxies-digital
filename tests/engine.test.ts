@@ -171,3 +171,25 @@ describe('follow an upgrade pays both the follow tax and the full upgrade cost',
     expect(f.culture).toBe(6);          // tax refunded
   });
 });
+
+describe('following a move onto a surface still prompts for the planet action', () => {
+  it('opens a pendingChoice for the follower, then resumes the follow queue', () => {
+    let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 2 });
+    const f1 = s.players[1], f2 = s.players[2];
+    s.centerRow[0] = 'cp14'; // SHOUHUA: "Advance a ship +1"
+    f1.ships[0] = { kind: 'galaxy' };
+    f1.ships[1] = { kind: 'orbit', planetId: s.centerRow[1], level: 0 };
+    f1.culture = 3;
+    f2.culture = 3;
+    s.turn.pendingFollow = { face: 'move', queue: [f1.id, f2.id], sourcePlayer: s.players[0].id } as any;
+    s = tegAdapter.applyAction(s, { type: 'follow', accept: true, params: { shipIdx: 0, dest: { kind: 'surface', planetId: 'cp14' } } } as any, f1.id);
+    // The follower must be prompted for the advance target, not auto-resolved.
+    expect(s.turn.pendingChoice?.player).toBe(f1.id);
+    expect(tegAdapter.currentActor(s)).toBe(f1.id);
+    const choice = tegAdapter.legalActions(s, f1.id).find((a) => a.type === 'resolvePlanet')!;
+    s = tegAdapter.applyAction(s, choice, f1.id);
+    // After resolving, the follow window resumes with the next follower.
+    expect(s.turn.pendingChoice).toBeNull();
+    expect(tegAdapter.currentActor(s)).toBe(f2.id);
+  });
+});
