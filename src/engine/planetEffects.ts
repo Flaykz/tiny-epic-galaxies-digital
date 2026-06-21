@@ -38,13 +38,21 @@ function anyEnemyOrbiting(state: GameState, p: PlayerState): { player: string; s
   return null;
 }
 
-function doUpgrade(state: GameState, p: PlayerState, pay: 'energy' | 'culture' | 'either', discount = 0): string {
+function doUpgrade(state: GameState, p: PlayerState, pay: 'energy' | 'culture' | 'either' | 'combined', discount = 0): string {
   if (p.empireLevel >= MAX_EMPIRE) return `${p.name} is already at max empire level`;
   const cost = Math.max(0, empire(p.empireLevel + 1).upgradeCost - discount);
-  const useEnergy = pay === 'energy' || (pay === 'either' && p.energy >= cost);
-  const have = useEnergy ? p.energy : p.culture;
-  if (have < cost) return `${p.name} cannot afford the upgrade (${cost})`;
-  addResource(p, useEnergy ? 'energy' : 'culture', -cost);
+  // 'combined' (e.g. LUREENA) may pay with energy AND culture together.
+  if (pay === 'combined') {
+    if (p.energy + p.culture < cost) return `${p.name} cannot afford the upgrade (${cost})`;
+    const e = Math.min(p.energy, cost);
+    addResource(p, 'energy', -e);
+    addResource(p, 'culture', -(cost - e));
+  } else {
+    const useEnergy = pay === 'energy' || (pay === 'either' && p.energy >= cost);
+    const have = useEnergy ? p.energy : p.culture;
+    if (have < cost) return `${p.name} cannot afford the upgrade (${cost})`;
+    addResource(p, useEnergy ? 'energy' : 'culture', -cost);
+  }
   p.empireLevel++;
   unlockShips(p);
   return `${p.name} upgraded empire to level ${p.empireLevel}`;
@@ -96,7 +104,7 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp19: (s, p) => { if (p.energy < 1) return `${p.name}: needs 1 energy`; addResource(p, 'energy', -1); addResource(p, 'culture', 2); return `${p.name} spent 1 energy, acquired 2 culture`; },
   cp16: (s, p) => { addResource(p, 'energy', 2); enemies(s, p).forEach((e) => addResource(e, 'energy', 1)); return `${p.name} acquired 2 energy; others +1 energy`; },
   cp13: (s, p) => { addResource(p, 'culture', 2); enemies(s, p).forEach((e) => addResource(e, 'culture', 1)); return `${p.name} acquired 2 culture; others +1 culture`; },
-  cp15: (s, p) => doUpgrade(s, p, 'either'),
+  cp15: (s, p) => doUpgrade(s, p, 'combined'), // LUREENA: may spend energy and/or culture
   cp11: (s, p) => { const lowest = Math.min(...s.players.map((q) => q.empireLevel)); return doUpgrade(s, p, 'either', p.empireLevel === lowest ? 1 : 0); },
   cp20: (s, p, c) => steal(s, p, 'energy', c),
   cp31: (s, p, c) => steal(s, p, 'culture', c),

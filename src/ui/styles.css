@@ -103,6 +103,8 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .pp-colonies { margin-top: .5rem; }
 .pp-colonies-label { font-size: .68rem; color: var(--muted); }
 .colony-cards { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .25rem; }
+.colony-text { background: #0004; border: 1px solid #ffffff14; border-radius: 8px; padding: .35rem .5rem; font-size: .78rem; flex: 1 1 100%; }
+.colony-text-action { color: var(--ink); margin-top: .15rem; font-size: .74rem; }
 .colony-card { position: relative; width: 56px; border-radius: 6px; border: 1px solid #ffffff22; }
 .colony-card .cc-thumb { width: 100%; display: block; border-radius: 6px; }
 .cc-vp { position: absolute; top: 2px; right: 2px; font-size: .6rem; font-weight: 700; color: var(--gold); background: #000a; border-radius: 8px; padding: 0 4px; }

@@ -231,10 +231,12 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
             {p.colonized.map((id) => {
               const cp = PLANETS_BY_ID[id];
               if (artless) {
+                // No hover on touch/tablet, so show the action text inline.
                 return (
-                  <span key={id} className="colony-chip" title={cp?.action}>
-                    {cp?.name} (+{cp?.vp})
-                  </span>
+                  <div key={id} className="colony-text">
+                    <strong>{cp?.name}</strong> <span className="muted small">(+{cp?.vp} VP)</span>
+                    <div className="colony-text-action">{cp?.action}</div>
+                  </div>
                 );
               }
               return (
