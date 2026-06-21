@@ -63,6 +63,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   // Which die is selected for activation. Lives here so the dice tray and the
   // action list stay in sync — clicking a real die in the tray selects it.
   const [selectedDie, setSelectedDie] = useState<number | null>(null);
+  // Reroll selection: null = not rerolling; otherwise the set of die ids to reroll.
+  const [rerollSel, setRerollSel] = useState<number[] | null>(null);
+  const rerollAction = legalActions.find((a) => a.type === 'reroll') as
+    | { type: 'reroll'; dieIds: number[]; free?: boolean } | undefined;
   const activatableDieIds = new Set(
     legalActions.map(actionDieId).filter((x): x is number => x != null),
   );
@@ -70,6 +74,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   React.useEffect(() => {
     if (selectedDie != null && !activatableDieIds.has(selectedDie)) setSelectedDie(null);
   }, [selectedDie, state.turn.dice, state.turn.active]);
+  // Exit reroll mode when reroll is no longer available (turn passed, etc.).
+  React.useEffect(() => {
+    if (rerollSel != null && !rerollAction) setRerollSel(null);
+  }, [rerollSel, rerollAction, state.turn.active]);
 
   return (
     <div className="board">
@@ -113,6 +121,16 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             activatableDieIds={activatableDieIds}
             selectedDie={selectedDie}
             onSelect={(id) => setSelectedDie((cur) => (cur === id ? null : id))}
+            rerollAvailable={!!rerollAction}
+            rerollFree={!!rerollAction?.free}
+            rerollSel={rerollSel}
+            onEnterReroll={() => { setSelectedDie(null); setRerollSel(rerollAction ? [...rerollAction.dieIds] : []); }}
+            onToggleReroll={(id) => setRerollSel((cur) => cur == null ? [id] : cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])}
+            onConfirmReroll={() => {
+              if (rerollSel && rerollSel.length) onAction({ type: 'reroll', dieIds: rerollSel, free: !!rerollAction?.free });
+              setRerollSel(null);
+            }}
+            onCancelReroll={() => setRerollSel(null)}
           />
           <ActionPanel
             state={state}
@@ -290,39 +308,74 @@ function DiceTray({
   activatableDieIds,
   selectedDie,
   onSelect,
+  rerollAvailable,
+  rerollFree,
+  rerollSel,
+  onEnterReroll,
+  onToggleReroll,
+  onConfirmReroll,
+  onCancelReroll,
 }: {
   state: GameState;
   canAct: boolean;
   activatableDieIds: Set<number>;
   selectedDie: number | null;
   onSelect: (id: number) => void;
+  rerollAvailable: boolean;
+  rerollFree: boolean;
+  rerollSel: number[] | null;
+  onEnterReroll: () => void;
+  onToggleReroll: (id: number) => void;
+  onConfirmReroll: () => void;
+  onCancelReroll: () => void;
 }) {
   const asset = useAsset();
   const artless = useArtless();
+  const rerolling = rerollSel != null;
   const FACE_GLYPH: Record<DieFace, string> = {
     move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛',
   };
   return (
     <div className="dice-tray">
-      <h3>Dice {canAct && <span className="muted small">— click a die to activate it</span>}</h3>
+      <div className="dice-head">
+        <h3>Dice {canAct && !rerolling && <span className="muted small">— click a die to activate it</span>}
+          {rerolling && <span className="muted small">— pick which dice to reroll</span>}</h3>
+        {canAct && !rerolling && rerollAvailable && (
+          <button className="reroll-btn" onClick={onEnterReroll}>↻ Reroll…</button>
+        )}
+        {rerolling && (
+          <span className="reroll-controls">
+            <button className="reroll-btn primary" disabled={!rerollSel!.length} onClick={onConfirmReroll}>
+              Reroll {rerollSel!.length} ({rerollFree ? 'free' : '1 energy'})
+            </button>
+            <button className="reroll-btn" onClick={onCancelReroll}>Cancel</button>
+          </span>
+        )}
+      </div>
       <div className="dice">
         {state.turn.dice.map((d) => {
+          const inactive = !d.activated && !d.inConverter;
           const usable = canAct && activatableDieIds.has(d.id);
+          const rerollPick = rerolling && rerollSel!.includes(d.id);
+          const interactive = rerolling ? inactive : usable;
           const cls = [
             'die',
             artless ? 'text' : '',
             d.activated ? 'activated' : '',
             d.inConverter ? 'converter' : '',
-            usable ? 'usable' : '',
-            selectedDie === d.id ? 'sel' : '',
+            interactive ? 'usable' : '',
+            !rerolling && selectedDie === d.id ? 'sel' : '',
+            rerollPick ? 'reroll-pick' : '',
           ].join(' ');
           return (
             <button
               key={d.id}
               className={cls}
-              disabled={!usable}
-              onClick={() => usable && onSelect(d.id)}
-              title={`${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
+              disabled={!interactive}
+              onClick={() => { if (!interactive) return; rerolling ? onToggleReroll(d.id) : onSelect(d.id); }}
+              title={rerolling
+                ? `${FACE_LABEL[d.face]}${rerollPick ? ' — will reroll' : ' — kept'}`
+                : `${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
             >
               {artless
                 ? <span className="die-glyph">{FACE_GLYPH[d.face]}</span>
@@ -419,7 +472,8 @@ function ActionPanel({
     );
   }
 
-  const global = legalActions.filter((a) => actionDieId(a) == null);
+  // Reroll is handled in the dice tray (so the player can pick which dice).
+  const global = legalActions.filter((a) => actionDieId(a) == null && a.type !== 'reroll');
   const forDie = (id: number) => legalActions.filter((a) => actionDieId(a) === id);
   const selectedDieFace = selectedDie != null ? state.turn.dice.find((d) => d.id === selectedDie)?.face : null;
 

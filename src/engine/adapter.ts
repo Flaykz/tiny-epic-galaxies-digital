@@ -49,8 +49,10 @@ function moveDestinations(state: GameState, p: PlayerState, shipIdx: number): Sh
     if (planetId === fromPlanet) continue;
     const planet = PLANET(planetId);
     if (!planet) continue;
-    // Land on surface: only if no ship there, and you can't move surface->surface of same planet.
-    if (!surfaceOccupied(state, planetId)) {
+    // Land on surface: one of YOUR ships per surface, but different players may
+    // share a surface (rulebook p.5). So only block if you already have a ship there.
+    const youOnSurface = p.ships.some((sh) => sh.kind === 'surface' && sh.planetId === planetId);
+    if (!youOnSurface) {
       dests.push({ kind: 'surface', planetId });
     }
     // Orbit: only if you don't already orbit it (one per player), enter at the

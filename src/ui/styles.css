@@ -161,7 +161,15 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .play-area { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1rem; margin: 1rem 0; }
 @media (max-width: 800px) { .play-area { grid-template-columns: 1fr; } }
 .dice-tray, .action-panel, .log-panel { background: var(--panel); border-radius: 12px; padding: 1rem; border: 1px solid #ffffff10; }
-.dice { display: flex; gap: .6rem; flex-wrap: wrap; }
+.dice-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+.dice-head h3 { margin: 0; }
+.reroll-controls { display: flex; gap: .4rem; }
+.reroll-btn { background: var(--panel2); color: var(--ink); border: 1px solid #ffffff22; border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font-size: .82rem; }
+.reroll-btn.primary { background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700; border: none; }
+.reroll-btn:disabled { opacity: .4; cursor: not-allowed; }
+.die.reroll-pick img, .die.reroll-pick.text { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+.die:not(.reroll-pick).usable.die { } /* dice not picked during reroll show normal */
+.dice { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
 .die { width: 64px; text-align: center; font-size: .68rem; background: none; border: none; color: var(--ink); padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default; }
 .die img { width: 56px; height: 56px; border-radius: 10px; border: 2px solid #ffffff22; transition: transform .1s, border-color .1s, box-shadow .1s; }
 .die.usable { cursor: pointer; }

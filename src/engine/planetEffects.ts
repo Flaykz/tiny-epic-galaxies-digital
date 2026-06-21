@@ -110,7 +110,7 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp5: (s, p, c) => { const ids = (c?.dieIds ?? []).slice(0, 2); ids.forEach((id) => { const d = s.turn.dice.find((x) => x.id === id); if (d) d.inConverter = true; }); addResource(p, 'energy', 2); addResource(p, 'culture', 2); return `${p.name} discarded ${ids.length} dice, acquired 2 energy + 2 culture`; },
   cp9: (s, p, c) => { const id = c?.dieIds?.[0]; const face = c?.face; const d = s.turn.dice.find((x) => x.id === id && !x.activated && !x.inConverter); if (d && face) { d.face = face; return `${p.name} set a die to ${face}`; } return `${p.name}: no die set`; },
   cp25: (s, p, c) => rerollInactive(s, p, c),
-  cp30: (s, p) => { const landed = p.ships.filter((x) => x.kind === 'surface').length; addResource(p, 'culture', landed); return `${p.name} acquired ${landed} culture (1 per landed ship)`; },
+  cp30: (s, p) => { const home = p.ships.filter((x) => x.kind === 'galaxy').length; addResource(p, 'culture', home); return `${p.name} acquired ${home} culture (1 per ship in your galaxy)`; },
   cp17: (s, p) => { const n = s.turn.lastActivationFollows; addResource(p, 'culture', n); return `${p.name} acquired ${n} culture from follows`; },
   cp26: (s, p) => { const n = s.turn.lastActivationFollows; addResource(p, 'energy', n); return `${p.name} acquired ${n} energy from follows`; },
   cp7: (s, p, c) => { const a = c?.shipIdx, b = c?.shipIdx2; if (a != null) regressShip(s, p, a, 1); let adv = false; if (b != null) { const sb = p.ships[b]; if (sb.kind === 'orbit') adv = advanceShip(s, p, b, PLANET(sb.planetId)!.colonizeType, 1); } return `${p.name} regressed one ship, advanced another${adv ? '' : ' (if possible)'}`; },
