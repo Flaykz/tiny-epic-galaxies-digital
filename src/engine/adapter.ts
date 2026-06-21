@@ -337,6 +337,17 @@ export const tegAdapter: GameAdapter<GameState, Action, string> = {
 // ---------- The mutation core ----------
 
 function applyMut(state: GameState, action: Action, actor: string): void {
+  // Self-heal: a ship may only sit on/orbit a planet still in the center row.
+  // (Repairs older saves where a discarded planet left a ship dangling — see the
+  // HELIOS un-occupied fix. No-op for healthy games.)
+  for (const pl of state.players) {
+    pl.ships = pl.ships.map((s) =>
+      (s.kind === 'orbit' || s.kind === 'surface') && !state.centerRow.includes(s.planetId)
+        ? { kind: 'galaxy' as const }
+        : s,
+    );
+  }
+
   // Follow decisions.
   if (action.type === 'follow') {
     resolveFollow(state, action, actor);

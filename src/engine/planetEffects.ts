@@ -6,7 +6,8 @@ import {
   player,
   playerOrbiting,
   regressShip,
-  surfaceOccupied,
+  anyOccupied,
+  returnShipsFrom,
   PLANET,
 } from './helpers.js';
 import { empire, MAX_EMPIRE } from './empire.js';
@@ -153,7 +154,7 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   },
   cp6: (s, p, c) => useOthersColony(s, p, 'culture', c),
   cp35: (s, p, c) => useOthersColony(s, p, 'energy', c),
-  cp8: (s, p, c) => { const target = c?.planetId; if (target && s.centerRow.includes(target)) { s.centerRow = s.centerRow.filter((id) => id !== target); if (s.deck.length) s.centerRow.push(s.deck.shift()!); return `${p.name} replaced a planet in the row`; } return `${p.name}: pick a planet to replace`; },
+  cp8: (s, p, c) => { const target = c?.planetId; if (target && s.centerRow.includes(target) && !anyOccupied(s, target)) { returnShipsFrom(s, target); s.centerRow = s.centerRow.filter((id) => id !== target); if (s.deck.length) s.centerRow.push(s.deck.shift()!); return `${p.name} replaced ${PLANET(target)?.name ?? 'a planet'} in the row`; } return `${p.name}: pick an un-occupied planet to replace`; },
   cp23: (s, p, c) => {
     const used = s.turn.dice.filter((d) => d.activated && !d.inConverter);
     // If a specific die was chosen, repeat that one; else best-by-priority.
@@ -367,7 +368,8 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
       return out;
     }
     case 'cp8':
-      return state.centerRow.filter((pid) => !surfaceOccupied(state, pid))
+      // HELIOS: only an *un-occupied* planet (no ship on surface OR orbit, any player).
+      return state.centerRow.filter((pid) => !anyOccupied(state, pid))
         .map((pid) => opt({ planetId: pid }, `Discard & replace ${PLANET(pid)?.name}`));
     case 'cp28':
       return state.centerRow.filter((pid) => !META.has(pid) && PLANET_EFFECTS[pid])

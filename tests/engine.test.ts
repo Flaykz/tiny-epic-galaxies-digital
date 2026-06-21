@@ -6,6 +6,7 @@ import {
   computeWinners,
   type GameState,
 } from '../src/engine/index.js';
+import { planetOptions } from '../src/engine/planetEffects.js';
 
 function newGame(seed = 42): GameState {
   return createInitialState({
@@ -114,5 +115,29 @@ describe('solo mode vs Rogue Galaxy', () => {
       guard++;
     }
     expect(tegAdapter.result!(s)).not.toBeNull();
+  });
+});
+
+describe('HELIOS (cp8) discards only un-occupied planets', () => {
+  it('excludes a planet that another player is orbiting', () => {
+    const s = newGame(3);
+    const occ = s.centerRow[0];
+    s.players[1].ships[0] = { kind: 'orbit', planetId: occ, level: 0 };
+    const labels = planetOptions(s, s.players[0], 'cp8').map((o) => o.label);
+    expect(labels.some((l) => l.includes(occ))).toBe(false);
+    expect(labels.length).toBe(s.centerRow.length - 1);
+  });
+
+  it('self-heals a ship left orbiting a planet no longer in the row', () => {
+    let s = newGame(3);
+    // Corrupt: ship orbiting a planet that is not in the center row.
+    s.players[0].ships[0] = { kind: 'orbit', planetId: 'cp33', level: 1 };
+    // Any applied action should normalize the dangling ship back home.
+    const actor = tegAdapter.currentActor(s)!;
+    s = tegAdapter.applyAction(s, chooseAction(s, actor, 1), actor);
+    const stillDangling = s.players[0].ships.some(
+      (sh) => (sh.kind === 'orbit' || sh.kind === 'surface') && !s.centerRow.includes(sh.planetId),
+    );
+    expect(stillDangling).toBe(false);
   });
 });

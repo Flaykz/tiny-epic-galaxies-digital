@@ -46,6 +46,25 @@ export function surfaceOccupied(state: GameState, planetId: string): { player: s
   return null;
 }
 
+/** Is any player's ship on this planet (surface OR orbit)? Used for "un-occupied" checks. */
+export function anyOccupied(state: GameState, planetId: string): boolean {
+  for (const pl of state.players) {
+    for (const s of pl.ships) {
+      if ((s.kind === 'surface' || s.kind === 'orbit') && s.planetId === planetId) return true;
+    }
+  }
+  return false;
+}
+
+/** Return every ship (any player) sitting on/orbiting a planet to its home galaxy. */
+export function returnShipsFrom(state: GameState, planetId: string): void {
+  for (const pl of state.players) {
+    pl.ships = pl.ships.map((s) =>
+      (s.kind === 'orbit' || s.kind === 'surface') && s.planetId === planetId ? { kind: 'galaxy' } : s,
+    );
+  }
+}
+
 /** Does this player already have a ship orbiting this planet? (one per planet per player). */
 export function playerOrbiting(p: PlayerState, planetId: string): number | null {
   for (let idx = 0; idx < p.ships.length; idx++) {
