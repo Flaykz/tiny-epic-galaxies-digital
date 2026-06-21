@@ -132,22 +132,31 @@ export function MatTokens({ p }: { p: PlayerState }) {
 export function PlanetTokens({ planet, state }: { planet: Planet; state: GameState }) {
   const asset = useAsset();
   const tokens: React.ReactNode[] = [];
+
+  // Different players can share a surface (rulebook p.5), so spread the surface
+  // ships horizontally instead of stacking them on the same spot.
+  const surfaceShips = state.players.flatMap((pl) =>
+    pl.ships.map((s, idx) => ({ pl, s, idx }))
+      .filter((x) => x.s.kind === 'surface' && (x.s as { planetId: string }).planetId === planet.id),
+  );
+  surfaceShips.forEach(({ pl, idx }, k) => {
+    const x = 50 + (k - (surfaceShips.length - 1) / 2) * 16;
+    tokens.push(
+      <span key={`${pl.id}-s${idx}`}>
+        <img
+          className="tok ship-tok standing on-card"
+          src={asset(rocket(pl.color))}
+          alt={`${pl.name} ship #${idx + 1} on surface`}
+          style={{ left: `${x}%`, top: '40%' }}
+          title={`${pl.name} — ship #${idx + 1} landed on the surface`}
+        />
+        <span className="tok-num standing" style={{ left: `${x}%`, top: '40%' }}>{idx + 1}</span>
+      </span>,
+    );
+  });
+
   for (const pl of state.players) {
     pl.ships.forEach((s, idx) => {
-      if (s.kind === 'surface' && s.planetId === planet.id) {
-        tokens.push(
-          <span key={`${pl.id}-s${idx}`}>
-            <img
-              className="tok ship-tok standing on-card"
-              src={asset(rocket(pl.color))}
-              alt={`${pl.name} ship #${idx + 1} on surface`}
-              style={{ left: '50%', top: '40%' }}
-              title={`${pl.name} — ship #${idx + 1} landed on the surface`}
-            />
-            <span className="tok-num standing" style={{ left: '50%', top: '40%' }}>{idx + 1}</span>
-          </span>,
-        );
-      }
       if (s.kind === 'orbit' && s.planetId === planet.id) {
         const pos = orbitPos(s.level, planet.orbitTrackLength);
         tokens.push(
