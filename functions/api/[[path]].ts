@@ -58,7 +58,12 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
       // GET /api/reports — list (newest first), without state/log for brevity.
       if (request.method === 'GET' && !parts[1]) {
         const unresolved = url.searchParams.get('unresolved') === '1';
-        const rows = await store.listReports(unresolved ? { unresolved: true } : undefined);
+        let rows = await store.listReports(unresolved ? { unresolved: true } : undefined);
+        // Keep post-victory game-log uploads out of the problem-report queue.
+        // Default: exclude them; ?category=game-log to view only those.
+        const cat = url.searchParams.get('category');
+        if (cat) rows = rows.filter((r: any) => (r.category ?? 'game') === cat);
+        else rows = rows.filter((r: any) => (r.category ?? 'game') !== 'game-log');
         rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
         return json(200, rows.map((r) => { const { serverSnapshot, reporterView, clientLog, userAgent, screenshot, ...rest } = r as any; return { ...rest, hasScreenshot: !!screenshot }; }));
       }

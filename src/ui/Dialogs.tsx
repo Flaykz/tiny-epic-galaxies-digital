@@ -13,11 +13,14 @@ export function ReportDialog({
   state,
   defaultSeverity = 'bug',
   title = 'Report a problem',
+  category,
   onClose,
 }: {
   state: GameState;
   defaultSeverity?: Severity;
   title?: string;
+  /** Triage bucket; 'game-log' keeps post-victory uploads out of the problem queue. */
+  category?: string;
   onClose: () => void;
 }) {
   const [message, setMessage] = useState('');
@@ -32,7 +35,7 @@ export function ReportDialog({
     setError(null);
     try {
       const screenshot = attachShot ? await captureScreenshot() : undefined;
-      const id = await submitReport({ message: message || '(no description)', severity, state, screenshot });
+      const id = await submitReport({ message: message || '(no description)', severity, category, state, screenshot });
       setDone(id);
     } catch (e: any) {
       // Don't lose the report — download it locally.

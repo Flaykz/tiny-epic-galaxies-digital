@@ -40,6 +40,8 @@ export function logText(state: GameState): string {
 export async function submitReport(body: {
   message: string;
   severity?: 'bug' | 'rules-question' | 'feedback';
+  /** Triage bucket: 'game-log' for post-victory log uploads, else a problem report. */
+  category?: string;
   state: GameState;
   /** Optional base64 PNG data URL. */
   screenshot?: string;
@@ -50,6 +52,7 @@ export async function submitReport(body: {
     body: JSON.stringify({
       message: body.message,
       severity: body.severity ?? 'bug',
+      category: body.category,
       turn: body.state.turnNumber,
       log: body.state.log,
       state: body.state,

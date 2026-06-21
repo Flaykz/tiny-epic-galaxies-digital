@@ -77,7 +77,11 @@ const http = createServer(async (req, res) => {
     if (parts[0] === 'reports') {
       if (req.method === 'GET' && !parts[1]) {
         const unresolved = url.searchParams.get('unresolved') === '1';
-        const rows = await server.listReports(unresolved ? { unresolved: true } : undefined);
+        let rows = await server.listReports(unresolved ? { unresolved: true } : undefined);
+        // Keep post-victory game-log uploads out of the problem-report queue.
+        const cat = url.searchParams.get('category');
+        if (cat) rows = rows.filter((r: any) => (r.category ?? 'game') === cat);
+        else rows = rows.filter((r: any) => (r.category ?? 'game') !== 'game-log');
         rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
         return json(res, 200, rows.map((r) => { const { serverSnapshot, reporterView, clientLog, userAgent, ...rest } = r as any; return rest; }));
       }
