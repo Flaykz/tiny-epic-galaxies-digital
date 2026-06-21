@@ -231,6 +231,45 @@ describe('regress/reroll planets prompt for their targets', () => {
   });
 });
 
+describe('NAGATO (cp21) moves two ships', () => {
+  it('pays 1 culture, prompts for two moves, and interleaves a landed surface choice', () => {
+    let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }], seed: 6 });
+    const p = s.players[0];
+    p.culture = 3;
+    s.centerRow[0] = 'cp14'; // SHOUHUA (surface action) for the chaining test
+    s.centerRow[1] = 'cp21'; // NAGATO
+    p.ships = [{ kind: 'galaxy' }, { kind: 'orbit', planetId: s.centerRow[2], level: 1 }, { kind: 'galaxy' }, { kind: 'galaxy' }];
+    s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
+    s = tegAdapter.applyAction(s, { type: 'activateMove', dieId: 0, shipIdx: 0, dest: { kind: 'surface', planetId: 'cp21' } } as any, p.id);
+    expect(s.players[0].culture).toBe(2); // paid 1
+    expect(s.turn.pendingMoves?.left).toBe(2);
+    // Move one ship onto SHOUHUA's surface — its action must prompt before move #2.
+    const mv = tegAdapter.legalActions(s, p.id).find((a) => a.type === 'nagatoMove' && (a as any).dest.kind === 'surface' && (a as any).dest.planetId === 'cp14')!;
+    s = tegAdapter.applyAction(s, mv, p.id);
+    expect(s.turn.pendingChoice?.planetId).toBe('cp14');
+    expect(s.turn.pendingMoves?.left).toBe(1);
+    // Resolve SHOUHUA, then the remaining NAGATO move resumes.
+    const sa = tegAdapter.legalActions(s, p.id).find((a) => a.type === 'resolvePlanet') ?? { type: 'skipPlanet' as const };
+    s = tegAdapter.applyAction(s, sa as any, p.id);
+    expect(s.turn.pendingChoice).toBeNull();
+    expect(s.turn.pendingMoves?.left).toBe(1);
+    expect(tegAdapter.currentActor(s)).toBe(p.id);
+    s = tegAdapter.applyAction(s, { type: 'endMoves' } as any, p.id);
+    expect(s.turn.pendingMoves).toBeNull();
+  });
+
+  it('is once per turn and needs 1 culture', () => {
+    let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }], seed: 6 });
+    const p = s.players[0];
+    p.culture = 0;
+    s.centerRow[0] = 'cp21';
+    p.ships = [{ kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }];
+    s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
+    s = tegAdapter.applyAction(s, { type: 'activateMove', dieId: 0, shipIdx: 0, dest: { kind: 'surface', planetId: 'cp21' } } as any, p.id);
+    expect(s.turn.pendingMoves).toBeNull(); // couldn't afford → no moves queued
+  });
+});
+
 describe('PIEDES (cp23) can repeat a move die', () => {
   it('offers concrete repeat-move destinations and performs the move', () => {
     let s = newGame(2);

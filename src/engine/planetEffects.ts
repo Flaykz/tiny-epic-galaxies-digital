@@ -15,7 +15,9 @@ import { unlockShips } from './helpers.js';
 
 // "Meta" planet actions that invoke other planets' actions — never auto-recurse
 // into these (avoids infinite loops when a colony's action uses another colony).
-const META = new Set(['cp3', 'cp6', 'cp23', 'cp28', 'cp35']);
+// cp21 (NAGATO) is here too: its "move 2 ships" needs the adapter's move flow, so
+// it can't be invoked indirectly by another planet's effect.
+const META = new Set(['cp3', 'cp6', 'cp21', 'cp23', 'cp28', 'cp35']);
 // Safe, no-target beneficial actions an auto-picker may invoke on the player's behalf.
 const SAFE_AUTO = ['cp12', 'cp29', 'cp18', 'cp16', 'cp13', 'cp30', 'cp15'];
 
@@ -156,16 +158,9 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp24: (s, p, c) => { enemies(s, p).forEach((e) => { for (let i = 0; i < e.ships.length; i++) { const sh = e.ships[i]; if (sh.kind === 'orbit') { advanceShip(s, e, i, PLANET(sh.planetId)!.colonizeType, 1); break; } } }); advanceFlexible(s, p, 2, c); return `${p.name}: others advanced +1, you advanced +2`; },
   cp22: (s, p, c) => { const idx = c?.shipIdx ?? anyOrbitingShip(p); const dest = c?.dest; if (idx != null && dest && dest.kind === 'orbit') { p.ships[idx] = dest; return `${p.name} moved a ship to another colony track`; } return `${p.name}: no valid move`; },
   cp39: (s, p, c) => { const idx = c?.shipIdx ?? anyOrbitingShip(p); if (idx != null && p.ships[idx].kind === 'orbit') { const lvl = (p.ships[idx] as { level: number }).level; p.ships[idx] = { kind: 'galaxy' }; const kind = c?.resource ?? 'energy'; addResource(p, kind, lvl); return `${p.name} displaced a ship, acquired ${lvl} ${kind}`; } return `${p.name}: no orbiting ship`; },
-  cp21: (s, p) => oncePerTurn(s, 'cp21', `${p.name}: NAGATO already used this turn`, () => {
-    if (p.culture < 1) return `${p.name}: needs 1 culture`;
-    addResource(p, 'culture', -1);
-    let moved = 0;
-    for (let i = 0; i < p.ships.length && moved < 2; i++) {
-      const sh = p.ships[i];
-      if (sh.kind === 'orbit') { advanceShip(s, p, i, PLANET(sh.planetId)!.colonizeType, 1); moved++; }
-    }
-    return `${p.name} spent 1 culture to advance ${moved} ship(s)`;
-  }),
+  // NAGATO's "move 2 ships" is handled interactively in the adapter (setupNagato);
+  // this effect is only a safe fallback for any non-interactive invocation.
+  cp21: (s, p) => `${p.name}: NAGATO (move 2 ships) — use it directly`,
   cp3: (s, p, c) => {
     const f = c?.face;
     if (f === 'energy' || f === 'culture') { const g = acquireFromGalaxy(s, p, f); return `${p.name} took a free Acquire — +${g} ${f}`; }

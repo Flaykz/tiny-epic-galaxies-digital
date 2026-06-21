@@ -457,6 +457,24 @@ function ActionPanel({
     );
   }
 
+  // NAGATO: choose ship moves (up to two).
+  const moveActions = legalActions.filter((a) => a.type === 'nagatoMove' || a.type === 'endMoves');
+  if (state.turn.pendingMoves && state.turn.pendingMoves.left > 0 && moveActions.length > 0) {
+    return (
+      <div className="action-panel choose">
+        <h3>NAGATO — move a ship ({state.turn.pendingMoves.left} left)</h3>
+        <p>Move one of your ships to a different planet, or stop.</p>
+        <div className="actions">
+          {moveActions.map((a, i) => (
+            <button key={i} className={`act-btn ${a.type === 'endMoves' ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
+              {actionLabel(a, actorShips, actor)}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const followActions = legalActions.filter((a) => a.type === 'follow');
   if (followActions.length > 0) {
     return (

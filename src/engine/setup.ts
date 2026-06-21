@@ -80,6 +80,7 @@ export function createInitialState(opts: SetupOptions): GameState {
       lastActivationFollows: 0,
       pendingFollow: null,
       pendingChoice: null,
+      pendingMoves: null,
     },
     phase: 'playing',
     endTriggeredBy: null,
@@ -122,4 +123,5 @@ export function rollForActive(state: GameState): void {
   state.turn.lastActivationFollows = 0;
   state.turn.pendingFollow = null;
   state.turn.pendingChoice = null;
+  state.turn.pendingMoves = null;
 }

@@ -100,6 +100,8 @@ function triggerPlanet(
     return;
   }
   if (REROLL_PLANETS.has(planetId)) rerollDice(state, inactiveDice(state).map((d) => d.id));
+  // NAGATO (cp21): set up two interactive ship moves (handled via pendingMoves).
+  if (interactive && planetId === 'cp21') { setupNagato(state, p, thenFollow); return; }
   const opts = interactive ? planetChoiceOptions(state, p, planetId) : [];
   // Surface/colony actions are optional, so whenever there's at least one target
   // to pick, pause for the choice (the prompt always includes a "skip" option).
@@ -109,6 +111,24 @@ function triggerPlanet(
   }
   state.log.push(eff(state, p));
   if (thenFollow) openFollowWindow(state, thenFollow);
+}
+
+/**
+ * NAGATO (cp21): "Spend 1 culture to move 2 of your ships (only once per turn)."
+ * Pays the cost, marks the once-per-turn limit, and queues up to two interactive
+ * moves (each resolved via a `nagatoMove` action). Falls back to a logged no-op
+ * when it can't be used (already used, no culture, or no legal move available).
+ */
+function setupNagato(state: GameState, p: PlayerState, thenFollow: DieFace | null): void {
+  const done = () => { if (thenFollow) openFollowWindow(state, thenFollow); };
+  if (state.turn.oncePerTurn.includes('once-cp21')) { state.log.push(`${p.name}: NAGATO already used this turn`); done(); return; }
+  if (p.culture < 1) { state.log.push(`${p.name}: NAGATO needs 1 culture`); done(); return; }
+  const canMove = p.ships.some((s, i) => s.kind !== 'locked' && moveDestinations(state, p, i).length > 0);
+  if (!canMove) { state.log.push(`${p.name}: NAGATO — no ship can move`); done(); return; }
+  addResource(p, 'culture', -1);
+  state.turn.oncePerTurn.push('once-cp21');
+  state.turn.pendingMoves = { player: p.id, left: 2, thenFollow };
+  state.log.push(`${p.name} spent 1 culture (NAGATO) — move up to 2 ships`);
 }
 
 /** Short label for a move destination, used in PIEDES "repeat move" options. */
@@ -259,6 +279,9 @@ export const tegAdapter: GameAdapter<GameState, Action, string> = {
     if (state.phase === 'gameOver') return null;
     const pc = state.turn.pendingChoice;
     if (pc) return pc.player;
+    // NAGATO moves owed — but a surface-landing pendingChoice (above) resolves first.
+    const pm = state.turn.pendingMoves;
+    if (pm && pm.left > 0) return pm.player;
     const pf = state.turn.pendingFollow;
     if (pf && pf.queue.length > 0) return pf.queue[0];
     return state.turn.active;
@@ -273,6 +296,21 @@ export const tegAdapter: GameAdapter<GameState, Action, string> = {
       // Awaiting a target choice for a planet action.
       const cp = player(state, actor);
       return [...planetChoiceOptions(state, cp, pc.planetId), { type: 'skipPlanet' }];
+    }
+
+    const pm = state.turn.pendingMoves;
+    if (pm && pm.left > 0 && pm.player === actor) {
+      // NAGATO: choose the next ship move (or stop early).
+      const mp = player(state, actor);
+      const acts: Action[] = [];
+      mp.ships.forEach((s, idx) => {
+        if (s.kind === 'locked') return;
+        for (const dest of moveDestinations(state, mp, idx)) {
+          acts.push({ type: 'nagatoMove', shipIdx: idx, dest, label: `Move ship #${idx + 1} → ${destLabel(dest)}` });
+        }
+      });
+      acts.push({ type: 'endMoves' });
+      return acts;
     }
 
     const pf = state.turn.pendingFollow;
@@ -490,6 +528,29 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       const thenFollow = pc.thenFollow;
       state.turn.pendingChoice = null;
       if (thenFollow) openFollowWindow(state, thenFollow);
+      break;
+    }
+    case 'nagatoMove': {
+      const pm = state.turn.pendingMoves;
+      if (!pm || pm.player !== actor || pm.left <= 0) break;
+      pm.left -= 1;
+      const last = pm.left === 0;
+      const tf = last ? pm.thenFollow : null; // NAGATO's follow opens only after all moves
+      if (last) state.turn.pendingMoves = null;
+      state.log.push(`${p.name} moved a ship`);
+      const wasSurface = action.dest.kind === 'surface';
+      // Interactive: a landing on a surface opens a pendingChoice that resolves
+      // before the next NAGATO move (currentActor prioritises pendingChoice).
+      arrive(state, p, action.shipIdx, action.dest, { interactive: true, thenFollow: tf });
+      if (!wasSurface && tf) openFollowWindow(state, tf);
+      break;
+    }
+    case 'endMoves': {
+      const pm = state.turn.pendingMoves;
+      if (!pm || pm.player !== actor) break;
+      const tf = pm.thenFollow;
+      state.turn.pendingMoves = null;
+      if (tf) openFollowWindow(state, tf);
       break;
     }
     case 'reroll': {

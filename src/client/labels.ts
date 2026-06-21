@@ -55,6 +55,10 @@ export function actionLabel(a: Action, ships?: ShipLocation[], actor?: PlayerSta
       return a.label ?? 'Choose this target';
     case 'skipPlanet':
       return 'Skip (take no target)';
+    case 'nagatoMove':
+      return a.label ?? `Move ship (${ship(a.shipIdx)}) → ${locLabel(a.dest)}`;
+    case 'endMoves':
+      return 'Done moving';
     case 'endTurn':
       return 'End turn';
   }

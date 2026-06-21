@@ -79,6 +79,17 @@ export interface TurnState {
   pendingFollow: PendingFollow | null;
   /** Pending target choice for a planet action that requires player input. */
   pendingChoice: PendingChoice | null;
+  /** NAGATO (cp21): up-to-two ship moves still owed to a player this activation.
+   *  Coexists with pendingChoice — a move that lands on a surface opens a normal
+   *  pendingChoice which resolves first, then the remaining moves resume. */
+  pendingMoves: PendingMoves | null;
+}
+
+export interface PendingMoves {
+  player: string;
+  left: number;
+  /** Follow window to open once all moves are done (the die face used to reach NAGATO). */
+  thenFollow: DieFace | null;
 }
 
 export interface PendingChoice {
@@ -139,6 +150,9 @@ export type Action =
   // Resolve a pending planet-action target choice (carries a UI label).
   | { type: 'resolvePlanet'; choice: PlanetActionChoice; label?: string }
   | { type: 'skipPlanet' }
+  // NAGATO (cp21): perform one of the up-to-two ship moves; or stop early.
+  | { type: 'nagatoMove'; shipIdx: number; dest: ShipLocation; label?: string }
+  | { type: 'endMoves' }
   // End the current player's turn.
   | { type: 'endTurn' };
 
