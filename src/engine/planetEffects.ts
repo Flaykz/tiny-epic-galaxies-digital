@@ -79,6 +79,14 @@ function regressEnemyAuto(state: GameState, p: PlayerState, steps: number, choic
   return true;
 }
 
+/** Run `fn` only if this planet's once-per-turn action hasn't fired yet this turn. */
+function oncePerTurn(state: GameState, planetId: string, usedMsg: string, fn: () => string): string {
+  const key = `once-${planetId}`;
+  if (state.turn.oncePerTurn.includes(key)) return usedMsg;
+  state.turn.oncePerTurn.push(key);
+  return fn();
+}
+
 function steal(state: GameState, p: PlayerState, kind: 'energy' | 'culture', choice?: PlanetActionChoice): string {
   const target = choice?.targetPlayer
     ? player(state, choice.targetPlayer)
@@ -107,8 +115,8 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp13: (s, p) => { addResource(p, 'culture', 2); enemies(s, p).forEach((e) => addResource(e, 'culture', 1)); return `${p.name} acquired 2 culture; others +1 culture`; },
   cp15: (s, p) => doUpgrade(s, p, 'combined'), // LUREENA: may spend energy and/or culture
   cp11: (s, p) => { const lowest = Math.min(...s.players.map((q) => q.empireLevel)); return doUpgrade(s, p, 'either', p.empireLevel === lowest ? 1 : 0); },
-  cp20: (s, p, c) => steal(s, p, 'energy', c),
-  cp31: (s, p, c) => steal(s, p, 'culture', c),
+  cp20: (s, p, c) => oncePerTurn(s, 'cp20', `${p.name}: LA-TORRES already used this turn`, () => steal(s, p, 'energy', c)),
+  cp31: (s, p, c) => oncePerTurn(s, 'cp31', `${p.name}: CLJ-0517 already used this turn`, () => steal(s, p, 'culture', c)),
   cp32: (s, p, c) => (regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no enemy ship to regress`),
   cp10: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; addResource(p, 'culture', -2); return regressEnemyAuto(s, p, 2, c) ? `${p.name} regressed an enemy ship -2` : `${p.name}: no target`; },
   cp33: (s, p, c) => { if (p.energy < 1) return `${p.name}: needs 1 energy`; addResource(p, 'energy', -1); return regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no target`; },
@@ -116,7 +124,17 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp40: (s, p, c) => { if (p.energy < 2) return `${p.name}: needs 2 energy`; addResource(p, 'energy', -2); let n = 0; for (const e of enemies(s, p)) { for (let i = 0; i < e.ships.length && n < 2; i++) if (e.ships[i].kind === 'orbit') { regressShip(s, e, i, 1); n++; } } return `${p.name} regressed ${n} enemy ship(s) -1`; },
   cp27: (s, p, c) => { if (p.energy < 2) return `${p.name}: needs 2 energy`; addResource(p, 'energy', -2); return advanceAuto(s, p, 'economy', 2, c) ? `${p.name} advanced +2 economy` : `${p.name}: no economy ship`; },
   cp37: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; addResource(p, 'culture', -2); return advanceAuto(s, p, 'diplomacy', 2, c) ? `${p.name} advanced +2 diplomacy` : `${p.name}: no diplomacy ship`; },
-  cp5: (s, p, c) => { const ids = (c?.dieIds ?? []).slice(0, 2); ids.forEach((id) => { const d = s.turn.dice.find((x) => x.id === id); if (d) d.inConverter = true; }); addResource(p, 'energy', 2); addResource(p, 'culture', 2); return `${p.name} discarded ${ids.length} dice, acquired 2 energy + 2 culture`; },
+  cp5: (s, p, c) => {
+    // MAIA's cost: discard 2 inactive dice. Require 2 to be available, and always
+    // pay the cost (use the chosen dice if given, else the first two inactive ones).
+    const inactive = s.turn.dice.filter((d) => !d.activated && !d.inConverter);
+    if (inactive.length < 2) return `${p.name}: MAIA needs 2 inactive dice to discard`;
+    const chosen = (c?.dieIds ?? []).filter((id) => inactive.some((d) => d.id === id)).slice(0, 2);
+    const toDiscard = chosen.length === 2 ? chosen : inactive.slice(0, 2).map((d) => d.id);
+    toDiscard.forEach((id) => { const d = s.turn.dice.find((x) => x.id === id); if (d) d.inConverter = true; });
+    addResource(p, 'energy', 2); addResource(p, 'culture', 2);
+    return `${p.name} discarded 2 dice, acquired 2 energy + 2 culture`;
+  },
   cp9: (s, p, c) => { const id = c?.dieIds?.[0]; const face = c?.face; const d = s.turn.dice.find((x) => x.id === id && !x.activated && !x.inConverter); if (d && face) { d.face = face; return `${p.name} set a die to ${face}`; } return `${p.name}: no die set`; },
   cp25: (s, p, c) => rerollInactive(s, p, c),
   cp30: (s, p) => { const home = p.ships.filter((x) => x.kind === 'galaxy').length; addResource(p, 'culture', home); return `${p.name} acquired ${home} culture (1 per ship in your galaxy)`; },
@@ -126,7 +144,7 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp24: (s, p, c) => { enemies(s, p).forEach((e) => { for (let i = 0; i < e.ships.length; i++) { const sh = e.ships[i]; if (sh.kind === 'orbit') { advanceShip(s, e, i, PLANET(sh.planetId)!.colonizeType, 1); break; } } }); advanceFlexible(s, p, 2, c); return `${p.name}: others advanced +1, you advanced +2`; },
   cp22: (s, p, c) => { const idx = c?.shipIdx ?? anyOrbitingShip(p); const dest = c?.dest; if (idx != null && dest && dest.kind === 'orbit') { p.ships[idx] = dest; return `${p.name} moved a ship to another colony track`; } return `${p.name}: no valid move`; },
   cp39: (s, p, c) => { const idx = c?.shipIdx ?? anyOrbitingShip(p); if (idx != null && p.ships[idx].kind === 'orbit') { const lvl = (p.ships[idx] as { level: number }).level; p.ships[idx] = { kind: 'galaxy' }; const kind = c?.resource ?? 'energy'; addResource(p, kind, lvl); return `${p.name} displaced a ship, acquired ${lvl} ${kind}`; } return `${p.name}: no orbiting ship`; },
-  cp21: (s, p) => {
+  cp21: (s, p) => oncePerTurn(s, 'cp21', `${p.name}: NAGATO already used this turn`, () => {
     if (p.culture < 1) return `${p.name}: needs 1 culture`;
     addResource(p, 'culture', -1);
     let moved = 0;
@@ -135,7 +153,7 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
       if (sh.kind === 'orbit') { advanceShip(s, p, i, PLANET(sh.planetId)!.colonizeType, 1); moved++; }
     }
     return `${p.name} spent 1 culture to advance ${moved} ship(s)`;
-  },
+  }),
   cp3: (s, p, c) => {
     const f = c?.face;
     if (f === 'energy' || f === 'culture') { const g = acquireFromGalaxy(s, p, f); return `${p.name} took a free Acquire — +${g} ${f}`; }

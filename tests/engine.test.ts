@@ -6,7 +6,7 @@ import {
   computeWinners,
   type GameState,
 } from '../src/engine/index.js';
-import { planetOptions } from '../src/engine/planetEffects.js';
+import { planetOptions, PLANET_EFFECTS } from '../src/engine/planetEffects.js';
 
 function newGame(seed = 42): GameState {
   return createInitialState({
@@ -169,6 +169,31 @@ describe('follow an upgrade pays both the follow tax and the full upgrade cost',
     const f = s.players[1];
     expect(f.empireLevel).toBe(before); // no upgrade
     expect(f.culture).toBe(6);          // tax refunded
+  });
+});
+
+describe('planet effect cost/limit fidelity', () => {
+  it('MAIA (cp5) enforces the discard-2-dice cost', () => {
+    const s = newGame(1);
+    const p = s.players[0];
+    p.energy = 0; p.culture = 0;
+    s.turn.dice = [{ id: 0, face: 'energy', activated: false }, { id: 1, face: 'culture', activated: false }, { id: 2, face: 'move', activated: false }] as any;
+    PLANET_EFFECTS['cp5'](s, p, {});
+    expect(s.turn.dice.filter((d: any) => d.inConverter).length).toBe(2);
+    expect(p.energy).toBe(2);
+    expect(p.culture).toBe(2);
+    // With fewer than 2 inactive dice, no benefit.
+    const s2 = newGame(1); const p2 = s2.players[0]; p2.energy = 0;
+    s2.turn.dice = [{ id: 0, face: 'move', activated: true }] as any;
+    PLANET_EFFECTS['cp5'](s2, p2, {});
+    expect(p2.energy).toBe(0);
+  });
+
+  it('LA-TORRES (cp20) only steals once per turn', () => {
+    const s = newGame(1);
+    const p = s.players[0]; s.players[1].energy = 5;
+    expect(PLANET_EFFECTS['cp20'](s, p, {})).toMatch(/stole/);
+    expect(PLANET_EFFECTS['cp20'](s, p, {})).toMatch(/already used/);
   });
 });
 
