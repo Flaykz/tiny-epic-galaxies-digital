@@ -142,7 +142,13 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
       if (c?.shipIdx != null && advanceShip(s, p, c.shipIdx, f, 1)) return `${p.name} took a free Advance (${f})`;
       return `${p.name}: free advance had no valid ship`;
     }
-    if (f === 'colony') return `${p.name} took a free Upgrade — ` + doUpgrade(s, p, c?.resource ?? 'either');
+    if (f === 'colony') {
+      // Utilize-a-Colony as the free action: use a colonized planet, or upgrade.
+      if (c?.planetId && p.colonized.includes(c.planetId) && PLANET_EFFECTS[c.planetId]) {
+        return `${p.name} took a free Colony action — ` + PLANET_EFFECTS[c.planetId](s, p, c);
+      }
+      return `${p.name} took a free Upgrade — ` + doUpgrade(s, p, c?.resource ?? 'either');
+    }
     return `${p.name} took a free action — ` + advanceFlexible(s, p, 1, c);
   },
   cp6: (s, p, c) => useOthersColony(s, p, 'culture', c),
@@ -300,6 +306,10 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
         const cst = empire(p.empireLevel + 1).upgradeCost;
         if (p.energy >= cst) out.push(opt({ face: 'colony', resource: 'energy' }, `Free action: Upgrade empire (pay ${cst} energy)`));
         if (p.culture >= cst) out.push(opt({ face: 'colony', resource: 'culture' }, `Free action: Upgrade empire (pay ${cst} culture)`));
+      }
+      // The colony die can also utilize one of your colonized planets.
+      for (const pid of p.colonized) {
+        if (!META.has(pid) && PLANET_EFFECTS[pid]) out.push(opt({ face: 'colony', planetId: pid }, `Free action: Use colony ${PLANET(pid)?.name}`));
       }
       return out;
     }
