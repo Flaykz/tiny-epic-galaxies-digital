@@ -324,7 +324,10 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
     case 'cp20': return stealOpts('energy');
     case 'cp31': return stealOpts('culture');
     case 'cp23':
-      return state.turn.dice.filter((d) => d.activated && !d.inConverter)
+      // PIEDES repeats an activated die's action. A 'move' can't be replayed from
+      // the effects layer (it needs ship+destination targeting), so only the
+      // resource/advance/colony faces are offered — never a dead-end move button.
+      return state.turn.dice.filter((d) => d.activated && !d.inConverter && d.face !== 'move')
         .map((d) => opt({ dieIds: [d.id] }, `Repeat the ${FACE_LABEL[d.face]} die`));
     case 'cp9': {
       const out: Action[] = [];
