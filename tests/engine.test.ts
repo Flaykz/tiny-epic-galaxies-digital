@@ -123,7 +123,7 @@ describe('HELIOS (cp8) discards only un-occupied planets', () => {
     const s = newGame(3);
     const occ = s.centerRow[0];
     s.players[1].ships[0] = { kind: 'orbit', planetId: occ, level: 0 };
-    const labels = planetOptions(s, s.players[0], 'cp8').map((o) => o.label);
+    const labels = planetOptions(s, s.players[0], 'cp8').map((o) => (o as { label?: string }).label ?? '');
     expect(labels.some((l) => l.includes(occ))).toBe(false);
     expect(labels.length).toBe(s.centerRow.length - 1);
   });
@@ -139,5 +139,35 @@ describe('HELIOS (cp8) discards only un-occupied planets', () => {
       (sh) => (sh.kind === 'orbit' || sh.kind === 'surface') && !s.centerRow.includes(sh.planetId),
     );
     expect(stillDangling).toBe(false);
+  });
+});
+
+describe('follow an upgrade pays both the follow tax and the full upgrade cost', () => {
+  it('does not offer a culture-funded upgrade follow that the tax would make unaffordable', () => {
+    const s = newGame(5);
+    const follower = s.players[1];
+    // Set up a colony die on the active player so a follow window opens.
+    follower.empireLevel = 5; // L5->L6 costs 6
+    follower.culture = 6;     // exactly the upgrade cost, but the +1 follow tax makes it short
+    follower.energy = 0;
+    // Drive the follow-option generator directly via legalActions in a follow window.
+    s.turn.pendingFollow = { face: 'colony', queue: [follower.id], sourcePlayer: s.players[0].id } as any;
+    const acts = tegAdapter.legalActions(s, follower.id);
+    const cultureUpgrade = acts.find((a) => a.type === 'follow' && (a as any).params?.pay === 'culture');
+    expect(cultureUpgrade).toBeUndefined();
+  });
+
+  it('refunds the follow tax if the copied upgrade cannot be afforded', () => {
+    let s = newGame(5);
+    const follower = s.players[1];
+    follower.empireLevel = 5;
+    follower.culture = 6; // enough for the tax but not tax+upgrade
+    follower.energy = 0;
+    const before = follower.empireLevel;
+    s.turn.pendingFollow = { face: 'colony', queue: [follower.id], sourcePlayer: s.players[0].id } as any;
+    s = tegAdapter.applyAction(s, { type: 'follow', accept: true, params: { pay: 'culture' } } as any, follower.id);
+    const f = s.players[1];
+    expect(f.empireLevel).toBe(before); // no upgrade
+    expect(f.culture).toBe(6);          // tax refunded
   });
 });

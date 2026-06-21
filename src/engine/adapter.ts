@@ -200,8 +200,11 @@ function followOptions(state: GameState, p: PlayerState, face: DieFace): Action[
     case 'colony':
       if (p.empireLevel < MAX_EMPIRE) {
         const c = empire(p.empireLevel + 1).upgradeCost;
+        // The 1-culture follow tax is paid first, so a culture-funded upgrade must
+        // cover BOTH the tax and the upgrade cost from the same pool.
+        const followTax = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
         if (p.energy >= c) out.push({ type: 'follow', accept: true, params: { pay: 'energy' } });
-        if (p.culture >= c) out.push({ type: 'follow', accept: true, params: { pay: 'culture' } });
+        if (p.culture >= c + followTax) out.push({ type: 'follow', accept: true, params: { pay: 'culture' } });
       }
       for (const planetId of p.colonized) {
         out.push({ type: 'follow', accept: true, params: { planetId } });
@@ -466,36 +469,43 @@ function resolveFollow(state: GameState, action: { type: 'follow'; accept: boole
     const cost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
     if (p.culture >= cost) {
       addResource(p, 'culture', -cost);
-      state.turn.lastActivationFollows++;
-      applyFollowEffect(state, p, pf.face, action.params ?? {});
-      state.log.push(`${p.name} followed (${pf.face})`);
+      const ok = applyFollowEffect(state, p, pf.face, action.params ?? {});
+      if (ok) {
+        state.turn.lastActivationFollows++;
+        state.log.push(`${p.name} followed (${pf.face})`);
+      } else {
+        // The copied action couldn't actually be performed — refund the follow tax.
+        addResource(p, 'culture', cost);
+      }
     }
   }
   if (pf.queue.length === 0) state.turn.pendingFollow = null;
 }
 
-function applyFollowEffect(state: GameState, p: PlayerState, face: DieFace, params: any): void {
+/** Perform a copied action; returns false if it could not actually be carried out. */
+function applyFollowEffect(state: GameState, p: PlayerState, face: DieFace, params: any): boolean {
   switch (face) {
     case 'energy':
     case 'culture':
       acquireFromGalaxy(state, p, face);
-      break;
+      return true;
     case 'move':
-      if (params.shipIdx != null && params.dest) arrive(state, p, params.shipIdx, params.dest);
-      break;
+      if (params.shipIdx != null && params.dest) { arrive(state, p, params.shipIdx, params.dest); return true; }
+      return false;
     case 'diplomacy':
     case 'economy':
-      if (params.shipIdx != null) advanceShip(state, p, params.shipIdx, face, 1);
-      break;
+      if (params.shipIdx != null) return advanceShip(state, p, params.shipIdx, face, 1);
+      return false;
     case 'colony':
       if (params.planetId && p.colonized.includes(params.planetId)) {
         const eff = PLANET_EFFECTS[params.planetId];
-        if (eff) state.log.push(eff(state, p, params.choice));
-      } else if (params.pay) {
-        upgradeEmpire(state, p, params.pay);
+        if (eff) { state.log.push(eff(state, p, params.choice)); return true; }
+        return false;
       }
-      break;
+      if (params.pay) return upgradeEmpire(state, p, params.pay);
+      return false;
   }
+  return false;
 }
 
 function endTurn(state: GameState): void {
