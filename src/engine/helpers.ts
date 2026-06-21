@@ -128,12 +128,10 @@ export function advanceShip(
 export function regressShip(state: GameState, p: PlayerState, shipIdx: number, steps = 1): void {
   const s = p.ships[shipIdx];
   if (s.kind !== 'orbit') return;
-  const newLevel = s.level - steps;
-  if (newLevel < 0) {
-    p.ships[shipIdx] = { kind: 'galaxy' };
-  } else {
-    p.ships[shipIdx] = { kind: 'orbit', planetId: s.planetId, level: newLevel };
-  }
+  // "A ship cannot be regressed off a track" (Gamelyn ruling, printed in the box):
+  // it stops at the orbit's starting space (level 0) — never returned to the galaxy.
+  const newLevel = Math.max(0, s.level - steps);
+  p.ships[shipIdx] = { kind: 'orbit', planetId: s.planetId, level: newLevel };
 }
 
 /** Colonize a planet for player p: return all ships there home, slide card under mat, refill row. */

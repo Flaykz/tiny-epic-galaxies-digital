@@ -212,6 +212,21 @@ describe('planet effect cost/limit fidelity', () => {
   });
 });
 
+describe('regress never knocks a ship off the orbit track', () => {
+  it('a ship at the orbit start stays at the start (not returned home)', async () => {
+    const { regressShip } = await import('../src/engine/helpers.js');
+    const s = newGame(1);
+    const p = s.players[0];
+    p.ships[0] = { kind: 'orbit', planetId: 'cp13', level: 0 };
+    regressShip(s, p, 0, 1);
+    expect(p.ships[0]).toEqual({ kind: 'orbit', planetId: 'cp13', level: 0 });
+    // Over-regress clamps to the start, still on the track.
+    p.ships[1] = { kind: 'orbit', planetId: 'cp13', level: 2 };
+    regressShip(s, p, 1, 5);
+    expect(p.ships[1]).toEqual({ kind: 'orbit', planetId: 'cp13', level: 0 });
+  });
+});
+
 describe('regress/reroll planets prompt for their targets', () => {
   it('BRUMBAUGH (cp40) prompts for which two enemy ships to regress', () => {
     let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 4 });
