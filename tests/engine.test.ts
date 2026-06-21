@@ -172,6 +172,27 @@ describe('follow an upgrade pays both the follow tax and the full upgrade cost',
   });
 });
 
+describe('PIEDES (cp23) can repeat a move die', () => {
+  it('offers concrete repeat-move destinations and performs the move', () => {
+    let s = newGame(2);
+    const p = s.players[0];
+    s.centerRow[0] = 'cp23';
+    s.turn.dice = [{ id: 9, face: 'move', activated: true }, { id: 0, face: 'move', activated: false }] as any;
+    p.ships[0] = { kind: 'galaxy' };
+    p.ships[1] = { kind: 'galaxy' };
+    // Land ship 0 on PIEDES surface; this should prompt (repeat-move options exist).
+    s = tegAdapter.applyAction(s, { type: 'activateMove', dieId: 0, shipIdx: 0, dest: { kind: 'surface', planetId: 'cp23' } } as any, p.id);
+    expect(s.turn.pendingChoice?.planetId).toBe('cp23');
+    const repeat = tegAdapter.legalActions(s, p.id).find(
+      (a) => a.type === 'resolvePlanet' && /Repeat move: ship #2 .* \(orbit\)/.test((a as any).label ?? ''),
+    )!;
+    expect(repeat).toBeTruthy();
+    s = tegAdapter.applyAction(s, repeat, p.id);
+    expect(s.players[0].ships[1].kind).not.toBe('galaxy'); // the repeated move happened
+    expect(s.turn.pendingChoice).toBeNull();
+  });
+});
+
 describe('following a move onto a surface still prompts for the planet action', () => {
   it('opens a pendingChoice for the follower, then resumes the follow queue', () => {
     let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 2 });

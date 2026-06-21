@@ -100,7 +100,7 @@ function triggerPlanet(
     return;
   }
   if (REROLL_PLANETS.has(planetId)) rerollDice(state, inactiveDice(state).map((d) => d.id));
-  const opts = interactive ? planetOptions(state, p, planetId) : [];
+  const opts = interactive ? planetChoiceOptions(state, p, planetId) : [];
   // Surface/colony actions are optional, so whenever there's at least one target
   // to pick, pause for the choice (the prompt always includes a "skip" option).
   if (opts.length >= 1) {
@@ -109,6 +109,34 @@ function triggerPlanet(
   }
   state.log.push(eff(state, p));
   if (thenFollow) openFollowWindow(state, thenFollow);
+}
+
+/** Short label for a move destination, used in PIEDES "repeat move" options. */
+function destLabel(d: ShipLocation): string {
+  if (d.kind === 'surface') return `${PLANET(d.planetId)?.name ?? d.planetId} (surface)`;
+  if (d.kind === 'orbit') return `${PLANET(d.planetId)?.name ?? d.planetId} (orbit)`;
+  return 'home galaxy';
+}
+
+/**
+ * The full target-choice list for a planet action. This is `planetOptions` plus
+ * any options that need the adapter's own helpers — currently PIEDES (cp23)
+ * repeating a MOVE die, whose destinations come from `moveDestinations`. Used by
+ * both `triggerPlanet` (to decide whether to prompt) and `legalActions`.
+ */
+function planetChoiceOptions(state: GameState, p: PlayerState, planetId: string): Action[] {
+  const opts = [...planetOptions(state, p, planetId)];
+  if (planetId === 'cp23') {
+    for (const d of state.turn.dice.filter((x) => x.activated && !x.inConverter && x.face === 'move')) {
+      p.ships.forEach((s, idx) => {
+        if (s.kind === 'locked') return;
+        for (const dest of moveDestinations(state, p, idx)) {
+          opts.push({ type: 'resolvePlanet', choice: { dieIds: [d.id], shipIdx: idx, dest }, label: `Repeat move: ship #${idx + 1} → ${destLabel(dest)}` });
+        }
+      });
+    }
+  }
+  return opts;
 }
 
 function rerollDice(state: GameState, dieIds: number[]): void {
@@ -236,7 +264,7 @@ export const tegAdapter: GameAdapter<GameState, Action, string> = {
     if (pc && pc.player === actor) {
       // Awaiting a target choice for a planet action.
       const cp = player(state, actor);
-      return [...planetOptions(state, cp, pc.planetId), { type: 'skipPlanet' }];
+      return [...planetChoiceOptions(state, cp, pc.planetId), { type: 'skipPlanet' }];
     }
 
     const pf = state.turn.pendingFollow;
@@ -411,9 +439,22 @@ function applyMut(state: GameState, action: Action, actor: string): void {
     case 'resolvePlanet': {
       const pc = state.turn.pendingChoice;
       if (!pc || pc.player !== actor) break;
+      const thenFollow = pc.thenFollow;
+      // PIEDES (cp23) repeating a MOVE die: perform the move itself (the effects
+      // layer can't, since destinations come from the adapter). The repeated move
+      // may land on a surface and prompt for THAT planet's action, carrying the
+      // deferred follow along — exactly like a normal move.
+      if (pc.planetId === 'cp23' && action.choice?.dest && action.choice.shipIdx != null) {
+        const dest = action.choice.dest;
+        const wasSurface = dest.kind === 'surface';
+        state.turn.pendingChoice = null;
+        state.log.push(`${p.name} repeated a move`);
+        arrive(state, p, action.choice.shipIdx, dest, { interactive: true, thenFollow });
+        if (!wasSurface && thenFollow) openFollowWindow(state, thenFollow);
+        break;
+      }
       const eff = PLANET_EFFECTS[pc.planetId];
       if (eff) state.log.push(eff(state, p, action.choice));
-      const thenFollow = pc.thenFollow;
       state.turn.pendingChoice = null;
       if (thenFollow) openFollowWindow(state, thenFollow);
       break;
