@@ -422,6 +422,8 @@ function ActionPanel({
     );
   }
 
+  const actor = state.players.find((p) => p.id === state.turn.active);
+
   // Guarded submit: confirm before moving a ship OFF an orbit (you'd abandon the
   // track progress you've invested in getting there).
   const submit = (a: Action) => {
@@ -447,7 +449,7 @@ function ActionPanel({
         <div className="actions">
           {choiceActions.map((a, i) => (
             <button key={i} className={`act-btn ${a.type === 'skipPlanet' ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
-              {actionLabel(a, actorShips)}
+              {actionLabel(a, actorShips, actor)}
             </button>
           ))}
         </div>
@@ -464,7 +466,7 @@ function ActionPanel({
         <div className="actions">
           {followActions.map((a, i) => (
             <button key={i} className="act-btn" onClick={() => onAction(a)} title={actionTooltip(a)}>
-              {actionLabel(a, actorShips)}
+              {actionLabel(a, actorShips, actor)}
             </button>
           ))}
         </div>
@@ -498,7 +500,7 @@ function ActionPanel({
           <p className="muted small">Selected die: <strong>{selectedDieFace && FACE_LABEL[selectedDieFace]}</strong></p>
           {forDie(selectedDie).map((a, i) => (
             <button key={i} className="act-btn" onClick={() => submit(a)} title={actionTooltip(a)}>
-              {actionLabel(a, actorShips)}
+              {actionLabel(a, actorShips, actor)}
             </button>
           ))}
           {forDie(selectedDie).length === 0 && <p className="muted">No legal use for this die right now.</p>}
@@ -512,7 +514,7 @@ function ActionPanel({
             className={`act-btn ${a.type === 'endTurn' ? 'end' : 'global'}`}
             onClick={() => onAction(a)} title={actionTooltip(a)}
           >
-            {actionLabel(a, actorShips)}
+            {actionLabel(a, actorShips, actor)}
           </button>
         ))}
       </div>

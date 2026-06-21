@@ -1,4 +1,4 @@
-import { PLANETS_BY_ID, type Action, type ShipLocation } from '../engine/index.js';
+import { PLANETS_BY_ID, acquireCount, type Action, type PlayerState, type ShipLocation } from '../engine/index.js';
 
 function locLabel(l: ShipLocation): string {
   switch (l.kind) {
@@ -22,13 +22,14 @@ function shipWhere(ships: ShipLocation[] | undefined, idx: number): string {
 }
 
 /** Human-readable label for a legal action button. `ships` = the acting player's ships. */
-export function actionLabel(a: Action, ships?: ShipLocation[]): string {
+export function actionLabel(a: Action, ships?: ShipLocation[], actor?: PlayerState): string {
   const ship = (i: number) => shipWhere(ships, i);
   switch (a.type) {
     case 'activateMove':
       return `Move ship (${ship(a.shipIdx)}) → ${locLabel(a.dest)}`;
     case 'activateAcquire':
-      return `Acquire ${a.resource}`;
+      // Show the projected yield so a "+0" (no matching producers) is never a surprise.
+      return actor ? `Acquire ${a.resource} (+${acquireCount(actor, a.resource)})` : `Acquire ${a.resource}`;
     case 'activateAdvance':
       return `Advance ship (${ship(a.shipIdx)}) — ${a.advance}`;
     case 'activateColonyGalaxy':

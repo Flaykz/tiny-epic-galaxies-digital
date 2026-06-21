@@ -153,7 +153,12 @@ export function checkEndTrigger(state: GameState, p: PlayerState): void {
  * ENERGY for each of your ships on your Galaxy Card (the home galaxy produces
  * energy; it does not produce culture).
  */
-export function acquireFromGalaxy(state: GameState, p: PlayerState, kind: 'energy' | 'culture'): number {
+/**
+ * How much of `kind` an Acquire action would yield right now (side-effect free).
+ * Energy: +1 per ship on your Galaxy Card. Both resources: +1 per ship on/orbiting
+ * a planet producing that resource (rulebook p.6).
+ */
+export function acquireCount(p: PlayerState, kind: 'energy' | 'culture'): number {
   let count = 0;
   for (const s of p.ships) {
     if (s.kind === 'galaxy') {
@@ -163,6 +168,11 @@ export function acquireFromGalaxy(state: GameState, p: PlayerState, kind: 'energ
       if (planet && planet.resourceType === kind) count++;
     }
   }
+  return count;
+}
+
+export function acquireFromGalaxy(state: GameState, p: PlayerState, kind: 'energy' | 'culture'): number {
+  const count = acquireCount(p, kind);
   addResource(p, kind, count);
   return count;
 }

@@ -13,4 +13,5 @@ export {
   computeWinners,
   player as getPlayer,
   PLANET,
+  acquireCount,
 } from './helpers.js';
