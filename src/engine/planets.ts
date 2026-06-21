@@ -36,7 +36,7 @@ export const PLANETS: Planet[] = [
   { id: 'cp31', name: 'CLJ-0517', resourceType: 'energy', orbitTrackLength: 2, colonizeType: 'economy', action: 'Steal 1 culture from another player (only once per turn)', vp: 2 },
   { id: 'cp32', name: 'K-WIDOW', resourceType: 'culture', orbitTrackLength: 5, colonizeType: 'economy', action: 'Regress an enemy ship -1', vp: 7 },
   { id: 'cp33', name: 'TIFNOD', resourceType: 'culture', orbitTrackLength: 1, colonizeType: 'economy', action: 'Spend 1 energy to regress 1 enemy ship -1', vp: 1 },
-  { id: 'cp34', name: 'VIZCARRA', resourceType: 'energy', orbitTrackLength: 1, colonizeType: 'diplomacy', action: 'Spend 1 economy to regress 1 enemy ship -1', vp: 1 },
+  { id: 'cp34', name: 'VIZCARRA', resourceType: 'energy', orbitTrackLength: 1, colonizeType: 'diplomacy', action: 'Regress 1 enemy ship by 1', vp: 1 },
   { id: 'cp35', name: 'SARGUS-36', resourceType: 'culture', orbitTrackLength: 4, colonizeType: 'diplomacy', action: 'Pay 1 energy to a player to utilize one of their colonized planets', vp: 5 },
   { id: 'cp36', name: 'PEMBERTONIA-MAJOR', resourceType: 'energy', orbitTrackLength: 3, colonizeType: 'economy', action: 'Convert any number of culture into energy', vp: 3 },
   { id: 'cp37', name: 'PADRAIGIN-3110', resourceType: 'culture', orbitTrackLength: 3, colonizeType: 'economy', action: 'Spend 2 culture to advance +2 diplomacy', vp: 3 },

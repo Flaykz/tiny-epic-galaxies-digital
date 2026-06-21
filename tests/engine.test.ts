@@ -189,6 +189,21 @@ describe('planet effect cost/limit fidelity', () => {
     expect(p2.energy).toBe(0);
   });
 
+  it('NAKAGAWAKOZI (cp27) does not offer or charge when unaffordable / no target', () => {
+    const s = newGame(1);
+    const p = s.players[0];
+    p.energy = 0;
+    p.ships[0] = { kind: 'orbit', planetId: s.centerRow[0], level: 0 };
+    expect(planetOptions(s, p, 'cp27')).toHaveLength(0); // can't afford → not offered
+    PLANET_EFFECTS['cp27'](s, p, {});
+    expect(p.energy).toBe(0); // never charged
+    // Affordable but no economy ship: must not charge.
+    const s2 = newGame(1); const p2 = s2.players[0];
+    p2.energy = 2; p2.ships = [{ kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }];
+    PLANET_EFFECTS['cp27'](s2, p2, {});
+    expect(p2.energy).toBe(2);
+  });
+
   it('LA-TORRES (cp20) only steals once per turn', () => {
     const s = newGame(1);
     const p = s.players[0]; s.players[1].energy = 5;

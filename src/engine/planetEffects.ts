@@ -120,8 +120,8 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp20: (s, p, c) => oncePerTurn(s, 'cp20', `${p.name}: LA-TORRES already used this turn`, () => steal(s, p, 'energy', c)),
   cp31: (s, p, c) => oncePerTurn(s, 'cp31', `${p.name}: CLJ-0517 already used this turn`, () => steal(s, p, 'culture', c)),
   cp32: (s, p, c) => (regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no enemy ship to regress`),
-  cp10: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; addResource(p, 'culture', -2); return regressEnemyAuto(s, p, 2, c) ? `${p.name} regressed an enemy ship -2` : `${p.name}: no target`; },
-  cp33: (s, p, c) => { if (p.energy < 1) return `${p.name}: needs 1 energy`; addResource(p, 'energy', -1); return regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no target`; },
+  cp10: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; if (regressEnemyAuto(s, p, 2, c)) { addResource(p, 'culture', -2); return `${p.name} regressed an enemy ship -2`; } return `${p.name}: no target`; },
+  cp33: (s, p, c) => { if (p.energy < 1) return `${p.name}: needs 1 energy`; if (regressEnemyAuto(s, p, 1, c)) { addResource(p, 'energy', -1); return `${p.name} regressed an enemy ship -1`; } return `${p.name}: no target`; },
   cp34: (s, p, c) => (regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no target`),
   cp40: (s, p, c) => {
     if (p.energy < 2) return `${p.name}: needs 2 energy`;
@@ -131,13 +131,14 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
       for (const e of enemies(s, p)) for (let i = 0; i < e.ships.length && picks.length < 2; i++) if (e.ships[i].kind === 'orbit') picks.push({ player: e.id, shipIdx: i });
     }
     if (picks.length === 0) return `${p.name}: no enemy ship to regress`;
-    addResource(p, 'energy', -2);
     let n = 0;
     for (const t of picks) { const e = player(s, t.player); if (e.ships[t.shipIdx]?.kind === 'orbit') { regressShip(s, e, t.shipIdx, 1); n++; } }
+    if (n === 0) return `${p.name}: no enemy ship to regress`;
+    addResource(p, 'energy', -2);
     return `${p.name} regressed ${n} enemy ship(s) -1`;
   },
-  cp27: (s, p, c) => { if (p.energy < 2) return `${p.name}: needs 2 energy`; addResource(p, 'energy', -2); return advanceAuto(s, p, 'economy', 2, c) ? `${p.name} advanced +2 economy` : `${p.name}: no economy ship`; },
-  cp37: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; addResource(p, 'culture', -2); return advanceAuto(s, p, 'diplomacy', 2, c) ? `${p.name} advanced +2 diplomacy` : `${p.name}: no diplomacy ship`; },
+  cp27: (s, p, c) => { if (p.energy < 2) return `${p.name}: needs 2 energy`; if (advanceAuto(s, p, 'economy', 2, c)) { addResource(p, 'energy', -2); return `${p.name} advanced +2 economy`; } return `${p.name}: no economy ship`; },
+  cp37: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; if (advanceAuto(s, p, 'diplomacy', 2, c)) { addResource(p, 'culture', -2); return `${p.name} advanced +2 diplomacy`; } return `${p.name}: no diplomacy ship`; },
   cp5: (s, p, c) => {
     // MAIA's cost: discard 2 inactive dice. Require 2 to be available, and always
     // pay the cost (use the chosen dice if given, else the first two inactive ones).
@@ -345,9 +346,13 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
     case 'cp4': return advOpts('diplomacy');
     case 'cp14': return advOpts();
     case 'cp24': return advOpts();
-    case 'cp27': return advOpts('economy');
-    case 'cp37': return advOpts('diplomacy');
-    case 'cp10': case 'cp32': case 'cp33': case 'cp34': return regressOpts();
+    // These actions cost resources — only offer them when the player can pay,
+    // so a player never picks an option that then fizzles with "needs N".
+    case 'cp27': return p.energy >= 2 ? advOpts('economy') : [];
+    case 'cp37': return p.culture >= 2 ? advOpts('diplomacy') : [];
+    case 'cp32': case 'cp34': return regressOpts(); // no resource cost
+    case 'cp10': return p.culture >= 2 ? regressOpts() : [];
+    case 'cp33': return p.energy >= 1 ? regressOpts() : [];
     case 'cp40': {
       // BRUMBAUGH: regress TWO enemy ships -1. Offer each pair (regressed together);
       // if only one enemy ship exists, offer that single. Needs 2 energy.
