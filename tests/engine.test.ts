@@ -197,6 +197,40 @@ describe('planet effect cost/limit fidelity', () => {
   });
 });
 
+describe('regress/reroll planets prompt for their targets', () => {
+  it('BRUMBAUGH (cp40) prompts for which two enemy ships to regress', () => {
+    let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 4 });
+    const p = s.players[0]; p.energy = 5;
+    s.players[1].ships[0] = { kind: 'orbit', planetId: s.centerRow[1], level: 2 };
+    s.players[2].ships[0] = { kind: 'orbit', planetId: s.centerRow[2], level: 1 };
+    s.centerRow[0] = 'cp40'; p.ships[0] = { kind: 'galaxy' };
+    s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
+    s = tegAdapter.applyAction(s, { type: 'activateMove', dieId: 0, shipIdx: 0, dest: { kind: 'surface', planetId: 'cp40' } } as any, p.id);
+    expect(s.turn.pendingChoice?.planetId).toBe('cp40');
+    const pick = tegAdapter.legalActions(s, p.id).find((a) => a.type === 'resolvePlanet')!;
+    s = tegAdapter.applyAction(s, pick, p.id);
+    expect(s.players[1].ships[0].kind === 'orbit' ? (s.players[1].ships[0] as any).level : -1).toBe(1);
+    expect(s.players[2].ships[0].kind === 'orbit' ? (s.players[2].ships[0] as any).level : -1).toBe(0);
+    expect(s.players[0].energy).toBe(3);
+  });
+
+  it('ZALAX (cp25) prompts per die and excludes already-rerolled dice', () => {
+    let s = newGame(4);
+    const p = s.players[0];
+    s.centerRow[0] = 'cp25'; p.ships[0] = { kind: 'galaxy' };
+    s.turn.dice = [{ id: 0, face: 'move', activated: false }, { id: 1, face: 'energy', activated: false }, { id: 2, face: 'culture', activated: false }] as any;
+    s = tegAdapter.applyAction(s, { type: 'activateMove', dieId: 0, shipIdx: 0, dest: { kind: 'surface', planetId: 'cp25' } } as any, p.id);
+    expect(s.turn.pendingChoice?.planetId).toBe('cp25');
+    const r1 = tegAdapter.legalActions(s, p.id).find((a) => a.type === 'resolvePlanet' && (a as any).choice.dieIds[0] === 1)!;
+    s = tegAdapter.applyAction(s, r1, p.id);
+    // Still prompting, die 1 excluded, only die 2 offered.
+    const remaining = tegAdapter.legalActions(s, p.id).filter((a) => a.type === 'resolvePlanet').map((a) => (a as any).choice.dieIds[0]);
+    expect(remaining).toEqual([2]);
+    s = tegAdapter.applyAction(s, { type: 'skipPlanet' } as any, p.id);
+    expect(s.turn.pendingChoice).toBeNull();
+  });
+});
+
 describe('PIEDES (cp23) can repeat a move die', () => {
   it('offers concrete repeat-move destinations and performs the move', () => {
     let s = newGame(2);

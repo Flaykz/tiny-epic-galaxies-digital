@@ -126,6 +126,14 @@ function destLabel(d: ShipLocation): string {
  */
 function planetChoiceOptions(state: GameState, p: PlayerState, planetId: string): Action[] {
   const opts = [...planetOptions(state, p, planetId)];
+  if (planetId === 'cp25') {
+    // ZALAX: reroll any number of your inactive dice — pick them one at a time
+    // (already-rerolled dice this activation are excluded), then "skip" to stop.
+    const done = new Set(state.turn.pendingChoice?.rerolled ?? []);
+    for (const d of state.turn.dice.filter((x) => !x.activated && !x.inConverter && !done.has(x.id))) {
+      opts.push({ type: 'resolvePlanet', choice: { dieIds: [d.id] }, label: `Reroll the ${d.face} die` });
+    }
+  }
   if (planetId === 'cp23') {
     for (const d of state.turn.dice.filter((x) => x.activated && !x.inConverter && x.face === 'move')) {
       p.ships.forEach((s, idx) => {
@@ -444,6 +452,22 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       // layer can't, since destinations come from the adapter). The repeated move
       // may land on a surface and prompt for THAT planet's action, carrying the
       // deferred follow along — exactly like a normal move.
+      // ZALAX (cp25): reroll the chosen inactive die, then re-prompt so the player
+      // can reroll more or stop (skip). Already-rerolled dice are excluded above.
+      if (pc.planetId === 'cp25' && action.choice?.dieIds?.length) {
+        const id = action.choice.dieIds[0];
+        rerollDice(state, [id]);
+        const rerolled = [...(pc.rerolled ?? []), id];
+        const more = state.turn.dice.some((d) => !d.activated && !d.inConverter && !rerolled.includes(d.id));
+        if (more) {
+          state.turn.pendingChoice = { ...pc, rerolled };
+        } else {
+          state.turn.pendingChoice = null;
+          if (thenFollow) openFollowWindow(state, thenFollow);
+        }
+        state.log.push(`${p.name} rerolled a die`);
+        break;
+      }
       if (pc.planetId === 'cp23' && action.choice?.dest && action.choice.shipIdx != null) {
         const dest = action.choice.dest;
         const wasSurface = dest.kind === 'surface';

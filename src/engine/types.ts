@@ -87,6 +87,8 @@ export interface PendingChoice {
   source: 'surface' | 'colony';
   /** Follow window to open once the choice resolves (the die face that was used). */
   thenFollow: DieFace | null;
+  /** ZALAX (cp25): die ids already rerolled this activation (excluded from re-offer). */
+  rerolled?: number[];
 }
 
 export interface PendingFollow {
@@ -146,6 +148,8 @@ export interface PlanetActionChoice {
   shipIdx2?: number;
   targetPlayer?: string;
   targetShip?: { player: string; shipIdx: number };
+  /** Second regress target (BRUMBAUGH cp40 hits up to two enemy ships). */
+  targetShip2?: { player: string; shipIdx: number };
   resource?: ResourceType;
   amount?: number;
   dest?: ShipLocation;

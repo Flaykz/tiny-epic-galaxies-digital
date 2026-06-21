@@ -121,7 +121,19 @@ export const PLANET_EFFECTS: Record<string, PlanetEffect> = {
   cp10: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; addResource(p, 'culture', -2); return regressEnemyAuto(s, p, 2, c) ? `${p.name} regressed an enemy ship -2` : `${p.name}: no target`; },
   cp33: (s, p, c) => { if (p.energy < 1) return `${p.name}: needs 1 energy`; addResource(p, 'energy', -1); return regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no target`; },
   cp34: (s, p, c) => (regressEnemyAuto(s, p, 1, c) ? `${p.name} regressed an enemy ship -1` : `${p.name}: no target`),
-  cp40: (s, p, c) => { if (p.energy < 2) return `${p.name}: needs 2 energy`; addResource(p, 'energy', -2); let n = 0; for (const e of enemies(s, p)) { for (let i = 0; i < e.ships.length && n < 2; i++) if (e.ships[i].kind === 'orbit') { regressShip(s, e, i, 1); n++; } } return `${p.name} regressed ${n} enemy ship(s) -1`; },
+  cp40: (s, p, c) => {
+    if (p.energy < 2) return `${p.name}: needs 2 energy`;
+    let picks = [c?.targetShip, c?.targetShip2].filter((t): t is { player: string; shipIdx: number } => !!t);
+    if (picks.length === 0) {
+      // No explicit targets (auto/edge): take the first up-to-2 enemy orbiting ships.
+      for (const e of enemies(s, p)) for (let i = 0; i < e.ships.length && picks.length < 2; i++) if (e.ships[i].kind === 'orbit') picks.push({ player: e.id, shipIdx: i });
+    }
+    if (picks.length === 0) return `${p.name}: no enemy ship to regress`;
+    addResource(p, 'energy', -2);
+    let n = 0;
+    for (const t of picks) { const e = player(s, t.player); if (e.ships[t.shipIdx]?.kind === 'orbit') { regressShip(s, e, t.shipIdx, 1); n++; } }
+    return `${p.name} regressed ${n} enemy ship(s) -1`;
+  },
   cp27: (s, p, c) => { if (p.energy < 2) return `${p.name}: needs 2 energy`; addResource(p, 'energy', -2); return advanceAuto(s, p, 'economy', 2, c) ? `${p.name} advanced +2 economy` : `${p.name}: no economy ship`; },
   cp37: (s, p, c) => { if (p.culture < 2) return `${p.name}: needs 2 culture`; addResource(p, 'culture', -2); return advanceAuto(s, p, 'diplomacy', 2, c) ? `${p.name} advanced +2 diplomacy` : `${p.name}: no diplomacy ship`; },
   cp5: (s, p, c) => {
@@ -247,8 +259,10 @@ function rerollInactive(state: GameState, p: PlayerState, c?: PlanetActionChoice
   return `${p.name} rerolled ${ids.length} inactive dice`;
 }
 
-/** Planets whose effect needs the rng (reroll/set die) — adapter rerolls before invoking. */
-export const REROLL_PLANETS = new Set(['cp25']);
+/** Planets whose effect auto-rerolls via the adapter before resolving. ZALAX (cp25)
+ *  is now interactive (the player picks which inactive dice to reroll, one at a
+ *  time), handled in the adapter, so this set is empty. */
+export const REROLL_PLANETS = new Set<string>();
 
 // ---- Interactive target options ----
 
@@ -339,6 +353,26 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
     case 'cp27': return advOpts('economy');
     case 'cp37': return advOpts('diplomacy');
     case 'cp10': case 'cp32': case 'cp33': case 'cp34': return regressOpts();
+    case 'cp40': {
+      // BRUMBAUGH: regress TWO enemy ships -1. Offer each pair (regressed together);
+      // if only one enemy ship exists, offer that single. Needs 2 energy.
+      if (p.energy < 2) return [];
+      const ships = enemyOrbiting(state, p);
+      const out: Action[] = [];
+      for (let i = 0; i < ships.length; i++)
+        for (let j = i + 1; j < ships.length; j++) {
+          const a = ships[i], b = ships[j];
+          out.push(opt(
+            { targetShip: { player: a.player, shipIdx: a.shipIdx }, targetShip2: { player: b.player, shipIdx: b.shipIdx } },
+            `Regress ${a.name}'s ship on ${a.planet} + ${b.name}'s ship on ${b.planet}`,
+          ));
+        }
+      if (ships.length === 1) {
+        const a = ships[0];
+        out.push(opt({ targetShip: { player: a.player, shipIdx: a.shipIdx } }, `Regress ${a.name}'s ship on ${a.planet}`));
+      }
+      return out;
+    }
     case 'cp20': return stealOpts('energy');
     case 'cp31': return stealOpts('culture');
     case 'cp23':
