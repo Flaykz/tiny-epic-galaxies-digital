@@ -599,6 +599,9 @@ function resolveFollow(state: GameState, action: { type: 'follow'; accept: boole
       if (ok) {
         state.turn.lastActivationFollows++;
         state.log.push(`${p.name} followed (${pf.face})`);
+        // A followed action can colonize and win (e.g. completing an orbit track);
+        // the early return above skips the end-of-applyMut check, so do it here.
+        checkEnd(state, p);
       } else {
         // The copied action couldn't actually be performed — refund the follow tax.
         addResource(p, 'culture', cost);

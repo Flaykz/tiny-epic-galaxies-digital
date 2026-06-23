@@ -261,6 +261,25 @@ describe('regress/reroll planets prompt for their targets', () => {
   });
 });
 
+describe('win is detected when a FOLLOW colonizes the winning planet', () => {
+  it('ends the solo game immediately on a colonizing follow', async () => {
+    const { PLANETS_BY_ID, baseVp } = await import('../src/engine/index.js');
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 3 });
+    const me = s.players[0];
+    const eco = s.centerRow.find((id) => PLANETS_BY_ID[id].colonizeType === 'economy')!;
+    const pl = PLANETS_BY_ID[eco];
+    me.ships = [{ kind: 'orbit', planetId: eco, level: pl.orbitTrackLength }, { kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }];
+    me.culture = 5; me.empireLevel = 6; me.colonized = ['cp14', 'cp8', 'cp23'];
+    expect(baseVp(s, me)).toBeGreaterThanOrEqual(21);
+    expect(s.phase).toBe('playing'); // not yet detected — win is only checked on an action
+    s.turn.pendingFollow = { face: 'economy', queue: [me.id], sourcePlayer: s.players[1].id } as any;
+    s.turn.active = s.players[1].id;
+    s = tegAdapter.applyAction(s, { type: 'follow', accept: true, params: { shipIdx: 0, advance: 'economy' } } as any, me.id);
+    expect(s.phase).toBe('gameOver');
+    expect(s.winners).toEqual([me.id]);
+  });
+});
+
 describe('NAGATO (cp21) moves two ships', () => {
   it('pays 1 culture, prompts for two moves, and interleaves a landed surface choice', () => {
     let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }], seed: 6 });
