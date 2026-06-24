@@ -167,7 +167,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
           state={state}
           defaultSeverity={reportOpen === 'feedback' ? 'feedback' : 'bug'}
           title={reportOpen === 'feedback' ? 'Submit game log' : 'Report a problem'}
-          category={reportOpen === 'feedback' ? 'game-log' : undefined}
+          category={reportOpen === 'feedback' ? 'game-log' : 'tiny-epic-galaxies'}
           onClose={() => setReportOpen(null)}
         />
       )}
