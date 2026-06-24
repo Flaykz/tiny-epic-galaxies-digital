@@ -18,6 +18,8 @@ const server = new GameServer<GameState, Action, string>({
   codec: jsonCodec<GameState>(),
   store,
   gameUrl: (gameId, token) => `${PUBLIC_URL}/?game=${gameId}&token=${token}`,
+  // Best-effort play counter: createGame fires an 'online' beacon to the hub.
+  playBeacon: { appId: 'tiny-epic-galaxies' },
 });
 
 function json(res: import('node:http').ServerResponse, code: number, body: unknown) {

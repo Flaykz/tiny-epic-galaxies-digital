@@ -19,6 +19,8 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
     codec: jsonCodec<GameState>(),
     store: new KvStore(env.GAMES),
     gameUrl: (gameId, tok) => `${url.origin}/?game=${gameId}&token=${tok}`,
+    // Best-effort play counter: createGame fires an 'online' beacon to the hub.
+    playBeacon: { appId: 'tiny-epic-galaxies' },
   });
 
   const json = (code: number, body: unknown) =>

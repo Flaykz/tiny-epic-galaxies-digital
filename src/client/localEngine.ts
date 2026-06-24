@@ -1,3 +1,4 @@
+import { recordPlay } from 'digital-boardgame-framework';
 import {
   createInitialState,
   tegAdapter,
@@ -30,6 +31,10 @@ export class LocalEngine {
     this.seats = seats;
     this.aiThinkMs = aiThinkMs;
     this.state = createInitialState({ seats, seed });
+    // Best-effort play counter: a local game just started. 'ai' if any seat is
+    // AI/Rogue (vs-AI or solo), else 'hotseat'. Never throws or blocks.
+    const mode = seats.some((s) => s.control === 'ai' || s.isRogue) ? 'ai' : 'hotseat';
+    void recordPlay('tiny-epic-galaxies', mode);
     this.scheduleAi();
   }
 

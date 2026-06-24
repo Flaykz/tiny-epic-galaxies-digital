@@ -112,9 +112,26 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
             Multiplayer
           </button>
         </div>
+
+        <PlayCount />
       </div>
     </div>
   );
+}
+
+/** Best-effort "N games played" from the games hub. Never blocks the lobby. */
+function PlayCount() {
+  const [count, setCount] = useState<number | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    fetch('https://games-hub-5vo.pages.dev/stats?game=tiny-epic-galaxies')
+      .then((r) => r.json())
+      .then((d) => { if (alive && typeof d?.count === 'number') setCount(d.count); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (count == null) return null;
+  return <p className="muted small play-count">{count.toLocaleString()} games played</p>;
 }
 
 function LocalGame({ seats, seed, onExit }: { seats: LocalSeat[]; seed: number; onExit: () => void }) {
