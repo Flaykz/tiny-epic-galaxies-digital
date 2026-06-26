@@ -278,4 +278,26 @@ export function computeWinners(state: GameState): string[] {
   return winners;
 }
 
+/** Full finishing order, best-first, for ranked play. Same score + tie-break
+ *  logic as computeWinners, applied across every non-rogue contender so the
+ *  host can derive per-seat placement (1st, 2nd, …) for Glicko-2. */
+export function computeRanking(state: GameState): string[] {
+  const contenders = state.players.filter((p) => !p.isRogue);
+  const key = (p: PlayerState): [number, number, number, number] => [
+    finalScore(state, p),
+    p.colonized.length,
+    p.empireLevel,
+    p.energy + p.culture,
+  ];
+  return contenders
+    .slice()
+    .sort((a, b) => {
+      const A = key(a);
+      const B = key(b);
+      for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return B[i] - A[i];
+      return 0;
+    })
+    .map((p) => p.id);
+}
+
 export { withRng };

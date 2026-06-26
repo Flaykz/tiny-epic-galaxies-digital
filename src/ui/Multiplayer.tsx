@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { useGame } from 'digital-boardgame-framework/client';
-import { makeHttpClient, createGame } from '../client/httpClient.js';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useGame, useIdentity, SignInBar } from 'digital-boardgame-framework/client';
+import { makeHttpClient, createGame, claimSeat } from '../client/httpClient.js';
 import { Board } from './Board.js';
 import type { Action, GameState } from '../engine/index.js';
 

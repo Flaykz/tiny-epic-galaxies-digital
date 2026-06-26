@@ -16,6 +16,7 @@ import {
   advanceShip,
   baseVp,
   clone,
+  computeRanking,
   computeWinners,
   player,
   PLANET,
@@ -407,7 +408,9 @@ export const tegAdapter: GameAdapter<GameState, Action, string> = {
 
   result(state): GameResult<string> | null {
     if (state.phase !== 'gameOver') return null;
-    return { winners: state.winners ?? [], reason: 'game over' };
+    // Finishing order, best-first, for ranked play (Glicko-2). The host maps
+    // this through seat→playerId identities to derive per-player placement.
+    return { winners: state.winners ?? [], ranking: computeRanking(state), reason: 'game over' };
   },
 };
 

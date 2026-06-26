@@ -11,6 +11,7 @@ export {
   finalScore,
   missionBonus,
   computeWinners,
+  computeRanking,
   player as getPlayer,
   PLANET,
   acquireCount,

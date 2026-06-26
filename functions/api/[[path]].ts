@@ -1,12 +1,32 @@
 // Cloudflare Pages Function: serves the multiplayer GameServer at /api/* using a
 // KV-backed store. Same-origin as the frontend, so no CORS / proxy needed.
-import { GameServer } from 'digital-boardgame-framework/server';
+import { GameServer, verifyIdentityToken, type Jwks } from 'digital-boardgame-framework/server';
 import { jsonCodec } from 'digital-boardgame-framework';
 import { tegAdapter, createInitialState } from '../../src/engine/index.js';
 import type { Action, GameState } from '../../src/engine/index.js';
 import { KvStore } from './_kvstore.js';
 
-interface Env { GAMES: any }
+interface Env {
+  GAMES: any;
+  /** Shared secret matching the hub's RATINGS_INGEST_KEY. When set, finished
+   *  games auto-report to the hub's /ratings/record (ranked play). */
+  RATINGS_INGEST_KEY?: string;
+}
+
+const HUB = 'https://games-hub-5vo.pages.dev';
+
+// Module-scoped caches — persist across requests within a warm isolate.
+let _jwks: Jwks | undefined;
+let _jwksAt = 0;
+
+/** Hub public verification keys, fetched once and cached for an hour. */
+async function getJwks(): Promise<Jwks> {
+  if (!_jwks || Date.now() - _jwksAt > 3_600_000) {
+    _jwks = (await (await fetch(`${HUB}/id/jwks`)).json()) as Jwks;
+    _jwksAt = Date.now();
+  }
+  return _jwks;
+}
 
 export const onRequest = async (context: { request: Request; env: Env; params: { path?: string[] } }) => {
   const { request, env, params } = context;
@@ -21,6 +41,12 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
     gameUrl: (gameId, tok) => `${url.origin}/?game=${gameId}&token=${tok}`,
     // Best-effort play counter: createGame fires an 'online' beacon to the hub.
     playBeacon: { appId: 'tiny-epic-galaxies' },
+    // Ranked play: verify hub identity tokens (claimSeat) against the hub JWKS,
+    // and auto-report each finished game to the hub for Glicko-2 ratings.
+    verifyIdentity: async (t) => verifyIdentityToken(t, await getJwks()),
+    ...(env.RATINGS_INGEST_KEY
+      ? { ratings: { game: 'tiny-epic-galaxies', ingestKey: env.RATINGS_INGEST_KEY } }
+      : {}),
   });
 
   const json = (code: number, body: unknown) =>
@@ -101,7 +127,23 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
       const sub = parts[2];
       if (request.method === 'GET' && !sub) return json(200, await server.fetch(gameId, token));
       if (request.method === 'GET' && sub === 'legal') return json(200, await server.legalActions(gameId, token));
-      if (request.method === 'POST' && sub === 'actions') return json(200, await server.submit(gameId, token, await request.json()));
+      // POST /api/games/:id/claim — attach a hub identity to this seat (ranked).
+      if (request.method === 'POST' && sub === 'claim') {
+        const b: any = await request.json().catch(() => ({}));
+        const verified = await server.claimSeat(gameId, token, String(b.identityToken ?? ''));
+        return json(200, { ok: true, playerId: verified.playerId });
+      }
+      if (request.method === 'POST' && sub === 'actions') {
+        const b: any = await request.json().catch(() => ({}));
+        // Ranked attribution: if a hub identity rode along with the move, claim
+        // the seat first (best-effort — never blocks the move).
+        if (typeof b.identityToken === 'string') {
+          try { await server.claimSeat(gameId, token, b.identityToken); } catch { /* casual play */ }
+        }
+        // The action is the body itself (legacy shape) sans the identityToken.
+        const { identityToken: _it, ...action } = b;
+        return json(200, await server.submit(gameId, token, action as Action));
+      }
       if (request.method === 'POST' && sub === 'report') return json(200, await server.report(gameId, token, await request.json() as any));
     }
 

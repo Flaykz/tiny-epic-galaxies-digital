@@ -12,8 +12,12 @@ interface ViewResult {
   you?: string;
 }
 
-/** GameClientApi over the dev HTTP server, for the framework's useGame hook. */
-export function makeHttpClient(gameId: string, token: string): GameClientApi<GameState, Action> {
+/** GameClientApi over the dev HTTP server, for the framework's useGame hook.
+ *  `getIdentityToken` (optional) supplies the player's hub identity token, which
+ *  rides along with each move so the server can attribute the seat (ranked). */
+export function makeHttpClient(
+  gameId: string, token: string, getIdentityToken?: () => string | undefined,
+): GameClientApi<GameState, Action> {
   const q = `?token=${encodeURIComponent(token)}`;
   return {
     async fetch() {
@@ -25,7 +29,7 @@ export function makeHttpClient(gameId: string, token: string): GameClientApi<Gam
       const r = await fetch(`${API}/games/${gameId}/actions${q}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(action),
+        body: JSON.stringify({ ...action, identityToken: getIdentityToken?.() }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `submit failed: ${r.status}`);
       return (await r.json()) as ViewResult;
@@ -49,4 +53,16 @@ export async function createGame(names: string[]): Promise<{ gameId: string; inv
   });
   if (!r.ok) throw new Error(`create failed: ${r.status}`);
   return r.json();
+}
+
+/** Attach the player's hub identity to their seat (ranked attribution).
+ *  Best-effort: a failure just leaves the seat unattributed (casual play). */
+export async function claimSeat(gameId: string, token: string, identityToken: string): Promise<void> {
+  try {
+    await fetch(`${API}/games/${gameId}/claim?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identityToken }),
+    });
+  } catch { /* ignore — ranked attribution is optional */ }
 }
