@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useGame, useIdentity, SignInBar } from 'digital-boardgame-framework/client';
+import { useGame, useIdentity, SignInBar, RankedStatus } from 'digital-boardgame-framework/client';
 import { makeHttpClient, createGame, claimSeat } from '../client/httpClient.js';
 import { Board } from './Board.js';
 import type { Action, GameState } from '../engine/index.js';
@@ -112,6 +112,7 @@ function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: str
         onAction={(a) => game.submit(a)}
         onReport={(message) => game.reportBug(message)}
       />
+      {game.gameOver && <RankedStatus ranked={game.ranked} />}
     </div>
   );
 }
