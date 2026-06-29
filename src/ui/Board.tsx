@@ -208,29 +208,39 @@ function destText(d: ShipLocation): string {
   return 'Home galaxy';
 }
 
-type MoveAction = Extract<Action, { type: 'activateMove' }>;
+/** One selectable move: a ship index, its destination, and the action to submit. */
+interface MoveOption { shipIdx: number; dest: ShipLocation; action: Action; }
 
-/** Two-step move order: pick the ship, then pick its destination. */
-function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit }: {
-  moves: MoveAction[];
+/**
+ * Two-step move picker: choose the ship, then its destination. Shared by the Move
+ * die, NAGATO, and PIEDES repeat-move. `extras` are extra buttons shown alongside
+ * the ship list in step 1 (e.g. PIEDES's non-move repeats, NAGATO's "Done").
+ */
+function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 'Move which ship?', verb = 'Move', extras, emptyText }: {
+  moves: MoveOption[];
   actorShips: ShipLocation[];
   moveShip: number | null;
   setMoveShip: (n: number | null) => void;
   submit: (a: Action) => void;
+  prompt?: string;
+  verb?: string;
+  extras?: React.ReactNode;
+  emptyText?: string;
 }) {
-  if (moves.length === 0) return <div className="actions"><p className="muted">No ship can move right now.</p></div>;
   const shipIdxs = [...new Set(moves.map((m) => m.shipIdx))].sort((a, b) => a - b);
 
   // Step 1 — choose the ship (also shown if a prior pick is no longer movable).
   if (moveShip == null || !shipIdxs.includes(moveShip)) {
     return (
       <div className="actions">
-        <p className="muted small">Move which ship?</p>
+        {moves.length > 0 && <p className="muted small">{prompt}</p>}
+        {moves.length === 0 && !extras && emptyText && <p className="muted">{emptyText}</p>}
         {shipIdxs.map((idx) => (
-          <button key={idx} className="act-btn" onClick={() => setMoveShip(idx)}>
-            Ship #{idx + 1} — {shipLocText(actorShips[idx])}
+          <button key={`ship${idx}`} className="act-btn" onClick={() => setMoveShip(idx)}>
+            {verb} ship #{idx + 1} — {shipLocText(actorShips[idx])}
           </button>
         ))}
+        {extras}
       </div>
     );
   }
@@ -239,10 +249,10 @@ function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit }: {
   const dests = moves.filter((m) => m.shipIdx === moveShip);
   return (
     <div className="actions">
-      <p className="muted small">Move <strong>Ship #{moveShip + 1}</strong> ({shipLocText(actorShips[moveShip])}) to:</p>
-      {dests.map((a, i) => (
-        <button key={i} className="act-btn" onClick={() => submit(a)} title={destText(a.dest)}>
-          {destText(a.dest)}
+      <p className="muted small">{verb} <strong>Ship #{moveShip + 1}</strong> ({shipLocText(actorShips[moveShip])}) to:</p>
+      {dests.map((m, i) => (
+        <button key={i} className="act-btn" onClick={() => submit(m.action)} title={destText(m.dest)}>
+          {destText(m.dest)}
         </button>
       ))}
       <button className="act-btn global" onClick={() => setMoveShip(null)}>← Choose a different ship</button>
@@ -478,9 +488,11 @@ function ActionPanel({
 }) {
   // Move orders are picked in two steps: choose the ship, then its destination
   // (the flat ship×destination list was cumbersome — Joe Reil's suggestion).
+  // Used for the Move die, NAGATO moves, and PIEDES repeat-move.
   const [moveShip, setMoveShip] = useState<number | null>(null);
-  // Reset the ship pick whenever the selected die changes (or is cleared).
-  React.useEffect(() => { setMoveShip(null); }, [selectedDie]);
+  // Reset the ship pick when the context changes: a different die selected, a new
+  // planet prompt, or a NAGATO move consumed (left decremented → pick next ship).
+  React.useEffect(() => { setMoveShip(null); }, [selectedDie, state.turn.pendingChoice?.planetId, state.turn.pendingMoves?.left]);
 
   if (!canAct) {
     return (
@@ -511,8 +523,8 @@ function ActionPanel({
   const choiceActions = legalActions.filter((a) => a.type === 'resolvePlanet' || a.type === 'skipPlanet');
   if (state.turn.pendingChoice && choiceActions.length > 0) {
     const planet = PLANETS_BY_ID[state.turn.pendingChoice.planetId];
-    return (
-      <div className="action-panel choose">
+    const head = (
+      <>
         <div className="ap-head">
           <h3>Choose a target</h3>
           {onUndo && (
@@ -522,6 +534,39 @@ function ActionPanel({
           )}
         </div>
         <p><strong>{planet?.name}</strong>: {planet?.action}</p>
+      </>
+    );
+    // PIEDES (cp23) repeat-move options carry a destination — give them the same
+    // two-step ship→destination picker; non-move repeats stay as plain buttons.
+    if (state.turn.pendingChoice.planetId === 'cp23') {
+      const repeatMoves = choiceActions.flatMap((a) =>
+        a.type === 'resolvePlanet' && a.choice.dest && a.choice.shipIdx != null
+          ? [{ shipIdx: a.choice.shipIdx, dest: a.choice.dest, action: a }]
+          : []);
+      const others = choiceActions.filter((a) => !(a.type === 'resolvePlanet' && a.choice.dest));
+      return (
+        <div className="action-panel choose">
+          {head}
+          <MoveSteps
+            moves={repeatMoves}
+            actorShips={actorShips}
+            moveShip={moveShip}
+            setMoveShip={setMoveShip}
+            submit={onAction}
+            verb="Repeat move:"
+            prompt="Repeat a move — which ship?"
+            extras={others.map((a, i) => (
+              <button key={i} className={`act-btn ${a.type === 'skipPlanet' ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
+                {actionLabel(a, actorShips, actor)}
+              </button>
+            ))}
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="action-panel choose">
+        {head}
         <div className="actions">
           {choiceActions.map((a, i) => (
             <button key={i} className={`act-btn ${a.type === 'skipPlanet' ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
@@ -533,20 +578,23 @@ function ActionPanel({
     );
   }
 
-  // NAGATO: choose ship moves (up to two).
+  // NAGATO: choose ship moves (up to two) — same two-step picker as the Move die.
   const moveActions = legalActions.filter((a) => a.type === 'nagatoMove' || a.type === 'endMoves');
   if (state.turn.pendingMoves && state.turn.pendingMoves.left > 0 && moveActions.length > 0) {
+    const nagatoMoves = moveActions.flatMap((a) => (a.type === 'nagatoMove' ? [{ shipIdx: a.shipIdx, dest: a.dest, action: a }] : []));
+    const stop = moveActions.find((a) => a.type === 'endMoves');
     return (
       <div className="action-panel choose">
         <h3>NAGATO — move a ship ({state.turn.pendingMoves.left} left)</h3>
         <p>Move one of your ships to a different planet, or stop.</p>
-        <div className="actions">
-          {moveActions.map((a, i) => (
-            <button key={i} className={`act-btn ${a.type === 'endMoves' ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
-              {actionLabel(a, actorShips, actor)}
-            </button>
-          ))}
-        </div>
+        <MoveSteps
+          moves={nagatoMoves}
+          actorShips={actorShips}
+          moveShip={moveShip}
+          setMoveShip={setMoveShip}
+          submit={onAction}
+          extras={stop && <button className="act-btn end" onClick={() => onAction(stop)}>Done moving</button>}
+        />
       </div>
     );
   }
@@ -591,11 +639,12 @@ function ActionPanel({
         <p className="muted">Click one of your dice on the left to see what it can do.</p>
       ) : selectedDieFace === 'move' ? (
         <MoveSteps
-          moves={forDie(selectedDie).filter((a): a is Extract<Action, { type: 'activateMove' }> => a.type === 'activateMove')}
+          moves={forDie(selectedDie).flatMap((a) => (a.type === 'activateMove' ? [{ shipIdx: a.shipIdx, dest: a.dest, action: a }] : []))}
           actorShips={actorShips}
           moveShip={moveShip}
           setMoveShip={setMoveShip}
           submit={submit}
+          emptyText="No ship can move right now."
         />
       ) : (
         <div className="actions">
