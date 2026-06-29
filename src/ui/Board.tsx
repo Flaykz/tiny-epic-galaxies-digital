@@ -9,6 +9,7 @@ import {
   type GameState,
   type PlayerState,
   type Planet,
+  type ShipLocation,
 } from '../engine/index.js';
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
 import { MatTokens, PlanetTokens } from './Tokens.js';
@@ -185,6 +186,68 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
 
 function resourceDots(n: number) {
   return '●'.repeat(n) + '○'.repeat(Math.max(0, 7 - n));
+}
+
+/** Where a ship currently sits (for the move-order ship picker). */
+function shipLocText(loc: import('../engine/index.js').ShipLocation): string {
+  switch (loc.kind) {
+    case 'galaxy': return 'on your galaxy';
+    case 'locked': return 'locked';
+    case 'surface': return `on ${PLANETS_BY_ID[loc.planetId]?.name ?? loc.planetId}`;
+    case 'orbit': {
+      const pl = PLANETS_BY_ID[loc.planetId];
+      return `orbiting ${pl?.name ?? loc.planetId} (${loc.level === 0 ? 'start' : `space ${loc.level}/${pl?.orbitTrackLength}`})`;
+    }
+  }
+}
+
+/** A move destination, for the second step of a move order. */
+function destText(d: ShipLocation): string {
+  if (d.kind === 'surface') return `${PLANETS_BY_ID[d.planetId]?.name ?? d.planetId} — land on surface`;
+  if (d.kind === 'orbit') return `${PLANETS_BY_ID[d.planetId]?.name ?? d.planetId} — enter orbit`;
+  return 'Home galaxy';
+}
+
+type MoveAction = Extract<Action, { type: 'activateMove' }>;
+
+/** Two-step move order: pick the ship, then pick its destination. */
+function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit }: {
+  moves: MoveAction[];
+  actorShips: ShipLocation[];
+  moveShip: number | null;
+  setMoveShip: (n: number | null) => void;
+  submit: (a: Action) => void;
+}) {
+  if (moves.length === 0) return <div className="actions"><p className="muted">No ship can move right now.</p></div>;
+  const shipIdxs = [...new Set(moves.map((m) => m.shipIdx))].sort((a, b) => a - b);
+
+  // Step 1 — choose the ship (also shown if a prior pick is no longer movable).
+  if (moveShip == null || !shipIdxs.includes(moveShip)) {
+    return (
+      <div className="actions">
+        <p className="muted small">Move which ship?</p>
+        {shipIdxs.map((idx) => (
+          <button key={idx} className="act-btn" onClick={() => setMoveShip(idx)}>
+            Ship #{idx + 1} — {shipLocText(actorShips[idx])}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // Step 2 — choose the destination for the picked ship.
+  const dests = moves.filter((m) => m.shipIdx === moveShip);
+  return (
+    <div className="actions">
+      <p className="muted small">Move <strong>Ship #{moveShip + 1}</strong> ({shipLocText(actorShips[moveShip])}) to:</p>
+      {dests.map((a, i) => (
+        <button key={i} className="act-btn" onClick={() => submit(a)} title={destText(a.dest)}>
+          {destText(a.dest)}
+        </button>
+      ))}
+      <button className="act-btn global" onClick={() => setMoveShip(null)}>← Choose a different ship</button>
+    </div>
+  );
 }
 
 function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean }) {
@@ -413,6 +476,12 @@ function ActionPanel({
   canUndo?: boolean;
   onUndo?: () => void;
 }) {
+  // Move orders are picked in two steps: choose the ship, then its destination
+  // (the flat ship×destination list was cumbersome — Joe Reil's suggestion).
+  const [moveShip, setMoveShip] = useState<number | null>(null);
+  // Reset the ship pick whenever the selected die changes (or is cleared).
+  React.useEffect(() => { setMoveShip(null); }, [selectedDie]);
+
   if (!canAct) {
     return (
       <div className="action-panel waiting">
@@ -520,6 +589,14 @@ function ActionPanel({
 
       {selectedDie == null ? (
         <p className="muted">Click one of your dice on the left to see what it can do.</p>
+      ) : selectedDieFace === 'move' ? (
+        <MoveSteps
+          moves={forDie(selectedDie).filter((a): a is Extract<Action, { type: 'activateMove' }> => a.type === 'activateMove')}
+          actorShips={actorShips}
+          moveShip={moveShip}
+          setMoveShip={setMoveShip}
+          submit={submit}
+        />
       ) : (
         <div className="actions">
           <p className="muted small">Selected die: <strong>{selectedDieFace && FACE_LABEL[selectedDieFace]}</strong></p>
