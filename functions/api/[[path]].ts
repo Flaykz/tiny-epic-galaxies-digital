@@ -35,6 +35,7 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
   const parts = params.path ?? [];
 
   const server = new GameServer<GameState, Action, string>({
+    snapshotHistory: 20,   // cap per-game snapshot history (framework >=0.32)
     adapter: tegAdapter,
     codec: jsonCodec<GameState>(),
     store: new KvStore(env.GAMES),
