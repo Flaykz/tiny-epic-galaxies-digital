@@ -315,7 +315,8 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
               }
               return (
                 <div key={id} className="colony-card" title={`${cp?.name}: ${cp?.action}`}>
-                  <img className="cc-thumb" src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" />
+                  {/* Hide a broken thumb (missing art); the name/VP overlay stays. */}
+                  <img className="cc-thumb" src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
                   <span className="cc-vp">+{cp?.vp}</span>
                   <span className="cc-name">{cp?.name}</span>
                   <img className="pc-zoom" src={asset(`/cards/${id}.jpg`)} alt="" aria-hidden="true" />
@@ -337,6 +338,9 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
 function PlanetCardView({ planet, state }: { planet: Planet; state: GameState }) {
   const asset = useAsset();
   const artless = useArtless();
+  // If this card's art can't load (no shipped art / no VASSAL module / a gap in
+  // either), fall back to the clean text card instead of a broken image.
+  const [imgFailed, setImgFailed] = useState(false);
   // Ships currently on/around this planet.
   const here: string[] = [];
   for (const pl of state.players) {
@@ -353,7 +357,7 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
     </div>
   );
 
-  if (artless) {
+  if (artless || imgFailed) {
     return (
       <div className={`planet-card text ${planet.colonizeType}`}>
         <div className="pc-text-head">
@@ -368,7 +372,7 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
   return (
     <div className="planet-card">
       <div className="pc-art">
-        <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" />
+        <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" onError={() => setImgFailed(true)} />
         <PlanetTokens planet={planet} state={state} />
       </div>
       {meta}
