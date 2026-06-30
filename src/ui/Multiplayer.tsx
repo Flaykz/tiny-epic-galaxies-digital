@@ -81,7 +81,7 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
   return (
     <div className="lobby">
       <button className="exit-btn" onClick={onExit}>← Lobby</button>
-      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev" />
+      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev/leaderboard?game=tiny-epic-galaxies" />
       <div className="lobby-card">
         <h1>Async Multiplayer</h1>
         {!invites ? (
@@ -160,7 +160,7 @@ function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: str
   return (
     <div className="game-shell">
       <button className="exit-btn" onClick={() => { window.history.replaceState({}, '', '/'); onExit(); }}>← Lobby</button>
-      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev" />
+      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev/leaderboard?game=tiny-epic-galaxies" />
       <BoardBoundary resetKey={game.turn}>
         <Board
           state={game.view}
