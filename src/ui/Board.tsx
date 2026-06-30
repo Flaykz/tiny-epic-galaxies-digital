@@ -491,8 +491,15 @@ function ActionPanel({
   // Used for the Move die, NAGATO moves, and PIEDES repeat-move.
   const [moveShip, setMoveShip] = useState<number | null>(null);
   // Reset the ship pick when the context changes: a different die selected, a new
-  // planet prompt, or a NAGATO move consumed (left decremented → pick next ship).
-  React.useEffect(() => { setMoveShip(null); }, [selectedDie, state.turn.pendingChoice?.planetId, state.turn.pendingMoves?.left]);
+  // planet prompt, a NAGATO move consumed, or a different follow window. (Use stable
+  // bits of pendingFollow, not the object — it's a fresh ref on every multiplayer poll.)
+  React.useEffect(() => { setMoveShip(null); }, [
+    selectedDie,
+    state.turn.pendingChoice?.planetId,
+    state.turn.pendingMoves?.left,
+    state.turn.pendingFollow?.sourcePlayer,
+    state.turn.pendingFollow?.face,
+  ]);
 
   if (!canAct) {
     return (
@@ -604,20 +611,43 @@ function ActionPanel({
   // be momentarily out of sync (follow already resolved server-side but legalActions
   // not yet refreshed), and reading a null pendingFollow.face white-screened the app.
   if (state.turn.pendingFollow && followActions.length > 0) {
+    const face = state.turn.pendingFollow.face;
+    const decline = followActions.find((a) => a.type === 'follow' && !a.accept);
+    const declineBtn = decline && (
+      <button className="act-btn end" onClick={() => onAction(decline)} key="decline">Decline follow</button>
+    );
+    // Following a MOVE offers one option per ship×destination — use the same
+    // two-step ship→destination picker as a normal move.
+    const followMoves = face === 'move'
+      ? followActions.flatMap((a) =>
+          a.type === 'follow' && a.accept && a.params?.dest && a.params.shipIdx != null
+            ? [{ shipIdx: a.params.shipIdx, dest: a.params.dest, action: a }]
+            : [])
+      : [];
     return (
       <div className="action-panel follow">
         <h3>Follow?</h3>
-        <p>{viewerName}, you may copy the {FACE_LABEL[state.turn.pendingFollow.face]} action by spending 1 culture.</p>
-        <div className="actions">
-          {followActions.map((a, i) => (
-            <button key={i} className="act-btn" onClick={() => onAction(a)} title={actionTooltip(a)}>
-              {actionLabel(a, actorShips, actor)}
-            </button>
-          ))}
-        </div>
-        <p className="muted small">
-          (Following with a specific target uses an auto-chosen target in this build.)
-        </p>
+        <p>{viewerName}, you may copy the {FACE_LABEL[face]} action by spending 1 culture.</p>
+        {face === 'move' ? (
+          <MoveSteps
+            moves={followMoves}
+            actorShips={actorShips}
+            moveShip={moveShip}
+            setMoveShip={setMoveShip}
+            submit={onAction}
+            verb="Follow move:"
+            prompt="Follow the move — which ship?"
+            extras={declineBtn}
+          />
+        ) : (
+          <div className="actions">
+            {followActions.map((a, i) => (
+              <button key={i} className={`act-btn ${a.type === 'follow' && !a.accept ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
+                {actionLabel(a, actorShips, actor)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
