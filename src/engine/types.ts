@@ -153,6 +153,8 @@ export type Action =
   // NAGATO (cp21): perform one of the up-to-two ship moves; or stop early.
   | { type: 'nagatoMove'; shipIdx: number; dest: ShipLocation; label?: string }
   | { type: 'endMoves' }
+  // Solo: resolve one of the Rogue Galaxy automa's dice (driven by the engine).
+  | { type: 'rogueResolveDie'; dieId: number }
   // End the current player's turn.
   | { type: 'endTurn' };
 

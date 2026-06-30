@@ -59,6 +59,8 @@ export function actionLabel(a: Action, ships?: ShipLocation[], actor?: PlayerSta
       return a.label ?? `Move ship (${ship(a.shipIdx)}) → ${locLabel(a.dest)}`;
     case 'endMoves':
       return 'Done moving';
+    case 'rogueResolveDie':
+      return 'Rogue acts'; // engine-driven; never shown to a human
     case 'endTurn':
       return 'End turn';
   }

@@ -179,7 +179,9 @@ export function acquireCount(p: PlayerState, kind: 'energy' | 'culture'): number
   let count = 0;
   for (const s of p.ships) {
     if (s.kind === 'galaxy') {
-      if (kind === 'energy') count++; // each home ship yields 1 energy
+      // Each home ship yields 1 energy — but the Rogue Galaxy Card produces BOTH
+      // energy and culture (solo rules p.11), so its home ships count either way.
+      if (kind === 'energy' || p.isRogue) count++;
     } else if (s.kind === 'surface' || s.kind === 'orbit') {
       const planet = PLANET(s.planetId);
       if (planet && planet.resourceType === kind) count++;

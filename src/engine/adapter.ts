@@ -27,6 +27,7 @@ import {
 } from './helpers.js';
 import { empire, MAX_EMPIRE, WIN_VP } from './empire.js';
 import { PLANET_EFFECTS, REROLL_PLANETS, planetOptions } from './planetEffects.js';
+import { resolveRogueDie, rogueEndOfTurn } from './rogue.js';
 
 const FACES: DieFace[] = ['move', 'energy', 'culture', 'diplomacy', 'economy', 'colony'];
 
@@ -579,6 +580,17 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       state.log.push(`${p.name} used the Converter → set a die to ${action.face}`);
       break;
     }
+    case 'rogueResolveDie': {
+      // The Rogue automa resolves one of its dice. A usable die opens a follow
+      // window so the human may copy the action (rulebook: you may follow the
+      // Rogue's normal actions); an unusable die is just discarded.
+      const d = liveDie(state, action.dieId);
+      if (!d) break;
+      d.activated = true;
+      const { usable } = resolveRogueDie(state, d.face);
+      if (usable && state.phase !== 'gameOver') openFollowWindow(state, d.face);
+      break;
+    }
     case 'endTurn': {
       endTurn(state);
       break;
@@ -644,6 +656,13 @@ function applyFollowEffect(state: GameState, p: PlayerState, face: DieFace, para
 }
 
 function endTurn(state: GameState): void {
+  // Solo: the Rogue Galaxy resolves its end-of-turn specials (max-energy upgrade,
+  // max-culture bonus actions) before passing the turn — and may win on the skull.
+  if (state.rogueId && state.turn.active === state.rogueId) {
+    rogueEndOfTurn(state);
+    if (state.phase === 'gameOver') return;
+  }
+
   // Standard mode: handle final-round completion.
   const order = state.order;
   const curIdx = order.indexOf(state.turn.active);

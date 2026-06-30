@@ -102,19 +102,50 @@ describe('solo mode vs Rogue Galaxy', () => {
     expect(s.players[0].mission).toBeUndefined();
   });
 
-  it('plays a solo game to completion', () => {
-    let s = createInitialState({
-      seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }],
-      seed: 9,
-    });
-    let guard = 0;
-    while (tegAdapter.result!(s) === null && guard < 5000) {
+  it('plays a solo game to completion with the Rogue automa, never landing on a surface', async () => {
+    const { rogueNextAction } = await import('../src/engine/index.js');
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 9 });
+    const rid = s.rogueId!;
+    let guard = 0, rogueSurfaced = false;
+    while (tegAdapter.result!(s) === null && guard < 20000) {
       const actor = tegAdapter.currentActor(s);
       if (!actor) break;
-      s = tegAdapter.applyAction(s, chooseAction(s, actor, guard), actor);
+      const action = actor === rid ? rogueNextAction(s) : chooseAction(s, actor, guard);
+      s = tegAdapter.applyAction(s, action, actor);
+      if (s.players.find((p) => p.id === rid)!.ships.some((sh) => sh.kind === 'surface')) rogueSurfaced = true;
       guard++;
     }
     expect(tegAdapter.result!(s)).not.toBeNull();
+    expect(rogueSurfaced).toBe(false); // "A Rogue ship can never land on a planet's surface"
+  });
+
+  it('Rogue end-of-turn: max energy upgrades the empire; reaching the skull wins', async () => {
+    const { rogueEndOfTurn } = await import('../src/engine/rogue.js');
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 1 });
+    const r = s.players.find((p) => p.isRogue)!;
+    r.empireLevel = 2; r.energy = 7;
+    rogueEndOfTurn(s);
+    expect(r.empireLevel).toBe(3);
+    expect(r.energy).toBe(0);
+    // At max empire, a max-energy upgrade reaches the skull → Rogue wins.
+    r.empireLevel = 6; r.energy = 7;
+    rogueEndOfTurn(s);
+    expect(s.phase).toBe('gameOver');
+    expect(s.winners).toEqual([]);
+  });
+
+  it("Rogue MOVE A SHIP enters orbit of the leftmost planet without a Rogue ship", async () => {
+    const { resolveRogueDie } = await import('../src/engine/rogue.js');
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 5 });
+    const r = s.players.find((p) => p.isRogue)!;
+    r.ships = [{ kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }, { kind: 'galaxy' }];
+    const leftmost = s.centerRow[0];
+    resolveRogueDie(s, 'move');
+    const orbiting = r.ships.find((sh) => sh.kind === 'orbit');
+    expect(orbiting).toBeTruthy();
+    expect((orbiting as { planetId: string }).planetId).toBe(leftmost);
+    expect((orbiting as { level: number }).level).toBe(0);
+    expect(r.ships.some((sh) => sh.kind === 'surface')).toBe(false);
   });
 });
 

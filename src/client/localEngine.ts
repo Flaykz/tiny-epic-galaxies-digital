@@ -3,6 +3,7 @@ import {
   createInitialState,
   tegAdapter,
   chooseAction,
+  rogueNextAction,
   type Action,
   type GameState,
   type SeatSpec,
@@ -107,7 +108,12 @@ export class LocalEngine {
     this.aiTimer = setTimeout(() => {
       const a = tegAdapter.currentActor(this.state);
       if (!a || this.seatControl(a) !== 'ai') return;
-      const action = chooseAction(this.state, a, this.state.turnNumber * 31 + 7);
+      // The Rogue Galaxy follows its own deterministic automa; other AI seats use
+      // the heuristic AI. (When the Rogue opens a follow window, the human becomes
+      // the current actor and this loop pauses until they decide.)
+      const action = a === this.state.rogueId
+        ? rogueNextAction(this.state)
+        : chooseAction(this.state, a, this.state.turnNumber * 31 + 7);
       const before = this.state;
       this.state = tegAdapter.applyAction(before, action, a);
       // An AI's OWN turn (or any board-revealing follow) ends undo; but an AI just
