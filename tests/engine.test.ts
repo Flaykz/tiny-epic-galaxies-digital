@@ -158,6 +158,38 @@ describe('solo mode vs Rogue Galaxy', () => {
     expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l))).toBe(false);
   });
 
+  it('all five Rogue cards run every colony-ladder level without error', async () => {
+    const { ROGUE_CARDS } = await import('../src/engine/index.js');
+    const { resolveRogueDie } = await import('../src/engine/rogue.js');
+    for (const id of ['rothkel', 'artemis', 'zendica', 'hades', 'gamelyn'] as const) {
+      for (let lvl = 1; lvl <= 5; lvl++) {
+        const s = createInitialState({ seats: [{ name: 'You' }, { name: 'R', isRogue: true }], seed: 3, rogueCard: id });
+        const r = s.players.find((p) => p.isRogue)!;
+        r.empireLevel = lvl;
+        // give the human something to lose / regress
+        s.players[0].energy = 3; s.players[0].culture = 3;
+        s.players[0].ships[0] = { kind: 'orbit', planetId: s.centerRow[0], level: 1 };
+        expect(() => resolveRogueDie(s, 'colony')).not.toThrow();
+      }
+      expect(ROGUE_CARDS[id].name).toBeTruthy();
+    }
+  });
+
+  it("ZENDICA's 'lose a die' drops one die from the human's next roll", async () => {
+    const { resolveRogueDie } = await import('../src/engine/rogue.js');
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Z', isRogue: true }], seed: 3, rogueCard: 'zendica' });
+    const r = s.players.find((p) => p.isRogue)!;
+    const h = s.players[0];
+    r.empireLevel = 4; // ZENDICA L4 = "you lose a die next turn"
+    resolveRogueDie(s, 'colony');
+    expect(h.diceMalus).toBe(1);
+    const normal = (await import('../src/engine/index.js')).empire(h.empireLevel).dice;
+    s.turn.active = h.id;
+    (await import('../src/engine/setup.js')).rollForActive(s);
+    expect(s.turn.dice.length).toBe(normal - 1);
+    expect(h.diceMalus).toBe(0); // consumed
+  });
+
   it("Rogue MOVE A SHIP enters orbit of the leftmost planet without a Rogue ship", async () => {
     const { resolveRogueDie } = await import('../src/engine/rogue.js');
     let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 5 });

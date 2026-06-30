@@ -22,6 +22,8 @@ export interface SetupOptions {
   /** Solo mode against the Rogue Galaxy. When true, exactly one seat should be isRogue. */
   /** Solo difficulty (default 'beginner'). 'advanced' rerolls unusable Rogue dice once. */
   rogueDifficulty?: 'beginner' | 'advanced';
+  /** Which Rogue Galaxy card to play against (default 'artemis'). */
+  rogueCard?: import('./types.js').RogueCardId;
 }
 
 function initialShips(level: number): ShipLocation[] {
@@ -91,6 +93,7 @@ export function createInitialState(opts: SetupOptions): GameState {
     winners: null,
     rogueId: players.find((p) => p.isRogue)?.id ?? null,
     rogueDifficulty: opts.rogueDifficulty ?? 'beginner',
+    rogueCard: opts.rogueCard ?? 'artemis',
     followEnabled: opts.followEnabled ?? true,
   };
 
@@ -111,7 +114,9 @@ const FACES = ['move', 'energy', 'culture', 'diplomacy', 'economy', 'colony'] as
 
 export function rollForActive(state: GameState): void {
   const player = state.players.find((p) => p.id === state.turn.active)!;
-  const count = empire(player.empireLevel).dice;
+  // A pending die-loss (ZENDICA's Rogue Colony Action) drops dice from this roll.
+  const count = Math.max(1, empire(player.empireLevel).dice - (player.diceMalus ?? 0));
+  player.diceMalus = 0;
   withRng(state, (rng) => {
     state.turn.dice = Array.from({ length: count }, (_, id) => ({
       id,

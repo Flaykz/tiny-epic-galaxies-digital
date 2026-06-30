@@ -6,7 +6,7 @@ export { createInitialState, SCHEMA_VERSION } from './setup.js';
 export type { SetupOptions, SeatSpec } from './setup.js';
 export { tegAdapter } from './adapter.js';
 export { chooseAction } from './ai.js';
-export { rogueNextAction } from './rogue.js';
+export { rogueNextAction, ROGUE_CARDS } from './rogue.js';
 export {
   baseVp,
   finalScore,

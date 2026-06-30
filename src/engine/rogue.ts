@@ -2,7 +2,7 @@
 // normal AI seat, the Rogue follows fixed, deterministic rules. Modeled on the
 // BEGINNER Rogue Galaxy "ARTEMIS". The Rogue uses the same empire track (dice/ships)
 // as players; its Galaxy Card produces both energy and culture (see acquireCount).
-import type { Action, DieFace, GameState, PlayerState } from './types.js';
+import type { Action, DieFace, GameState, PlayerState, RogueCardId } from './types.js';
 import {
   PLANET,
   addResource,
@@ -28,17 +28,87 @@ function human(state: GameState): PlayerState {
   return state.players.find((p) => !p.isRogue)!;
 }
 
-// ---- ARTEMIS Rogue Colony Action, indexed by the Rogue's empire level (1..6) ----
-// "rogue steals 2 resources of your choice" is auto-resolved (energy first) so the
-// automa never needs to prompt the human.
-const ROGUE_COLONY: Record<number, (s: GameState) => string> = {
-  1: (s) => loseResource(s, 'energy', 1),
-  2: (s) => loseResource(s, 'culture', 1),
-  3: (s) => steal(s, 'culture', 1),
-  4: (s) => regressHuman(s, 1),
-  5: (s) => stealAny(s, 2),
-  6: (s) => stealAny(s, 2),
+// ---- The five official Rogue Galaxy cards (mat backs), each a Rogue Colony Action
+// ladder indexed by the Rogue's empire level (1..5). "steal N of your choice" is
+// auto-resolved (energy first) so the automa never prompts the human. The Rogue's
+// empire track/dice are modeled on the player track (see note at top). ----
+export interface RogueCard { id: RogueCardId; name: string; tier: string; colony: Record<number, (s: GameState) => string>; }
+
+export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
+  rothkel: { id: 'rothkel', name: 'ROTHKEL', tier: 'Easy', colony: {
+    1: (s) => loseResource(s, 'energy', 1),
+    2: (s) => loseResource(s, 'culture', 1),
+    3: (s) => rogueAcquireRes(s, 'energy', 2),
+    4: (s) => regressHuman(s, 1),
+    5: (s) => advanceAllAnyType(s, 1),
+  } },
+  artemis: { id: 'artemis', name: 'ARTEMIS', tier: 'Beginner', colony: {
+    1: (s) => loseResource(s, 'energy', 1),
+    2: (s) => loseResource(s, 'culture', 1),
+    3: (s) => steal(s, 'culture', 1),
+    4: (s) => regressHuman(s, 1),
+    5: (s) => stealAny(s, 2),
+  } },
+  zendica: { id: 'zendica', name: 'ZENDICA', tier: 'Medium', colony: {
+    1: (s) => loseResource(s, 'energy', 1),
+    2: (s) => rogueAcquireRes(s, 'culture', 2),
+    3: (s) => regressHuman(s, 1),
+    4: (s) => humanLoseDie(s),
+    5: (s) => regressAllHuman(s, 1),
+  } },
+  hades: { id: 'hades', name: 'HADES', tier: 'Hard', colony: {
+    1: (s) => rogueAcquireBoth(s),
+    2: (s) => steal(s, 'energy', 2),
+    3: (s) => steal(s, 'culture', 2),
+    4: (s) => advanceAllAnyType(s, 2),
+    5: (s) => stealAny(s, 3),
+  } },
+  gamelyn: { id: 'gamelyn', name: 'GAMELYN', tier: 'Epic', colony: {
+    1: (s) => `${loseResource(s, 'energy', 1)}; ${loseResource(s, 'culture', 1)}`,
+    2: (s) => `${steal(s, 'energy', 1)}; ${steal(s, 'culture', 1)}`,
+    3: (s) => advanceAllAnyType(s, 1),
+    4: (s) => `${advanceAllAnyType(s, 1)}; ${steal(s, 'energy', 1)}`,
+    5: (s) => advanceAllAnyType(s, 2),
+  } },
 };
+
+export function rogueCardOf(state: GameState): RogueCard {
+  return ROGUE_CARDS[state.rogueCard ?? 'artemis'];
+}
+
+function rogueAcquireRes(s: GameState, kind: 'energy' | 'culture', n: number): string {
+  const r = rogue(s)!;
+  addResource(r, kind, n);
+  return `Rogue Colony Action: Rogue acquired ${n} ${kind}`;
+}
+
+function rogueAcquireBoth(s: GameState): string {
+  const r = rogue(s)!;
+  addResource(r, 'energy', 1); addResource(r, 'culture', 1);
+  return 'Rogue Colony Action: Rogue acquired 1 energy + 1 culture';
+}
+
+function regressAllHuman(s: GameState, n: number): string {
+  const h = human(s);
+  let c = 0;
+  h.ships.forEach((sh, i) => { if (sh.kind === 'orbit') { regressShip(s, h, i, n); c++; } });
+  return `Rogue Colony Action: regressed all ${c} of ${h.name}'s orbiting ships -${n}`;
+}
+
+function advanceAllAnyType(s: GameState, n: number): string {
+  const r = rogue(s)!;
+  let c = 0;
+  r.ships.forEach((sh, i) => {
+    if (sh.kind === 'orbit') { const t = PLANET(sh.planetId)?.colonizeType; if (t && advanceShip(s, r, i, t, n)) c++; }
+  });
+  return c > 0 ? `Rogue Colony Action: Rogue advanced all ${c} of its ships +${n}` : 'Rogue Colony Action: no Rogue ships to advance';
+}
+
+function humanLoseDie(s: GameState): string {
+  const h = human(s);
+  h.diceMalus = (h.diceMalus ?? 0) + 1;
+  return `Rogue Colony Action: ${h.name} loses a die next turn`;
+}
 
 function loseResource(s: GameState, kind: 'energy' | 'culture', n: number): string {
   const h = human(s);
@@ -131,8 +201,8 @@ export function resolveRogueDie(state: GameState, face: DieFace, bonus = false):
       return { usable: m.usable };
     }
     case 'colony': {
-      const lvl = Math.min(Math.max(r.empireLevel, 1), 6);
-      state.log.push(ROGUE_COLONY[lvl](state));
+      const lvl = Math.min(Math.max(r.empireLevel, 1), 5); // ladders run levels 1..5
+      state.log.push(rogueCardOf(state).colony[lvl](state));
       return { usable: true };
     }
   }

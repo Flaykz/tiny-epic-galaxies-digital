@@ -5,13 +5,14 @@ export interface LocalGameConfig {
   seats: LocalSeat[];
   seed: number;
   rogueDifficulty?: 'beginner' | 'advanced';
+  rogueCard?: import('../engine/index.js').RogueCardId;
 }
 
 /** React binding around LocalEngine. Re-renders whenever the game state changes. */
 export function useLocalGame(config: LocalGameConfig) {
   const engineRef = useRef<LocalEngine | null>(null);
   if (!engineRef.current) {
-    engineRef.current = new LocalEngine(config.seats, config.seed, undefined, config.rogueDifficulty);
+    engineRef.current = new LocalEngine(config.seats, config.seed, undefined, config.rogueDifficulty, config.rogueCard);
   }
   const engine = engineRef.current;
 

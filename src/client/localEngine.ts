@@ -28,10 +28,10 @@ export class LocalEngine {
   // by the current human are undoable; revealing new info clears the stack.
   private undoStack: GameState[] = [];
 
-  constructor(seats: LocalSeat[], seed: number, aiThinkMs = 650, rogueDifficulty: 'beginner' | 'advanced' = 'beginner') {
+  constructor(seats: LocalSeat[], seed: number, aiThinkMs = 650, rogueDifficulty: 'beginner' | 'advanced' = 'beginner', rogueCard?: import('../engine/index.js').RogueCardId) {
     this.seats = seats;
     this.aiThinkMs = aiThinkMs;
-    this.state = createInitialState({ seats, seed, rogueDifficulty });
+    this.state = createInitialState({ seats, seed, rogueDifficulty, rogueCard });
     // Best-effort play counter: a local game just started. 'ai' if any seat is
     // AI/Rogue (vs-AI or solo), else 'hotseat'. Never throws or blocks.
     const mode = seats.some((s) => s.control === 'ai' || s.isRogue) ? 'ai' : 'hotseat';

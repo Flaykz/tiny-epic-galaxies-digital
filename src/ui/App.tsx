@@ -5,10 +5,14 @@ import { Board } from './Board.js';
 import { useLocalGame } from '../client/useLocalGame.js';
 import type { LocalSeat } from '../client/localEngine.js';
 import { MultiplayerApp } from './Multiplayer.js';
+import { ROGUE_CARDS, type RogueCardId } from '../engine/index.js';
+
+// The five Rogue Galaxy cards in difficulty order, for the solo selector.
+const ROGUE_ORDER: RogueCardId[] = ['rothkel', 'artemis', 'zendica', 'hades', 'gamelyn'];
 
 type Mode =
   | { kind: 'lobby' }
-  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced' }
+  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId }
   | { kind: 'multiplayer' };
 
 export function App() {
@@ -25,7 +29,7 @@ export function App() {
     <AssetContext.Provider value={{ resolve: assets.resolve, artless: assets.artless }}>
       {mode.kind === 'lobby' && <Lobby onStart={setMode} />}
       {mode.kind === 'multiplayer' && <MultiplayerApp onExit={() => setMode({ kind: 'lobby' })} />}
-      {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} rogueDifficulty={mode.rogueDifficulty} onExit={() => setMode({ kind: 'lobby' })} />}
+      {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} rogueDifficulty={mode.rogueDifficulty} rogueCard={mode.rogueCard} onExit={() => setMode({ kind: 'lobby' })} />}
       {/* Bring-your-own-art: when the build ships no images, prompt the user to
           download + choose the official VASSAL module (cached locally). */}
       {assets.needsSetup && (
@@ -54,6 +58,7 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
   const [humans, setHumans] = useState(2);
   const [ais, setAis] = useState(0);
   const [soloDifficulty, setSoloDifficulty] = useState<'beginner' | 'advanced'>('beginner');
+  const [soloCard, setSoloCard] = useState<RogueCardId>('artemis');
 
   const seed = useMemo(() => Math.floor(Math.random() * 1e9), []);
 
@@ -67,9 +72,9 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
   const startSolo = () => {
     const seats: LocalSeat[] = [
       { name: 'You', control: 'human' },
-      { name: 'Rogue Galaxy', control: 'ai', isRogue: true },
+      { name: ROGUE_CARDS[soloCard].name, control: 'ai', isRogue: true },
     ];
-    onStart({ kind: 'local', seats, seed, rogueDifficulty: soloDifficulty });
+    onStart({ kind: 'local', seats, seed, rogueDifficulty: soloDifficulty, rogueCard: soloCard });
   };
 
   const total = humans + ais;
@@ -103,6 +108,14 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
         <div className="lobby-section">
           <h2>Solo — The Rogue Galaxy ☠</h2>
           <p className="muted small">Defeat the automated Rogue Galaxy before it reaches 21 VP.</p>
+          <div className="difficulty">
+            <label>Rogue Galaxy</label>
+            <select value={soloCard} onChange={(e) => setSoloCard(e.target.value as RogueCardId)}>
+              {ROGUE_ORDER.map((id) => (
+                <option key={id} value={id}>{ROGUE_CARDS[id].name} — {ROGUE_CARDS[id].tier}</option>
+              ))}
+            </select>
+          </div>
           <div className="difficulty">
             <label>Difficulty</label>
             <div className="seg">
@@ -153,8 +166,8 @@ function PlayCount() {
   return <p className="muted small play-count">{count.toLocaleString()} games played</p>;
 }
 
-function LocalGame({ seats, seed, rogueDifficulty, onExit }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; onExit: () => void }) {
-  const engine = useLocalGame({ seats, seed, rogueDifficulty });
+function LocalGame({ seats, seed, rogueDifficulty, rogueCard, onExit }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; onExit: () => void }) {
+  const engine = useLocalGame({ seats, seed, rogueDifficulty, rogueCard });
   const state = engine.state;
 
   const actor = engine.currentActor();

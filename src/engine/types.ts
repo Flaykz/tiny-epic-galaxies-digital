@@ -55,7 +55,12 @@ export interface PlayerState {
   ships: ShipLocation[]; // fixed length 4
   colonized: string[]; // planet ids slid under the galaxy mat
   mission?: SecretMission; // hidden from opponents
+  /** Dice to drop from this player's NEXT roll (ZENDICA's "you lose a die"). */
+  diceMalus?: number;
 }
+
+/** The five official Rogue Galaxy automa cards (the mat backs), easiest → hardest. */
+export type RogueCardId = 'rothkel' | 'artemis' | 'zendica' | 'hades' | 'gamelyn';
 
 /** A die in play this turn. */
 export interface Die {
@@ -130,6 +135,8 @@ export interface GameState {
   /** Solo difficulty. 'advanced' rerolls each unusable Rogue die once before
    *  discarding it (rulebook's "increased difficulty"); 'beginner' discards it. */
   rogueDifficulty?: 'beginner' | 'advanced';
+  /** Which Rogue Galaxy automa is in play (the 5 official cards). */
+  rogueCard?: RogueCardId;
   /** Whether the per-activation "follow" prompt is offered. Enabled for local
    *  hotseat (instant); disabled for async multiplayer, where prompting every
    *  opponent after every die is a network round-trip per the framework playbook. */
