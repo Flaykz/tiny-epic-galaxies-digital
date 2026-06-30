@@ -20,6 +20,8 @@ export interface SetupOptions {
    *  false for async multiplayer, where it would be a per-die network round-trip. */
   followEnabled?: boolean;
   /** Solo mode against the Rogue Galaxy. When true, exactly one seat should be isRogue. */
+  /** Solo difficulty (default 'beginner'). 'advanced' rerolls unusable Rogue dice once. */
+  rogueDifficulty?: 'beginner' | 'advanced';
 }
 
 function initialShips(level: number): ShipLocation[] {
@@ -88,6 +90,7 @@ export function createInitialState(opts: SetupOptions): GameState {
     log: [],
     winners: null,
     rogueId: players.find((p) => p.isRogue)?.id ?? null,
+    rogueDifficulty: opts.rogueDifficulty ?? 'beginner',
     followEnabled: opts.followEnabled ?? true,
   };
 

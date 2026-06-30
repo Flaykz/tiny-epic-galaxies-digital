@@ -8,7 +8,7 @@ import { MultiplayerApp } from './Multiplayer.js';
 
 type Mode =
   | { kind: 'lobby' }
-  | { kind: 'local'; seats: LocalSeat[]; seed: number }
+  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced' }
   | { kind: 'multiplayer' };
 
 export function App() {
@@ -25,7 +25,7 @@ export function App() {
     <AssetContext.Provider value={{ resolve: assets.resolve, artless: assets.artless }}>
       {mode.kind === 'lobby' && <Lobby onStart={setMode} />}
       {mode.kind === 'multiplayer' && <MultiplayerApp onExit={() => setMode({ kind: 'lobby' })} />}
-      {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} onExit={() => setMode({ kind: 'lobby' })} />}
+      {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} rogueDifficulty={mode.rogueDifficulty} onExit={() => setMode({ kind: 'lobby' })} />}
       {/* Bring-your-own-art: when the build ships no images, prompt the user to
           download + choose the official VASSAL module (cached locally). */}
       {assets.needsSetup && (
@@ -53,6 +53,7 @@ export function App() {
 function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
   const [humans, setHumans] = useState(2);
   const [ais, setAis] = useState(0);
+  const [soloDifficulty, setSoloDifficulty] = useState<'beginner' | 'advanced'>('beginner');
 
   const seed = useMemo(() => Math.floor(Math.random() * 1e9), []);
 
@@ -68,7 +69,7 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
       { name: 'You', control: 'human' },
       { name: 'Rogue Galaxy', control: 'ai', isRogue: true },
     ];
-    onStart({ kind: 'local', seats, seed });
+    onStart({ kind: 'local', seats, seed, rogueDifficulty: soloDifficulty });
   };
 
   const total = humans + ais;
@@ -102,6 +103,24 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
         <div className="lobby-section">
           <h2>Solo — The Rogue Galaxy ☠</h2>
           <p className="muted small">Defeat the automated Rogue Galaxy before it reaches 21 VP.</p>
+          <div className="difficulty">
+            <label>Difficulty</label>
+            <div className="seg">
+              <button
+                className={`seg-btn ${soloDifficulty === 'beginner' ? 'on' : ''}`}
+                onClick={() => setSoloDifficulty('beginner')}
+              >Beginner</button>
+              <button
+                className={`seg-btn ${soloDifficulty === 'advanced' ? 'on' : ''}`}
+                onClick={() => setSoloDifficulty('advanced')}
+              >Advanced</button>
+            </div>
+          </div>
+          <p className="muted small">
+            {soloDifficulty === 'beginner'
+              ? 'Beginner: the Rogue discards any die it can’t use.'
+              : 'Advanced: the Rogue rerolls each unusable die once before discarding it.'}
+          </p>
           <button className="primary" onClick={startSolo}>Start solo game</button>
         </div>
 
@@ -134,8 +153,8 @@ function PlayCount() {
   return <p className="muted small play-count">{count.toLocaleString()} games played</p>;
 }
 
-function LocalGame({ seats, seed, onExit }: { seats: LocalSeat[]; seed: number; onExit: () => void }) {
-  const engine = useLocalGame({ seats, seed });
+function LocalGame({ seats, seed, rogueDifficulty, onExit }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; onExit: () => void }) {
+  const engine = useLocalGame({ seats, seed, rogueDifficulty });
   const state = engine.state;
 
   const actor = engine.currentActor();

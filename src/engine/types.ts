@@ -127,6 +127,9 @@ export interface GameState {
   winners: string[] | null;
   /** Solo mode: the rogue galaxy player id, if any. */
   rogueId: string | null;
+  /** Solo difficulty. 'advanced' rerolls each unusable Rogue die once before
+   *  discarding it (rulebook's "increased difficulty"); 'beginner' discards it. */
+  rogueDifficulty?: 'beginner' | 'advanced';
   /** Whether the per-activation "follow" prompt is offered. Enabled for local
    *  hotseat (instant); disabled for async multiplayer, where prompting every
    *  opponent after every die is a network round-trip per the framework playbook. */

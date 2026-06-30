@@ -587,7 +587,13 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       const d = liveDie(state, action.dieId);
       if (!d) break;
       d.activated = true;
-      const { usable } = resolveRogueDie(state, d.face);
+      let usable = resolveRogueDie(state, d.face).usable;
+      if (!usable && state.rogueDifficulty === 'advanced' && state.phase !== 'gameOver') {
+        // Increased difficulty: reroll each unusable Rogue die once before discarding.
+        withRng(state, (rng) => { d.face = FACES[rng.int(6)]; });
+        state.log.push(`Rogue rerolled an unusable die → ${d.face}`);
+        usable = resolveRogueDie(state, d.face).usable;
+      }
       if (usable && state.phase !== 'gameOver') openFollowWindow(state, d.face);
       break;
     }

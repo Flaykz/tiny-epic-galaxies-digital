@@ -11,7 +11,8 @@ export default defineConfig({
   // detect when a newer build has been deployed and offer a reload.
   plugins: [react(), versionStamp() as any],
   server: {
-    port: 5173,
+    // Honor a PORT assigned by the tooling (e.g. preview auto-port); else 5173.
+    port: Number(process.env.PORT) || 5173,
     proxy: {
       // Forward API calls to the multiplayer GameServer during dev.
       '/api': 'http://localhost:8787',

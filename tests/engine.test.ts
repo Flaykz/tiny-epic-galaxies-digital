@@ -134,6 +134,30 @@ describe('solo mode vs Rogue Galaxy', () => {
     expect(s.winners).toEqual([]);
   });
 
+  it('Advanced difficulty rerolls an unusable Rogue die once before discarding', () => {
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 2, rogueDifficulty: 'advanced' });
+    expect(s.rogueDifficulty).toBe('advanced');
+    const r = s.players.find((p) => p.isRogue)!;
+    // No ship on the Galaxy → a Move die is unusable and should be rerolled.
+    r.ships = s.centerRow.map((pid) => ({ kind: 'orbit' as const, planetId: pid, level: 0 }));
+    s.turn.active = r.id;
+    s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
+    const before = s.log.length;
+    s = tegAdapter.applyAction(s, { type: 'rogueResolveDie', dieId: 0 } as any, r.id);
+    expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l))).toBe(true);
+  });
+
+  it('Beginner difficulty discards an unusable Rogue die (no reroll)', () => {
+    let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 2, rogueDifficulty: 'beginner' });
+    const r = s.players.find((p) => p.isRogue)!;
+    r.ships = s.centerRow.map((pid) => ({ kind: 'orbit' as const, planetId: pid, level: 0 }));
+    s.turn.active = r.id;
+    s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
+    const before = s.log.length;
+    s = tegAdapter.applyAction(s, { type: 'rogueResolveDie', dieId: 0 } as any, r.id);
+    expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l))).toBe(false);
+  });
+
   it("Rogue MOVE A SHIP enters orbit of the leftmost planet without a Rogue ship", async () => {
     const { resolveRogueDie } = await import('../src/engine/rogue.js');
     let s = createInitialState({ seats: [{ name: 'You' }, { name: 'Rogue', isRogue: true }], seed: 5 });

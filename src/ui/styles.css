@@ -45,6 +45,11 @@ code { background: #0006; padding: 1px 5px; border-radius: 4px; }
 .counter label { width: 90px; color: var(--muted); }
 .counter button { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--panel2); color: var(--ink); font-size: 1.1rem; }
 .counter span { min-width: 24px; text-align: center; font-weight: 700; }
+.difficulty { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; }
+.difficulty label { width: 90px; color: var(--muted); }
+.seg { display: inline-flex; border-radius: 8px; overflow: hidden; border: 1px solid #ffffff22; }
+.seg-btn { border: none; background: var(--panel2); color: var(--muted); padding: .4rem .9rem; font-weight: 600; cursor: pointer; }
+.seg-btn.on { background: var(--accent, #4f7cff); color: #fff; }
 button.primary {
   margin-top: .6rem; padding: .6rem 1.2rem; border: none; border-radius: 10px;
   background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700;
