@@ -6,6 +6,7 @@ import { FsStore } from 'digital-boardgame-framework/server/node';
 import { jsonCodec } from 'digital-boardgame-framework';
 import { tegAdapter, createInitialState } from '../src/engine/index.js';
 import type { Action, GameState } from '../src/engine/index.js';
+import { tegAiControllers } from '../src/engine/aiControllers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8787);
@@ -17,6 +18,7 @@ const server = new GameServer<GameState, Action, string>({
   adapter: tegAdapter,
   codec: jsonCodec<GameState>(),
   store,
+  aiControllers: tegAiControllers,
   gameUrl: (gameId, token) => `${PUBLIC_URL}/?game=${gameId}&token=${token}`,
   // Best-effort play counter: createGame fires an 'online' beacon to the hub.
   playBeacon: { appId: 'tiny-epic-galaxies' },
@@ -105,12 +107,23 @@ const http = createServer(async (req, res) => {
       const body = await readBody(req);
       const names: string[] = body.names ?? ['Player 1', 'Player 2'];
       const players = names.map((_, i) => `p${i + 1}`);
+      const rawAi = (body.ai && typeof body.ai === 'object') ? body.ai as Record<string, string> : undefined;
+      let ai: Record<string, string> | undefined;
+      if (rawAi) {
+        ai = {};
+        for (const [k, v] of Object.entries(rawAi)) {
+          if (typeof v !== 'string' || !tegAiControllers[v]) continue;
+          const seat = players.includes(k) ? k : players[Number(k)];
+          if (seat) ai[seat] = v;
+        }
+        if (Object.keys(ai).length === 0) ai = undefined;
+      }
       const initialState = createInitialState({
         seats: names.map((name: string) => ({ name })),
         seed: Math.floor(Math.random() * 1e9),
         followEnabled: true, // engine only offers follow to players who can afford it
       });
-      const result = await server.createGame({ initialState, players });
+      const result = await server.createGame({ initialState, players, ...(ai ? { ai } : {}) });
       return json(res, 200, result);
     }
 

@@ -45,11 +45,14 @@ export function makeHttpClient(
   };
 }
 
-export async function createGame(names: string[]): Promise<{ gameId: string; invites: Record<string, string> }> {
+export async function createGame(
+  names: string[],
+  ai?: Record<string, string>,
+): Promise<{ gameId: string; invites: Record<string, string> }> {
   const r = await fetch(`${API}/games`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ names }),
+    body: JSON.stringify({ names, ...(ai ? { ai } : {}) }),
   });
   if (!r.ok) throw new Error(`create failed: ${r.status}`);
   return r.json();

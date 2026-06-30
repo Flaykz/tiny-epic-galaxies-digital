@@ -44,9 +44,27 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
     }
   };
 
+  // Create a 2-player game where seat p2 is a server-driven, rated AI ('easy'),
+  // then take the human straight to their seat (p1). The AI plays under
+  // `ai:tiny-epic-galaxies:easy` on the leaderboard.
+  const createVsAi = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await createGame(['You', '🤖 AI (easy)'], { p2: 'easy' });
+      const mySeat = res.invites.p1;
+      if (mySeat) window.location.assign(mySeat);
+    } catch (e: any) {
+      setError(`Could not reach the server. Start it with "npm run server". (${e?.message ?? e})`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="lobby">
       <button className="exit-btn" onClick={onExit}>← Lobby</button>
+      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev" />
       <div className="lobby-card">
         <h1>Async Multiplayer</h1>
         {!invites ? (
@@ -60,6 +78,14 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
             <button className="primary" disabled={busy} onClick={create}>
               {busy ? 'Creating…' : 'Create game'}
             </button>
+            <div className="vs-ai">
+              <button className="primary" disabled={busy} onClick={createVsAi}>
+                {busy ? 'Creating…' : 'Play vs AI (ranked)'}
+              </button>
+              <p className="muted small">
+                Sign in first so your result counts toward your rating.
+              </p>
+            </div>
             {error && <p className="error">{error}</p>}
           </>
         ) : (
@@ -94,8 +120,21 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
 }
 
 function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: string; onExit: () => void }) {
-  const client = useMemo(() => makeHttpClient(gameId, token), [gameId, token]);
+  const { identity } = useIdentity();
+  const identityToken = identity?.token;
+  // Ride the hub identity token along with each move so the server can attribute
+  // this seat (ranked). claimSeat additionally attaches it up-front on sign-in.
+  const client = useMemo(
+    () => makeHttpClient(gameId, token, () => identityToken),
+    [gameId, token, identityToken],
+  );
   const game = useGame<GameState, Action>(client, { pollMs: 1000 });
+
+  // When signed in, claim this seat once so the identity is attached before the
+  // game ends (so the ranked report has both seats attributed).
+  useEffect(() => {
+    if (identityToken) claimSeat(gameId, token, identityToken);
+  }, [gameId, token, identityToken]);
 
   if (game.loading && !game.view) return <div className="loading">Connecting…</div>;
   if (game.error) return <div className="loading error">Error: {game.error.message}</div>;
@@ -104,6 +143,7 @@ function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: str
   return (
     <div className="game-shell">
       <button className="exit-btn" onClick={() => { window.history.replaceState({}, '', '/'); onExit(); }}>← Lobby</button>
+      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev" />
       <Board
         state={game.view}
         viewer={game.you}

@@ -4,6 +4,7 @@ import { GameServer, verifyIdentityToken, type Jwks } from 'digital-boardgame-fr
 import { jsonCodec } from 'digital-boardgame-framework';
 import { tegAdapter, createInitialState } from '../../src/engine/index.js';
 import type { Action, GameState } from '../../src/engine/index.js';
+import { tegAiControllers } from '../../src/engine/aiControllers.js';
 import { KvStore } from './_kvstore.js';
 
 interface Env {
@@ -39,6 +40,9 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
     adapter: tegAdapter,
     codec: jsonCodec<GameState>(),
     store: new KvStore(env.GAMES),
+    // Server-driven, rated AI opponents (keyed by difficulty). A seat marked AI
+    // in createGame is driven here, so the human can't tamper with its play.
+    aiControllers: tegAiControllers,
     gameUrl: (gameId, tok) => `${url.origin}/?game=${gameId}&token=${tok}`,
     // Best-effort play counter: createGame fires an 'online' beacon to the hub.
     playBeacon: { appId: 'tiny-epic-galaxies' },
@@ -113,6 +117,20 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
       const body: any = await request.json().catch(() => ({}));
       const names: string[] = body.names ?? ['Player 1', 'Player 2'];
       const players = names.map((_, i) => `p${i + 1}`);
+      // Optional seat→difficulty map for server-driven AI opponents. Body may use
+      // either seat ids (e.g. { p2: 'easy' }) or 0-based seat indices ({ "1": 'easy' });
+      // normalize indices to seat ids so the framework can attribute the AI seat.
+      const rawAi = (body.ai && typeof body.ai === 'object') ? body.ai as Record<string, string> : undefined;
+      let ai: Record<string, string> | undefined;
+      if (rawAi) {
+        ai = {};
+        for (const [k, v] of Object.entries(rawAi)) {
+          if (typeof v !== 'string' || !tegAiControllers[v]) continue;
+          const seat = players.includes(k) ? k : players[Number(k)];
+          if (seat) ai[seat] = v;
+        }
+        if (Object.keys(ai).length === 0) ai = undefined;
+      }
       const initialState = createInitialState({
         seats: names.map((name) => ({ name })),
         seed: Math.floor(Math.random() * 1e9),
@@ -120,7 +138,7 @@ export const onRequest = async (context: { request: Request; env: Env; params: {
         // (the engine filters the follow queue), so no one gets a forced decline.
         followEnabled: true,
       });
-      return json(200, await server.createGame({ initialState, players }));
+      return json(200, await server.createGame({ initialState, players, ...(ai ? { ai } : {}) }));
     }
 
     if (parts[0] === 'games' && parts[1]) {
