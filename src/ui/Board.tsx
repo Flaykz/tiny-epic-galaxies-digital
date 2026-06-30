@@ -600,11 +600,14 @@ function ActionPanel({
   }
 
   const followActions = legalActions.filter((a) => a.type === 'follow');
-  if (followActions.length > 0) {
+  // Guard on pendingFollow too: in multiplayer the polled view and legalActions can
+  // be momentarily out of sync (follow already resolved server-side but legalActions
+  // not yet refreshed), and reading a null pendingFollow.face white-screened the app.
+  if (state.turn.pendingFollow && followActions.length > 0) {
     return (
       <div className="action-panel follow">
         <h3>Follow?</h3>
-        <p>{viewerName}, you may copy the {FACE_LABEL[state.turn.pendingFollow!.face]} action by spending 1 culture.</p>
+        <p>{viewerName}, you may copy the {FACE_LABEL[state.turn.pendingFollow.face]} action by spending 1 culture.</p>
         <div className="actions">
           {followActions.map((a, i) => (
             <button key={i} className="act-btn" onClick={() => onAction(a)} title={actionTooltip(a)}>

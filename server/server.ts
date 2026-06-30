@@ -139,7 +139,14 @@ const http = createServer(async (req, res) => {
         return json(res, 200, await server.legalActions(gameId, token));
       }
       if (req.method === 'POST' && sub === 'actions') {
-        const action = await readBody(req);
+        const b = await readBody(req);
+        // Ranked attribution rides along as identityToken; strip it so the action
+        // exact-matches legalActions (mirrors the Pages Function). Claim the seat
+        // best-effort first.
+        if (typeof b?.identityToken === 'string') {
+          try { await server.claimSeat(gameId, token, b.identityToken); } catch { /* casual */ }
+        }
+        const { identityToken: _it, ...action } = b ?? {};
         return json(res, 200, await server.submit(gameId, token, action));
       }
       if (req.method === 'POST' && sub === 'report') {

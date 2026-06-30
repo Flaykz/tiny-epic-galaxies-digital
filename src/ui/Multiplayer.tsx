@@ -1,4 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+
+/**
+ * Keeps a transient render error (e.g. a polled view momentarily out of sync with
+ * legalActions) from white-screening the whole app. Reset by `resetKey` (the turn
+ * number), so the next poll remounts a clean Board instead of staying broken.
+ */
+class BoardBoundary extends React.Component<{ resetKey: unknown; children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidUpdate(prev: { resetKey: unknown }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: false });
+  }
+  render() {
+    if (this.state.failed) return <div className="loading">Syncing…</div>;
+    return this.props.children;
+  }
+}
 import { useGame, useIdentity, SignInBar, RankedStatus } from 'digital-boardgame-framework/client';
 import { makeHttpClient, createGame, claimSeat } from '../client/httpClient.js';
 import { Board } from './Board.js';
@@ -144,14 +161,16 @@ function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: str
     <div className="game-shell">
       <button className="exit-btn" onClick={() => { window.history.replaceState({}, '', '/'); onExit(); }}>← Lobby</button>
       <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev" />
-      <Board
-        state={game.view}
-        viewer={game.you}
-        canAct={game.yourTurn}
-        legalActions={game.legalActions}
-        onAction={(a) => game.submit(a)}
-        onReport={(message) => game.reportBug(message)}
-      />
+      <BoardBoundary resetKey={game.turn}>
+        <Board
+          state={game.view}
+          viewer={game.you}
+          canAct={game.yourTurn}
+          legalActions={game.legalActions}
+          onAction={(a) => game.submit(a)}
+          onReport={(message) => game.reportBug(message)}
+        />
+      </BoardBoundary>
       {game.gameOver && <RankedStatus ranked={game.ranked} />}
     </div>
   );
