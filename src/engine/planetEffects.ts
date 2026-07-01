@@ -324,6 +324,18 @@ export function planetOptions(state: GameState, p: PlayerState, planetId: string
   switch (planetId) {
     case 'cp2': return range(p.energy, (n) => opt({ amount: n }, `Convert ${n} energy → culture`));
     case 'cp36': return range(p.culture, (n) => opt({ amount: n }, `Convert ${n} culture → energy`));
+    case 'cp5': {
+      // MAIA: "Discard 2 inactive dice, acquire 2 energy and 2 culture." Let the
+      // player choose WHICH two dice to discard — offer every pair of inactive dice
+      // (the prompt always carries a skip option, so it stays optional).
+      const inactive = state.turn.dice.filter((d) => !d.activated && !d.inConverter);
+      const out: Action[] = [];
+      for (let i = 0; i < inactive.length; i++)
+        for (let j = i + 1; j < inactive.length; j++)
+          out.push(opt({ dieIds: [inactive[i].id, inactive[j].id] },
+            `Discard the ${FACE_LABEL[inactive[i].face]} + ${FACE_LABEL[inactive[j].face]} dice`));
+      return out;
+    }
     case 'cp3': {
       const out: Action[] = [
         opt({ face: 'energy' }, 'Free action: Acquire energy'),

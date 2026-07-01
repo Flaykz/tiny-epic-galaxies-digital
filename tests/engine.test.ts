@@ -331,6 +331,32 @@ describe('regress/reroll planets prompt for their targets', () => {
     expect(s.players[0].energy).toBe(3);
   });
 
+  it('MAIA (cp5) prompts for which two inactive dice to discard', () => {
+    let s = newGame(1);
+    const p = s.players[0];
+    p.energy = 5; p.culture = 5;
+    s.centerRow[0] = 'cp5'; p.ships[0] = { kind: 'galaxy' };
+    s.turn.dice = [
+      { id: 0, face: 'move', activated: false },
+      { id: 1, face: 'energy', activated: false },
+      { id: 2, face: 'culture', activated: false },
+      { id: 3, face: 'diplomacy', activated: false },
+    ] as any;
+    s = tegAdapter.applyAction(s, { type: 'activateMove', dieId: 0, shipIdx: 0, dest: { kind: 'surface', planetId: 'cp5' } } as any, p.id);
+    // Must pause for the player's choice — not auto-discard the first two dice.
+    expect(s.turn.pendingChoice?.planetId).toBe('cp5');
+    expect(s.turn.dice.filter((d: any) => d.inConverter).length).toBe(0);
+    // Choose to spend the energy(1) + diplomacy(3) dice, sparing culture(2).
+    const pick = tegAdapter.legalActions(s, p.id).find(
+      (a) => a.type === 'resolvePlanet' && (a as any).choice.dieIds?.includes(1) && (a as any).choice.dieIds?.includes(3))!;
+    s = tegAdapter.applyAction(s, pick, p.id);
+    const discarded = s.turn.dice.filter((d: any) => d.inConverter).map((d: any) => d.id).sort();
+    expect(discarded).toEqual([1, 3]);
+    expect(s.players[0].energy).toBe(7);
+    expect(s.players[0].culture).toBe(7);
+    expect(s.turn.pendingChoice).toBeNull();
+  });
+
   it('ZALAX (cp25) prompts per die and excludes already-rerolled dice', () => {
     let s = newGame(4);
     const p = s.players[0];
