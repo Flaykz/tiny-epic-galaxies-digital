@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   PLANETS_BY_ID,
+  ROGUE_CARDS,
   baseVp,
   finalScore,
   empire,
@@ -331,6 +332,29 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
           🎯 {p.mission.name}: {p.mission.objective}
         </div>
       )}
+      {p.isRogue && <RogueCardLadder empireLevel={p.empireLevel} cardId={state.rogueCard} />}
+    </div>
+  );
+}
+
+/** Read-only display of the active Rogue Galaxy card's colony-action ladder, so
+ *  the player can see which Rogue they're facing (each difficulty is a distinct
+ *  card) and what it does at every empire level. The Rogue's current level is
+ *  highlighted — a Colony die resolves that row. */
+function RogueCardLadder({ empireLevel, cardId }: { empireLevel: number; cardId?: string }) {
+  const card = ROGUE_CARDS[(cardId ?? 'artemis') as keyof typeof ROGUE_CARDS] ?? ROGUE_CARDS.artemis;
+  const active = Math.min(Math.max(empireLevel, 1), 5);
+  return (
+    <div className="pp-rogue-card">
+      <span className="pp-rogue-card-label">☠ {card.name} — {card.tier} · Colony Action ladder</span>
+      <div className="rogue-ladder">
+        {[1, 2, 3, 4, 5].map((lvl) => (
+          <div key={lvl} className={`rogue-ladder-row ${lvl === active ? 'active' : ''}`} title={lvl === active ? 'Current Rogue empire level' : undefined}>
+            <span className="rogue-ladder-lvl">L{lvl}</span>
+            <span className="rogue-ladder-effect">{card.desc[lvl]}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

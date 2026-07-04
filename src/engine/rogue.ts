@@ -32,7 +32,11 @@ function human(state: GameState): PlayerState {
 // ladder indexed by the Rogue's empire level (1..5). "steal N of your choice" is
 // auto-resolved (energy first) so the automa never prompts the human. The Rogue's
 // empire track/dice are modeled on the player track (see note at top). ----
-export interface RogueCard { id: RogueCardId; name: string; tier: string; colony: Record<number, (s: GameState) => string>; }
+// `colony` runs the effect (mutating state, returns a log line); `desc` is the
+// read-only ladder shown to the player so they can see which Rogue they face and
+// what each empire level does. KEEP THE TWO IN SYNC — if you change a colony
+// effect, update the matching desc string.
+export interface RogueCard { id: RogueCardId; name: string; tier: string; colony: Record<number, (s: GameState) => string>; desc: Record<number, string>; }
 
 export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
   rothkel: { id: 'rothkel', name: 'ROTHKEL', tier: 'Easy', colony: {
@@ -41,6 +45,12 @@ export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
     3: (s) => rogueAcquireRes(s, 'energy', 2),
     4: (s) => regressHuman(s, 1),
     5: (s) => advanceAllAnyType(s, 1),
+  }, desc: {
+    1: 'You lose 1 energy',
+    2: 'You lose 1 culture',
+    3: 'Rogue gains 2 energy',
+    4: 'Your most-advanced orbiting ship regresses 1',
+    5: 'Every Rogue ship in orbit advances 1',
   } },
   artemis: { id: 'artemis', name: 'ARTEMIS', tier: 'Beginner', colony: {
     1: (s) => loseResource(s, 'energy', 1),
@@ -48,6 +58,12 @@ export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
     3: (s) => steal(s, 'culture', 1),
     4: (s) => regressHuman(s, 1),
     5: (s) => stealAny(s, 2),
+  }, desc: {
+    1: 'You lose 1 energy',
+    2: 'You lose 1 culture',
+    3: 'Rogue steals 1 culture from you',
+    4: 'Your most-advanced orbiting ship regresses 1',
+    5: 'Rogue steals 2 resources from you (energy first)',
   } },
   zendica: { id: 'zendica', name: 'ZENDICA', tier: 'Medium', colony: {
     1: (s) => loseResource(s, 'energy', 1),
@@ -55,6 +71,12 @@ export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
     3: (s) => regressHuman(s, 1),
     4: (s) => humanLoseDie(s),
     5: (s) => regressAllHuman(s, 1),
+  }, desc: {
+    1: 'You lose 1 energy',
+    2: 'Rogue gains 2 culture',
+    3: 'Your most-advanced orbiting ship regresses 1',
+    4: 'You lose a die next turn',
+    5: 'All your orbiting ships regress 1',
   } },
   hades: { id: 'hades', name: 'HADES', tier: 'Hard', colony: {
     1: (s) => rogueAcquireBoth(s),
@@ -62,6 +84,12 @@ export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
     3: (s) => steal(s, 'culture', 2),
     4: (s) => advanceAllAnyType(s, 2),
     5: (s) => stealAny(s, 3),
+  }, desc: {
+    1: 'Rogue gains 1 energy + 1 culture',
+    2: 'Rogue steals 2 energy from you',
+    3: 'Rogue steals 2 culture from you',
+    4: 'Every Rogue ship in orbit advances 2',
+    5: 'Rogue steals 3 resources from you (energy first)',
   } },
   gamelyn: { id: 'gamelyn', name: 'GAMELYN', tier: 'Epic', colony: {
     1: (s) => `${loseResource(s, 'energy', 1)}; ${loseResource(s, 'culture', 1)}`,
@@ -69,6 +97,12 @@ export const ROGUE_CARDS: Record<RogueCardId, RogueCard> = {
     3: (s) => advanceAllAnyType(s, 1),
     4: (s) => `${advanceAllAnyType(s, 1)}; ${steal(s, 'energy', 1)}`,
     5: (s) => advanceAllAnyType(s, 2),
+  }, desc: {
+    1: 'You lose 1 energy and 1 culture',
+    2: 'Rogue steals 1 energy and 1 culture from you',
+    3: 'Every Rogue ship in orbit advances 1',
+    4: 'Every Rogue ship in orbit advances 1; Rogue steals 1 energy from you',
+    5: 'Every Rogue ship in orbit advances 2',
   } },
 };
 
