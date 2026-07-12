@@ -43,11 +43,15 @@ export function actionLabel(a: Action, ships?: ShipLocation[], actor?: PlayerSta
     case 'follow': {
       if (!a.accept) return 'Decline follow';
       const p = a.params ?? {};
+      // Upgrade-empire follows come in two flavours — pay the upgrade cost with
+      // energy or with culture — on TOP of the 1-culture follow tax. Fold both
+      // costs into one clear label so the two options don't read as a duplicated
+      // "upgrade empire" entry.
+      if (p.pay) return `Follow → upgrade empire — pay ${p.pay} (+1 culture)`;
       let what = 'copy action';
       if (p.resource) what = `acquire ${p.resource}`;
       else if (p.dest != null && p.shipIdx != null) what = `move ship (${ship(p.shipIdx)}) → ${locLabel(p.dest)}`;
       else if (p.advance != null && p.shipIdx != null) what = `advance ship (${ship(p.shipIdx)}) — ${p.advance}`;
-      else if (p.pay) what = `upgrade empire (pay ${p.pay})`;
       else if (p.planetId) what = `use colony ${PLANETS_BY_ID[p.planetId]?.name ?? p.planetId}`;
       return `Follow — ${what} (pay 1 culture)`;
     }
