@@ -1,3 +1,4 @@
+import { upgradeProseLog } from 'digital-boardgame-framework';
 import type { GameAdapter, GameResult } from 'digital-boardgame-framework';
 import type {
   Action,
@@ -8,7 +9,7 @@ import type {
   PlayerState,
   ShipLocation,
 } from './types.js';
-import { SCHEMA_VERSION, rollForActive, withRng } from './setup.js';
+import { SCHEMA_VERSION, logEvent, rollForActive, withRng } from './setup.js';
 import {
   acquireFromGalaxy,
   activePlayer,
@@ -111,7 +112,7 @@ function triggerPlanet(
     state.turn.pendingChoice = { player: p.id, planetId, source, thenFollow };
     return; // wait for the player's target choice; follow opens on resolve
   }
-  state.log.push(eff(state, p));
+  logEvent(state, 'planet.effect', eff(state, p), { planetId, source }, p.id);
   if (thenFollow) openFollowWindow(state, thenFollow);
 }
 
@@ -123,14 +124,14 @@ function triggerPlanet(
  */
 function setupNagato(state: GameState, p: PlayerState, thenFollow: DieFace | null): void {
   const done = () => { if (thenFollow) openFollowWindow(state, thenFollow); };
-  if (state.turn.oncePerTurn.includes('once-cp21')) { state.log.push(`${p.name}: NAGATO already used this turn`); done(); return; }
-  if (p.culture < 1) { state.log.push(`${p.name}: NAGATO needs 1 culture`); done(); return; }
+  if (state.turn.oncePerTurn.includes('once-cp21')) { logEvent(state, 'planet.nagato', `${p.name}: NAGATO already used this turn`, { planetId: 'cp21', ok: false, reason: 'once-per-turn' }, p.id); done(); return; }
+  if (p.culture < 1) { logEvent(state, 'planet.nagato', `${p.name}: NAGATO needs 1 culture`, { planetId: 'cp21', ok: false, reason: 'no-culture' }, p.id); done(); return; }
   const canMove = p.ships.some((s, i) => s.kind !== 'locked' && moveDestinations(state, p, i).length > 0);
-  if (!canMove) { state.log.push(`${p.name}: NAGATO — no ship can move`); done(); return; }
+  if (!canMove) { logEvent(state, 'planet.nagato', `${p.name}: NAGATO — no ship can move`, { planetId: 'cp21', ok: false, reason: 'no-legal-move' }, p.id); done(); return; }
   addResource(p, 'culture', -1);
   state.turn.oncePerTurn.push('once-cp21');
   state.turn.pendingMoves = { player: p.id, left: 2, thenFollow };
-  state.log.push(`${p.name} spent 1 culture (NAGATO) — move up to 2 ships`);
+  logEvent(state, 'planet.nagato', `${p.name} spent 1 culture (NAGATO) — move up to 2 ships`, { planetId: 'cp21', ok: true, cultureSpent: 1, moves: 2 }, p.id);
 }
 
 /** Short label for a move destination, used in PIEDES "repeat move" options. */
@@ -187,7 +188,7 @@ function upgradeEmpire(state: GameState, p: PlayerState, pay: 'energy' | 'cultur
   addResource(p, pay, -cost);
   p.empireLevel++;
   unlockShips(p);
-  state.log.push(`${p.name} upgraded to empire level ${p.empireLevel}`);
+  logEvent(state, 'empire.upgrade', `${p.name} upgraded to empire level ${p.empireLevel}`, { level: p.empireLevel, pay, cost }, p.id);
   checkEnd(state, p);
   return true;
 }
@@ -200,14 +201,14 @@ function checkEnd(state: GameState, p: PlayerState): void {
     if (baseVp(state, p) >= WIN_VP) {
       state.phase = 'gameOver';
       state.winners = p.isRogue ? [] : [p.id];
-      state.log.push(p.isRogue ? 'The Rogue Galaxy conquered all — you lose.' : 'You defeated the Rogue Galaxy!');
+      logEvent(state, 'game.over', p.isRogue ? 'The Rogue Galaxy conquered all — you lose.' : 'You defeated the Rogue Galaxy!', { winners: state.winners, solo: true });
     }
     return;
   }
   if (state.phase === 'playing' && baseVp(state, p) >= WIN_VP) {
     state.phase = 'finalRound';
     state.endTriggeredBy = p.id;
-    state.log.push(`${p.name} reached ${WIN_VP}+ VP — final round!`);
+    logEvent(state, 'game.finalRound', `${p.name} reached ${WIN_VP}+ VP — final round!`, { player: p.id, vp: baseVp(state, p) }, p.id);
   }
 }
 
@@ -276,6 +277,20 @@ function followOptions(state: GameState, p: PlayerState, face: DieFace): Action[
 
 export const tegAdapter: GameAdapter<GameState, Action, string> = {
   schemaVersion: SCHEMA_VERSION,
+
+  /** v1 -> v2: state.log was prose string[]; wrap old lines as structured
+   *  'legacy' entries so in-flight KV games keep their history rendering. */
+  migrate(rawState) {
+    const s = rawState as GameState & { log: unknown };
+    if (Array.isArray(s.log) && s.log.some((l) => typeof l === 'string')) {
+      s.log = upgradeProseLog(
+        (s.log as unknown[]).map((l) => (typeof l === 'string' ? l : String((l as { msg?: string }).msg ?? ''))),
+        s.turnNumber ?? 0,
+      );
+    }
+    s.schemaVersion = SCHEMA_VERSION;
+    return s;
+  },
 
   currentActor(state) {
     if (state.phase === 'gameOver') return null;
@@ -442,7 +457,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       const d = liveDie(state, action.dieId);
       if (!d || d.face !== 'move') break;
       d.activated = true;
-      state.log.push(`${p.name} moved a ship`);
+      logEvent(state, 'ship.move', `${p.name} moved a ship`, { shipIdx: action.shipIdx, dest: action.dest }, p.id);
       const wasSurface = action.dest.kind === 'surface';
       // Surface landings resolve (and open the follow window) inside triggerPlanet,
       // possibly after a target prompt. Non-surface moves open it directly.
@@ -455,7 +470,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       if (!d || d.face !== action.resource) break;
       d.activated = true;
       const got = acquireFromGalaxy(state, p, action.resource);
-      state.log.push(`${p.name} acquired ${got} ${action.resource}`);
+      logEvent(state, 'resource.acquire', `${p.name} acquired ${got} ${action.resource}`, { resource: action.resource, amount: got }, p.id);
       openFollowWindow(state, action.resource);
       break;
     }
@@ -464,7 +479,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       if (!d || d.face !== action.advance) break;
       d.activated = true;
       advanceShip(state, p, action.shipIdx, action.advance, 1);
-      state.log.push(`${p.name} advanced a ship (${action.advance})`);
+      logEvent(state, 'ship.advance', `${p.name} advanced a ship (${action.advance})`, { shipIdx: action.shipIdx, advance: action.advance }, p.id);
       openFollowWindow(state, action.advance);
       break;
     }
@@ -507,20 +522,20 @@ function applyMut(state: GameState, action: Action, actor: string): void {
           state.turn.pendingChoice = null;
           if (thenFollow) openFollowWindow(state, thenFollow);
         }
-        state.log.push(`${p.name} rerolled a die`);
+        logEvent(state, 'dice.reroll', `${p.name} rerolled a die`, { dieIds: [id], via: 'cp25' }, p.id);
         break;
       }
       if (pc.planetId === 'cp23' && action.choice?.dest && action.choice.shipIdx != null) {
         const dest = action.choice.dest;
         const wasSurface = dest.kind === 'surface';
         state.turn.pendingChoice = null;
-        state.log.push(`${p.name} repeated a move`);
+        logEvent(state, 'ship.move', `${p.name} repeated a move`, { shipIdx: action.choice.shipIdx, dest, via: 'cp23' }, p.id);
         arrive(state, p, action.choice.shipIdx, dest, { interactive: true, thenFollow });
         if (!wasSurface && thenFollow) openFollowWindow(state, thenFollow);
         break;
       }
       const eff = PLANET_EFFECTS[pc.planetId];
-      if (eff) state.log.push(eff(state, p, action.choice));
+      if (eff) logEvent(state, 'planet.effect', eff(state, p, action.choice), { planetId: pc.planetId, source: pc.source }, p.id);
       state.turn.pendingChoice = null;
       if (thenFollow) openFollowWindow(state, thenFollow);
       break;
@@ -528,7 +543,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
     case 'skipPlanet': {
       const pc = state.turn.pendingChoice;
       if (!pc) break;
-      state.log.push(`${player(state, pc.player).name} skipped ${PLANET(pc.planetId)?.name}'s action`);
+      logEvent(state, 'planet.skip', `${player(state, pc.player).name} skipped ${PLANET(pc.planetId)?.name}'s action`, { planetId: pc.planetId }, pc.player);
       const thenFollow = pc.thenFollow;
       state.turn.pendingChoice = null;
       if (thenFollow) openFollowWindow(state, thenFollow);
@@ -541,7 +556,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       const last = pm.left === 0;
       const tf = last ? pm.thenFollow : null; // NAGATO's follow opens only after all moves
       if (last) state.turn.pendingMoves = null;
-      state.log.push(`${p.name} moved a ship`);
+      logEvent(state, 'ship.move', `${p.name} moved a ship`, { shipIdx: action.shipIdx, dest: action.dest, via: 'cp21' }, p.id);
       const wasSurface = action.dest.kind === 'surface';
       // Interactive: a landing on a surface opens a pendingChoice that resolves
       // before the next NAGATO move (currentActor prioritises pendingChoice).
@@ -565,7 +580,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       }
       state.turn.freeRerollUsed = true;
       rerollDice(state, action.dieIds);
-      state.log.push(`${p.name} rerolled ${action.dieIds.length} dice${free ? ' (free)' : ' (1 energy)'}`);
+      logEvent(state, 'dice.reroll', `${p.name} rerolled ${action.dieIds.length} dice${free ? ' (free)' : ' (1 energy)'}`, { dieIds: action.dieIds, free }, p.id);
       break;
     }
     case 'convert': {
@@ -577,7 +592,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       db.inConverter = true;
       dt.face = action.face;
       state.turn.converterUsedThisTurn = true;
-      state.log.push(`${p.name} used the Converter → set a die to ${action.face}`);
+      logEvent(state, 'dice.convert', `${p.name} used the Converter → set a die to ${action.face}`, { spend: action.spend, target: action.target, face: action.face }, p.id);
       break;
     }
     case 'rogueResolveDie': {
@@ -591,7 +606,7 @@ function applyMut(state: GameState, action: Action, actor: string): void {
       if (!usable && state.rogueDifficulty === 'advanced' && state.phase !== 'gameOver') {
         // Increased difficulty: reroll each unusable Rogue die once before discarding.
         withRng(state, (rng) => { d.face = FACES[rng.int(6)]; });
-        state.log.push(`Rogue rerolled an unusable die → ${d.face}`);
+        logEvent(state, 'rogue.reroll', `Rogue rerolled an unusable die → ${d.face}`, { face: d.face }, state.rogueId);
         usable = resolveRogueDie(state, d.face).usable;
       }
       if (usable && state.phase !== 'gameOver') openFollowWindow(state, d.face);
@@ -619,7 +634,7 @@ function resolveFollow(state: GameState, action: { type: 'follow'; accept: boole
       const ok = applyFollowEffect(state, p, pf.face, action.params ?? {});
       if (ok) {
         state.turn.lastActivationFollows++;
-        state.log.push(`${p.name} followed (${pf.face})`);
+        logEvent(state, 'follow', `${p.name} followed (${pf.face})`, { face: pf.face, cultureSpent: cost, params: action.params ?? {} }, p.id);
         // A followed action can colonize and win (e.g. completing an orbit track);
         // the early return above skips the end-of-applyMut check, so do it here.
         checkEnd(state, p);
@@ -652,7 +667,7 @@ function applyFollowEffect(state: GameState, p: PlayerState, face: DieFace, para
     case 'colony':
       if (params.planetId && p.colonized.includes(params.planetId)) {
         const eff = PLANET_EFFECTS[params.planetId];
-        if (eff) { state.log.push(eff(state, p, params.choice)); return true; }
+        if (eff) { logEvent(state, 'planet.effect', eff(state, p, params.choice), { planetId: params.planetId, source: 'follow' }, p.id); return true; }
         return false;
       }
       if (params.pay) return upgradeEmpire(state, p, params.pay);
@@ -678,7 +693,7 @@ function endTurn(state: GameState): void {
     state.phase = 'gameOver';
     state.winners = computeWinners(state);
     const names = state.winners.map((id) => player(state, id).name).join(', ');
-    state.log.push(`Game over. Winner: ${names}`);
+    logEvent(state, 'game.over', `Game over. Winner: ${names}`, { winners: state.winners, ranking: computeRanking(state) });
     return;
   }
 

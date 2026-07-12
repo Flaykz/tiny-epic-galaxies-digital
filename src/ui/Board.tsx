@@ -734,13 +734,13 @@ function ActionPanel({
   );
 }
 
-function LogPanel({ log }: { log: string[] }) {
+function LogPanel({ log }: { log: import('digital-boardgame-framework').GameLogEntry[] }) {
   return (
     <section className="log-panel">
       <h3>Log</h3>
       <ul>
-        {log.slice(-14).reverse().map((line, i) => (
-          <li key={i}>{line}</li>
+        {log.slice(-14).reverse().map((e) => (
+          <li key={e.seq}>{e.msg ?? e.kind}</li>
         ))}
       </ul>
     </section>

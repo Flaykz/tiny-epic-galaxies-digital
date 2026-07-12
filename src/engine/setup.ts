@@ -1,10 +1,34 @@
-import { Rng } from 'digital-boardgame-framework';
+import { Rng, appendGameLog } from 'digital-boardgame-framework';
 import type { Color, GameState, PlayerState, ShipLocation } from './types.js';
 import { PLANETS } from './planets.js';
 import { MISSIONS } from './missions.js';
 import { empire, SHIP_COUNT } from './empire.js';
 
-export const SCHEMA_VERSION = 1;
+/** v2: state.log migrated from prose string[] to structured GameLogEntry[]. */
+export const SCHEMA_VERSION = 2;
+
+/** In-state log cap (structured entries; seq stays monotonic across trims). */
+export const LOG_CAP = 500;
+
+/**
+ * The single choke point for writing to the game log (log-format v2).
+ * Stamps turn/phase/side and trims to LOG_CAP. `side` is the acting seat
+ * (e.g. 'p1'), or null/omitted for neutral events. Kinds + payload shapes
+ * are documented in docs/log-events.md.
+ */
+export function logEvent(
+  state: GameState,
+  kind: string,
+  msg: string,
+  payload?: unknown,
+  side?: string | null,
+): void {
+  appendGameLog(
+    state.log,
+    { turn: state.turnNumber, phase: state.phase, side: side ?? null, kind, msg, payload },
+    LOG_CAP,
+  );
+}
 
 const COLORS: Color[] = ['blue', 'green', 'red', 'yellow', 'black'];
 
@@ -125,6 +149,13 @@ export function rollForActive(state: GameState): void {
       inConverter: false,
     }));
   });
+  logEvent(
+    state,
+    'dice.roll',
+    `${player.name} rolled ${state.turn.dice.map((d) => d.face).join(', ')}`,
+    { faces: state.turn.dice.map((d) => d.face), count },
+    player.id,
+  );
   state.turn.freeRerollUsed = false;
   state.turn.converterUsedThisTurn = false;
   state.turn.oncePerTurn = [];

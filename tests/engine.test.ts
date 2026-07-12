@@ -144,7 +144,7 @@ describe('solo mode vs Rogue Galaxy', () => {
     s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
     const before = s.log.length;
     s = tegAdapter.applyAction(s, { type: 'rogueResolveDie', dieId: 0 } as any, r.id);
-    expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l))).toBe(true);
+    expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l.msg ?? ''))).toBe(true);
   });
 
   it('Beginner difficulty discards an unusable Rogue die (no reroll)', () => {
@@ -155,7 +155,7 @@ describe('solo mode vs Rogue Galaxy', () => {
     s.turn.dice = [{ id: 0, face: 'move', activated: false }] as any;
     const before = s.log.length;
     s = tegAdapter.applyAction(s, { type: 'rogueResolveDie', dieId: 0 } as any, r.id);
-    expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l))).toBe(false);
+    expect(s.log.slice(before).some((l) => /rerolled an unusable die/.test(l.msg ?? ''))).toBe(false);
   });
 
   it('all five Rogue cards run every colony-ladder level without error', async () => {

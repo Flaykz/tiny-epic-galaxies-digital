@@ -6,7 +6,7 @@ import type {
 } from './types.js';
 import { PLANETS_BY_ID } from './planets.js';
 import { empire, MAX_EMPIRE, RESOURCE_MAX, WIN_VP } from './empire.js';
-import { withRng } from './setup.js';
+import { logEvent, withRng } from './setup.js';
 
 export function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
@@ -152,7 +152,13 @@ export function colonize(state: GameState, p: PlayerState, planetId: string): vo
     const next = state.deck.shift()!;
     state.centerRow.push(next);
   }
-  state.log.push(`${p.name} colonized ${planet?.name ?? planetId} (+${planet?.vp ?? 0} VP)`);
+  logEvent(
+    state,
+    'colonize',
+    `${p.name} colonized ${planet?.name ?? planetId} (+${planet?.vp ?? 0} VP)`,
+    { planetId, vp: planet?.vp ?? 0 },
+    p.id,
+  );
   checkEndTrigger(state, p);
 }
 
@@ -160,7 +166,7 @@ export function checkEndTrigger(state: GameState, p: PlayerState): void {
   if (state.phase === 'playing' && baseVp(state, p) >= WIN_VP) {
     state.phase = 'finalRound';
     state.endTriggeredBy = p.id;
-    state.log.push(`${p.name} reached ${WIN_VP}+ VP — final round triggered!`);
+    logEvent(state, 'game.finalRound', `${p.name} reached ${WIN_VP}+ VP — final round triggered!`, { player: p.id, vp: baseVp(state, p) }, p.id);
   }
 }
 

@@ -1,5 +1,7 @@
 // Core domain types for the Tiny Epic Galaxies digital port.
 
+import type { GameLogEntry } from 'digital-boardgame-framework';
+
 /** The six action-die faces (confirmed from the VASSAL dice art). */
 export type DieFace =
   | 'move' // rocket: move a ship
@@ -128,7 +130,9 @@ export interface GameState {
   /** Player id who triggered the end (reached 21); final round ends when it returns to the next player after them. */
   endTriggeredBy: string | null;
   turnNumber: number;
-  log: string[];
+  /** Structured game log (log-format v2). Kinds/payloads: docs/log-events.md.
+   *  v1 snapshots stored string[]; adapter.migrate upgrades them. */
+  log: GameLogEntry<string>[];
   winners: string[] | null;
   /** Solo mode: the rogue galaxy player id, if any. */
   rogueId: string | null;

@@ -15,6 +15,7 @@ import {
   withRng,
 } from './helpers.js';
 import { RESOURCE_MAX, MAX_EMPIRE } from './empire.js';
+import { logEvent } from './setup.js';
 
 const FACES: DieFace[] = ['move', 'energy', 'culture', 'diplomacy', 'economy', 'colony'];
 
@@ -216,27 +217,27 @@ export function resolveRogueDie(state: GameState, face: DieFace, bonus = false):
   switch (face) {
     case 'economy':
     case 'diplomacy':
-      state.log.push(advanceAll(state, face));
+      logEvent(state, 'rogue.advance', advanceAll(state, face), { type: face }, state.rogueId);
       return { usable: true };
     case 'energy': {
       const got = acquireFromGalaxy(state, r, 'energy');
-      state.log.push(`Rogue acquired ${got} energy`);
+      logEvent(state, 'rogue.acquire', `Rogue acquired ${got} energy`, { resource: 'energy', amount: got }, state.rogueId);
       return { usable: true };
     }
     case 'culture': {
-      if (bonus) { state.log.push('Rogue: Acquire Culture unusable (culture maxed)'); return { usable: false }; }
+      if (bonus) { logEvent(state, 'rogue.acquire', 'Rogue: Acquire Culture unusable (culture maxed)', { resource: 'culture', unusable: true }, state.rogueId); return { usable: false }; }
       const got = acquireFromGalaxy(state, r, 'culture');
-      state.log.push(`Rogue acquired ${got} culture`);
+      logEvent(state, 'rogue.acquire', `Rogue acquired ${got} culture`, { resource: 'culture', amount: got }, state.rogueId);
       return { usable: true };
     }
     case 'move': {
       const m = rogueMoveShip(state);
-      state.log.push(m.log);
+      logEvent(state, 'rogue.move', m.log, { usable: m.usable }, state.rogueId);
       return { usable: m.usable };
     }
     case 'colony': {
       const lvl = Math.min(Math.max(r.empireLevel, 1), 5); // ladders run levels 1..5
-      state.log.push(rogueCardOf(state).colony[lvl](state));
+      logEvent(state, 'rogue.colonyAction', rogueCardOf(state).colony[lvl](state), { card: rogueCardOf(state).id, level: lvl }, state.rogueId);
       return { usable: true };
     }
   }
@@ -255,16 +256,16 @@ export function rogueEndOfTurn(state: GameState): void {
       // Empire token reaches the skull — the Rogue Galaxy wins instantly.
       state.phase = 'gameOver';
       state.winners = [];
-      state.log.push('The Rogue Galaxy reached the skull — you lose.');
+      logEvent(state, 'game.over', 'The Rogue Galaxy reached the skull — you lose.', { winners: [], solo: true });
       return;
     }
     r.empireLevel++;
     unlockShips(r);
-    state.log.push(`Rogue upgraded its empire to level ${r.empireLevel}`);
+    logEvent(state, 'rogue.upgrade', `Rogue upgraded its empire to level ${r.empireLevel}`, { level: r.empireLevel }, state.rogueId);
   }
   if (state.phase === 'gameOver') return;
   if (r.culture >= RESOURCE_MAX) {
-    state.log.push('Rogue culture maxed — taking 3 bonus actions');
+    logEvent(state, 'rogue.bonus', 'Rogue culture maxed — taking 3 bonus actions', { actions: 3 }, state.rogueId);
     withRng(state, (rng) => {
       for (let i = 0; i < 3; i++) resolveRogueDie(state, FACES[rng.int(6)], true);
     });
