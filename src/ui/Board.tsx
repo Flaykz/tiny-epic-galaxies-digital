@@ -67,8 +67,12 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   const [selectedDie, setSelectedDie] = useState<number | null>(null);
   // Reroll selection: null = not rerolling; otherwise the set of die ids to reroll.
   const [rerollSel, setRerollSel] = useState<number[] | null>(null);
+  // Converter selection: null = not converting; otherwise the 2 dice to spend and
+  // the die to change. RAW: spend any 2 inactive dice, set any 3rd to a chosen face.
+  const [converterSel, setConverterSel] = useState<{ spend: number[]; target: number | null } | null>(null);
   const rerollAction = legalActions.find((a) => a.type === 'reroll') as
     | { type: 'reroll'; dieIds: number[]; free?: boolean } | undefined;
+  const converterAction = legalActions.find((a) => a.type === 'convert');
   const activatableDieIds = new Set(
     legalActions.map(actionDieId).filter((x): x is number => x != null),
   );
@@ -80,6 +84,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   React.useEffect(() => {
     if (rerollSel != null && !rerollAction) setRerollSel(null);
   }, [rerollSel, rerollAction, state.turn.active]);
+  // Exit converter mode when it's no longer available (used it, turn passed, etc.).
+  React.useEffect(() => {
+    if (converterSel != null && !converterAction) setConverterSel(null);
+  }, [converterSel, converterAction, state.turn.active]);
 
   return (
     <div className="board">
@@ -126,13 +134,32 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             rerollAvailable={!!rerollAction}
             rerollFree={!!rerollAction?.free}
             rerollSel={rerollSel}
-            onEnterReroll={() => { setSelectedDie(null); setRerollSel(rerollAction ? [...rerollAction.dieIds] : []); }}
+            onEnterReroll={() => { setSelectedDie(null); setConverterSel(null); setRerollSel(rerollAction ? [...rerollAction.dieIds] : []); }}
             onToggleReroll={(id) => setRerollSel((cur) => cur == null ? [id] : cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])}
             onConfirmReroll={() => {
               if (rerollSel && rerollSel.length) onAction({ type: 'reroll', dieIds: rerollSel, free: !!rerollAction?.free });
               setRerollSel(null);
             }}
             onCancelReroll={() => setRerollSel(null)}
+            converterAvailable={!!converterAction}
+            converterSel={converterSel}
+            onEnterConverter={() => { setSelectedDie(null); setRerollSel(null); setConverterSel({ spend: [], target: null }); }}
+            onToggleConverterDie={(id) => setConverterSel((cur) => {
+              if (cur == null) return cur;
+              // Clicking an already-chosen die takes it back out.
+              if (cur.spend.includes(id)) return { ...cur, spend: cur.spend.filter((x) => x !== id) };
+              if (cur.target === id) return { ...cur, target: null };
+              // Otherwise fill the two Converter slots first, then the die to change.
+              if (cur.spend.length < 2) return { ...cur, spend: [...cur.spend, id] };
+              return { ...cur, target: id };
+            })}
+            onConfirmConverter={(face) => {
+              if (converterSel && converterSel.spend.length === 2 && converterSel.target != null) {
+                onAction({ type: 'convert', spend: [converterSel.spend[0], converterSel.spend[1]], target: converterSel.target, face });
+              }
+              setConverterSel(null);
+            }}
+            onCancelConverter={() => setConverterSel(null)}
           />
           <ActionPanel
             state={state}
@@ -419,6 +446,12 @@ function DiceTray({
   onToggleReroll,
   onConfirmReroll,
   onCancelReroll,
+  converterAvailable,
+  converterSel,
+  onEnterConverter,
+  onToggleConverterDie,
+  onConfirmConverter,
+  onCancelConverter,
 }: {
   state: GameState;
   canAct: boolean;
@@ -432,20 +465,35 @@ function DiceTray({
   onToggleReroll: (id: number) => void;
   onConfirmReroll: () => void;
   onCancelReroll: () => void;
+  converterAvailable: boolean;
+  converterSel: { spend: number[]; target: number | null } | null;
+  onEnterConverter: () => void;
+  onToggleConverterDie: (id: number) => void;
+  onConfirmConverter: (face: DieFace) => void;
+  onCancelConverter: () => void;
 }) {
   const asset = useAsset();
   const artless = useArtless();
   const rerolling = rerollSel != null;
+  const converting = converterSel != null;
   const FACE_GLYPH: Record<DieFace, string> = {
     move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛',
   };
+  const FACE_ORDER: DieFace[] = ['move', 'energy', 'culture', 'diplomacy', 'economy', 'colony'];
+  // Converter is "armed" once 2 dice are in the slots and a third is chosen —
+  // then the player picks the face to set it to.
+  const converterReady = converting && converterSel!.spend.length === 2 && converterSel!.target != null;
   return (
     <div className="dice-tray">
       <div className="dice-head">
-        <h3>Dice {canAct && !rerolling && <span className="muted small">— click a die to activate it</span>}
-          {rerolling && <span className="muted small">— pick which dice to reroll</span>}</h3>
-        {canAct && !rerolling && rerollAvailable && (
-          <button className="reroll-btn" onClick={onEnterReroll}>↻ Reroll…</button>
+        <h3>Dice {canAct && !rerolling && !converting && <span className="muted small">— click a die to activate it</span>}
+          {rerolling && <span className="muted small">— pick which dice to reroll</span>}
+          {converting && <span className="muted small">— Converter: spend 2 dice, then set a 3rd</span>}</h3>
+        {canAct && !rerolling && !converting && (rerollAvailable || converterAvailable) && (
+          <span className="dice-tools">
+            {rerollAvailable && <button className="reroll-btn" onClick={onEnterReroll}>↻ Reroll…</button>}
+            {converterAvailable && <button className="reroll-btn" onClick={onEnterConverter}>⚙ Converter…</button>}
+          </span>
         )}
         {rerolling && (
           <span className="reroll-controls">
@@ -455,30 +503,57 @@ function DiceTray({
             <button className="reroll-btn" onClick={onCancelReroll}>Cancel</button>
           </span>
         )}
+        {converting && (
+          <span className="reroll-controls converter-controls">
+            {converterReady ? (
+              <>
+                <span className="muted small">Set it to:</span>
+                {FACE_ORDER.map((f) => (
+                  <button key={f} className="reroll-btn primary" onClick={() => onConfirmConverter(f)} title={`Change the chosen die to ${FACE_LABEL[f]}`}>
+                    {FACE_LABEL[f]}
+                  </button>
+                ))}
+              </>
+            ) : (
+              <span className="muted small">
+                {converterSel!.spend.length < 2
+                  ? `Pick ${2 - converterSel!.spend.length} die to spend`
+                  : 'Now pick the die to change'}
+              </span>
+            )}
+            <button className="reroll-btn" onClick={onCancelConverter}>Cancel</button>
+          </span>
+        )}
       </div>
       <div className="dice">
         {state.turn.dice.map((d) => {
           const inactive = !d.activated && !d.inConverter;
           const usable = canAct && activatableDieIds.has(d.id);
           const rerollPick = rerolling && rerollSel!.includes(d.id);
-          const interactive = rerolling ? inactive : usable;
+          const spendPick = converting && converterSel!.spend.includes(d.id);
+          const targetPick = converting && converterSel!.target === d.id;
+          const interactive = rerolling || converting ? inactive : usable;
           const cls = [
             'die',
             artless ? 'text' : '',
             d.activated ? 'activated' : '',
             d.inConverter ? 'converter' : '',
             interactive ? 'usable' : '',
-            !rerolling && selectedDie === d.id ? 'sel' : '',
+            !rerolling && !converting && selectedDie === d.id ? 'sel' : '',
             rerollPick ? 'reroll-pick' : '',
+            spendPick ? 'converter-spend' : '',
+            targetPick ? 'converter-target' : '',
           ].join(' ');
           return (
             <button
               key={d.id}
               className={cls}
               disabled={!interactive}
-              onClick={() => { if (!interactive) return; rerolling ? onToggleReroll(d.id) : onSelect(d.id); }}
+              onClick={() => { if (!interactive) return; rerolling ? onToggleReroll(d.id) : converting ? onToggleConverterDie(d.id) : onSelect(d.id); }}
               title={rerolling
                 ? `${FACE_LABEL[d.face]}${rerollPick ? ' — will reroll' : ' — kept'}`
+                : converting
+                ? `${FACE_LABEL[d.face]}${spendPick ? ' — into the Converter' : targetPick ? ' — will change' : inactive ? ' — click to pick' : ''}`
                 : `${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
             >
               {artless
@@ -680,8 +755,9 @@ function ActionPanel({
     );
   }
 
-  // Reroll is handled in the dice tray (so the player can pick which dice).
-  const global = legalActions.filter((a) => actionDieId(a) == null && a.type !== 'reroll');
+  // Reroll and Converter are handled in the dice tray (so the player can pick
+  // which dice go where), not as flat buttons here.
+  const global = legalActions.filter((a) => actionDieId(a) == null && a.type !== 'reroll' && a.type !== 'convert');
   const forDie = (id: number) => legalActions.filter((a) => actionDieId(a) === id);
   const selectedDieFace = selectedDie != null ? state.turn.dice.find((d) => d.id === selectedDie)?.face : null;
 

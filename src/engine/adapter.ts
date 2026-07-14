@@ -586,6 +586,9 @@ function applyMut(state: GameState, action: Action, actor: string): void {
     case 'convert': {
       if (state.turn.converterUsedThisTurn) break;
       const [a, b] = action.spend;
+      // RAW: two DISTINCT dice go into the Converter, and a distinct THIRD die
+      // is the one whose face changes. Guard against the same die being reused.
+      if (a === b || a === action.target || b === action.target) break;
       const da = liveDie(state, a), db = liveDie(state, b), dt = liveDie(state, action.target);
       if (!da || !db || !dt) break;
       da.inConverter = true;
