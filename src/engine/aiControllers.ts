@@ -30,6 +30,13 @@ function controller(weights: AiWeights, jitter: number): PlayerController<GameSt
 }
 
 export const tegAiControllers: Record<string, PlayerController<GameState, Action, string>> = {
+  // @2: the AI now evaluates follow offers (instead of always declining) and
+  // values orbit presence, so it actually colonizes — a real strength jump.
+  'easy@2': controller(EASY, 1000),
+  'medium@2': controller(MEDIUM, 200),
+  'hard@2': controller(HARD, 0),
+  // Legacy keys so in-flight games (and cached clients) keep resolving; they
+  // finish under the old rating ids, while new games rate under @2.
   easy: controller(EASY, 1000),
   medium: controller(MEDIUM, 200),
   hard: controller(HARD, 0),

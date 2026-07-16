@@ -24,10 +24,9 @@ export function chooseAction(state: GameState, actor: string, seed = 1, w: AiWei
   const actions = tegAdapter.legalActions(state, actor);
   if (actions.length === 0) return { type: 'endTurn' };
 
-  // Follow decisions: decline by default (keeps culture).
-  if (actions.some((a) => a.type === 'follow')) {
-    return { type: 'follow', accept: false };
-  }
+  // Follow decisions run through the same greedy evaluation: decline is
+  // actions[0], so an accept option is only taken when the copied action is
+  // worth more than the culture it costs (e.g. an advance that colonizes).
 
   const rng = new Rng(seed + state.turnNumber);
   let best: Action = actions[0];
@@ -65,7 +64,11 @@ function evaluate(state: GameState, actor: string, w: AiWeights): number {
     if (s.kind === 'orbit') {
       const planet = PLANET(s.planetId);
       // Reward orbit progress toward colonizing, scaled by the planet's value.
-      if (planet) score += (s.level / planet.orbitTrackLength) * planet.vp * w.orbit;
+      // The +0.5 values merely BEING in orbit (colonization potential) — without
+      // it, entering a track at level 0 scores the same as a surface landing, so
+      // the greedy 1-ply AI never starts colonizing (it takes the surface
+      // action's immediate payoff instead).
+      if (planet) score += ((s.level + 0.5) / planet.orbitTrackLength) * planet.vp * w.orbit;
       score += w.deployed;
     } else if (s.kind === 'surface') {
       score += w.deployed;

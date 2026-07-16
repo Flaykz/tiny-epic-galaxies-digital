@@ -393,6 +393,37 @@ describe('win is detected when a FOLLOW colonizes the winning planet', () => {
   });
 });
 
+describe('AI follow decisions', () => {
+  it('accepts a follow that colonizes a planet (instead of always declining)', async () => {
+    const { PLANETS_BY_ID } = await import('../src/engine/index.js');
+    let s = newGame(11);
+    const ai = s.players[1];
+    const eco = s.centerRow.find((id) => PLANETS_BY_ID[id].colonizeType === 'economy')!;
+    const pl = PLANETS_BY_ID[eco];
+    // One advance from colonizing (on the last numbered space), with culture for the follow tax.
+    ai.ships = [{ kind: 'orbit', planetId: eco, level: pl.orbitTrackLength }, { kind: 'galaxy' }, { kind: 'locked' }, { kind: 'locked' }];
+    ai.culture = 3;
+    s.turn.pendingFollow = { face: 'economy', queue: [ai.id], sourcePlayer: s.players[0].id } as any;
+    const a = chooseAction(s, ai.id);
+    expect(a.type).toBe('follow');
+    expect((a as any).accept).toBe(true);
+    s = tegAdapter.applyAction(s, a, ai.id);
+    expect(s.players[1].colonized).toContain(eco);
+  });
+
+  it('declines a follow it cannot benefit from (would just burn culture)', () => {
+    const s = newGame(11);
+    const ai = s.players[1];
+    // Energy already at the cap of 7: following an energy acquire gains nothing.
+    ai.energy = 7;
+    ai.culture = 3;
+    s.turn.pendingFollow = { face: 'energy', queue: [ai.id], sourcePlayer: s.players[0].id } as any;
+    const a = chooseAction(s, ai.id);
+    expect(a.type).toBe('follow');
+    expect((a as any).accept).toBe(false);
+  });
+});
+
 describe('NAGATO (cp21) moves two ships', () => {
   it('pays 1 culture, prompts for two moves, and interleaves a landed surface choice', () => {
     let s = createInitialState({ seats: [{ name: 'A' }, { name: 'B' }], seed: 6 });

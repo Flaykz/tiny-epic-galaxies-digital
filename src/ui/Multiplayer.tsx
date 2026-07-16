@@ -63,12 +63,13 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
 
   // Create a 2-player game where seat p2 is a server-driven, rated AI ('easy'),
   // then take the human straight to their seat (p1). The AI plays under
-  // `ai:tiny-epic-galaxies:easy` on the leaderboard.
+  // `ai:tiny-epic-galaxies:easy@2` on the leaderboard (@2 = the follow-aware,
+  // colonizing AI earns a fresh rating).
   const createVsAi = async () => {
     setBusy(true);
     setError(null);
     try {
-      const res = await createGame(['You', '🤖 AI (easy)'], { p2: 'easy' });
+      const res = await createGame(['You', '🤖 AI (easy)'], { p2: 'easy@2' });
       const mySeat = res.invites.p1;
       if (mySeat) window.location.assign(mySeat);
     } catch (e: any) {
