@@ -79,19 +79,73 @@ function rocket(color: string) {
   return `/ships/${color}-rocket.png`;
 }
 
+const NO_MOVABLE_SHIPS = new Set<number>();
+
+function interactiveShipProps(
+  shipIdx: number,
+  movable: boolean,
+  selected: boolean,
+  label: string,
+  onSelectShip?: (shipIdx: number | null) => void,
+): React.ImgHTMLAttributes<HTMLImageElement> {
+  if (!movable || !onSelectShip) return {};
+  return {
+    role: 'button',
+    tabIndex: 0,
+    draggable: true,
+    'aria-label': label,
+    'aria-pressed': selected,
+    onClick: () => onSelectShip(selected ? null : shipIdx),
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSelectShip(selected ? null : shipIdx);
+      }
+    },
+    onDragStart: (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(shipIdx));
+      onSelectShip(shipIdx);
+    },
+  };
+}
+
 // ---- Galaxy-mat overlay: empire token + home ships ----
 
 /** A positioned ship token plus a small number badge (its ship #). */
-function Piece({ src, x, y, n, cls, title }: { src: string; x: number; y: number; n: number; cls: string; title: string }) {
+function Piece({ src, x, y, n, cls, title, shipIdx, movable, selected, onSelectShip }: {
+  src: string;
+  x: number;
+  y: number;
+  n: number;
+  cls: string;
+  title: string;
+  shipIdx: number;
+  movable: boolean;
+  selected: boolean;
+  onSelectShip?: (shipIdx: number | null) => void;
+}) {
   return (
     <>
-      <img className={`tok ship-tok ${cls}`} src={src} alt="" style={{ left: `${x}%`, top: `${y}%` }} title={title} />
+      <img
+        className={`tok ship-tok ${cls} ${movable ? 'direct-movable' : ''} ${selected ? 'direct-selected' : ''}`}
+        src={src}
+        alt=""
+        style={{ left: `${x}%`, top: `${y}%` }}
+        title={title}
+        {...interactiveShipProps(shipIdx, movable, selected, `Select ${title}`, onSelectShip)}
+      />
       <span className={`tok-num ${cls}`} style={{ left: `${x}%`, top: `${y}%` }}>{n}</span>
     </>
   );
 }
 
-export function MatTokens({ p }: { p: PlayerState }) {
+export function MatTokens({ p, movableShipIds = NO_MOVABLE_SHIPS, selectedShip = null, onSelectShip }: {
+  p: PlayerState;
+  movableShipIds?: Set<number>;
+  selectedShip?: number | null;
+  onSelectShip?: (shipIdx: number | null) => void;
+}) {
   const asset = useAsset();
   const tf = matTransform(p.color);
   const galaxyIdx: number[] = [];
@@ -116,12 +170,26 @@ export function MatTokens({ p }: { p: PlayerState }) {
       {/* Standing ships on the home galaxy, labelled with their ship number */}
       {galaxyIdx.map((shipI, k) => {
         const q = tf({ x: GALAXY_CENTER.x + (k - (galaxyIdx.length - 1) / 2) * 7, y: GALAXY_CENTER.y });
-        return <Piece key={`h${shipI}`} src={asset(rocket(p.color))} x={q.x} y={q.y} n={shipI + 1} cls="standing" title={`Ship #${shipI + 1} — on your Galaxy Mat`} />;
+        return (
+          <Piece
+            key={`h${shipI}`}
+            src={asset(rocket(p.color))}
+            x={q.x}
+            y={q.y}
+            n={shipI + 1}
+            cls="standing"
+            title={`Ship #${shipI + 1} — on your Galaxy Mat`}
+            shipIdx={shipI}
+            movable={movableShipIds.has(shipI)}
+            selected={selectedShip === shipI}
+            onSelectShip={onSelectShip}
+          />
+        );
       })}
       {/* Locked (not yet unlocked) ships parked dim at the ship track */}
       {lockedIdx.map((shipI, k) => {
         const q = tf({ x: 72 + k * 6, y: 92 });
-        return <Piece key={`l${shipI}`} src={asset(rocket(p.color))} x={q.x} y={q.y} n={shipI + 1} cls="locked" title={`Ship #${shipI + 1} — locked (upgrade to unlock)`} />;
+        return <Piece key={`l${shipI}`} src={asset(rocket(p.color))} x={q.x} y={q.y} n={shipI + 1} cls="locked" title={`Ship #${shipI + 1} — locked (upgrade to unlock)`} shipIdx={shipI} movable={false} selected={false} />;
       })}
     </div>
   );
@@ -129,7 +197,21 @@ export function MatTokens({ p }: { p: PlayerState }) {
 
 // ---- Planet-card overlay: surface ship + orbiting ships ----
 
-export function PlanetTokens({ planet, state }: { planet: Planet; state: GameState }) {
+export function PlanetTokens({
+  planet,
+  state,
+  activePlayerId,
+  movableShipIds = NO_MOVABLE_SHIPS,
+  selectedShip = null,
+  onSelectShip,
+}: {
+  planet: Planet;
+  state: GameState;
+  activePlayerId?: string;
+  movableShipIds?: Set<number>;
+  selectedShip?: number | null;
+  onSelectShip?: (shipIdx: number | null) => void;
+}) {
   const asset = useAsset();
   const tokens: React.ReactNode[] = [];
 
@@ -141,14 +223,17 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
   );
   surfaceShips.forEach(({ pl, idx }, k) => {
     const x = 50 + (k - (surfaceShips.length - 1) / 2) * 16;
+    const movable = pl.id === activePlayerId && movableShipIds.has(idx);
+    const selected = pl.id === activePlayerId && selectedShip === idx;
     tokens.push(
       <span key={`${pl.id}-s${idx}`}>
         <img
-          className="tok ship-tok standing on-card"
+          className={`tok ship-tok standing on-card ${movable ? 'direct-movable' : ''} ${selected ? 'direct-selected' : ''}`}
           src={asset(rocket(pl.color))}
           alt={`${pl.name} ship #${idx + 1} on surface`}
           style={{ left: `${x}%`, top: '40%' }}
           title={`${pl.name} — ship #${idx + 1} landed on the surface`}
+          {...interactiveShipProps(idx, movable, selected, `Select ${pl.name} ship ${idx + 1} on ${planet.name}`, onSelectShip)}
         />
         <span className="tok-num standing" style={{ left: `${x}%`, top: '40%' }}>{idx + 1}</span>
       </span>,
@@ -159,14 +244,17 @@ export function PlanetTokens({ planet, state }: { planet: Planet; state: GameSta
     pl.ships.forEach((s, idx) => {
       if (s.kind === 'orbit' && s.planetId === planet.id) {
         const pos = orbitPos(s.level, planet.orbitTrackLength);
+        const movable = pl.id === activePlayerId && movableShipIds.has(idx);
+        const selected = pl.id === activePlayerId && selectedShip === idx;
         tokens.push(
           <span key={`${pl.id}-o${idx}`}>
             <img
-              className="tok ship-tok orbit on-card"
+              className={`tok ship-tok orbit on-card ${movable ? 'direct-movable' : ''} ${selected ? 'direct-selected' : ''}`}
               src={asset(rocket(pl.color))}
               alt={`${pl.name} ship #${idx + 1} orbiting`}
               style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
               title={`${pl.name} — ship #${idx + 1}: ${s.level === 0 ? 'orbit start' : `space ${s.level} / ${planet.orbitTrackLength}`}`}
+              {...interactiveShipProps(idx, movable, selected, `Select ${pl.name} ship ${idx + 1} orbiting ${planet.name}`, onSelectShip)}
             />
             {/* Ship number so it matches the "ship #N" choice buttons. */}
             <span className="tok-num" style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>{idx + 1}</span>

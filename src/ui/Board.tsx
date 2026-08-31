@@ -36,6 +36,9 @@ const FACE_LABEL: Record<DieFace, string> = {
   colony: 'Colony',
 };
 
+type ActivateMoveAction = Extract<Action, { type: 'activateMove' }>;
+type MobileView = 'command' | 'galaxy' | 'log';
+
 export interface BoardProps {
   state: GameState;
   /** The seat this screen acts as (its missions are visible, it can submit when on the clock). */
@@ -65,6 +68,12 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   // Which die is selected for activation. Lives here so the dice tray and the
   // action list stay in sync — clicking a real die in the tray selects it.
   const [selectedDie, setSelectedDie] = useState<number | null>(null);
+  // Direct manipulation for Move dice: click or drag a ship, then choose a
+  // legal surface/orbit/home target directly on the board.
+  const [directMoveShip, setDirectMoveShip] = useState<number | null>(null);
+  // Touch layouts use focused, full-height views instead of stacking the whole
+  // desktop board. The current view is still harmless on pointer/desktop CSS.
+  const [mobileView, setMobileView] = useState<MobileView>('command');
   // Reroll selection: null = not rerolling; otherwise the set of die ids to reroll.
   const [rerollSel, setRerollSel] = useState<number[] | null>(null);
   // Converter selection: null = not converting; otherwise the 2 dice to spend and
@@ -76,10 +85,39 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   const activatableDieIds = new Set(
     legalActions.map(actionDieId).filter((x): x is number => x != null),
   );
+  const selectedDieFace = selectedDie == null
+    ? null
+    : state.turn.dice.find((d) => d.id === selectedDie)?.face ?? null;
+  const directMoveActions = selectedDieFace === 'move'
+    ? legalActions.filter((a): a is ActivateMoveAction =>
+        a.type === 'activateMove' && a.dieId === selectedDie)
+    : [];
+  const movableShipIds = new Set(directMoveActions.map((a) => a.shipIdx));
+  const selectMoveShip = (shipIdx: number | null) => {
+    setDirectMoveShip(shipIdx);
+    if (shipIdx != null) setMobileView('galaxy');
+  };
+  const submitDirectMove = (a: ActivateMoveAction) => {
+    const ship = activeP.ships[a.shipIdx];
+    if (ship?.kind === 'orbit') {
+      const currentPlanet = PLANETS_BY_ID[ship.planetId];
+      const where = ship.level === 0 ? 'the start of its orbit' : `space ${ship.level}/${currentPlanet?.orbitTrackLength}`;
+      if (!window.confirm(`Move ship #${a.shipIdx + 1} off ${currentPlanet?.name}? It abandons its orbit progress (${where}).`)) return;
+    }
+    onAction(a);
+    setSelectedDie(null);
+    setDirectMoveShip(null);
+    setMobileView('command');
+  };
   // Drop the selection if that die is no longer usable (used, rerolled, new turn).
   React.useEffect(() => {
     if (selectedDie != null && !activatableDieIds.has(selectedDie)) setSelectedDie(null);
   }, [selectedDie, state.turn.dice, state.turn.active]);
+  React.useEffect(() => {
+    if (selectedDieFace !== 'move' || (directMoveShip != null && !movableShipIds.has(directMoveShip))) {
+      setDirectMoveShip(null);
+    }
+  }, [selectedDieFace, directMoveShip, state.turn.active, state.turn.dice]);
   // Exit reroll mode when reroll is no longer available (turn passed, etc.).
   React.useEffect(() => {
     if (rerollSel != null && !rerollAction) setRerollSel(null);
@@ -90,9 +128,12 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   }, [converterSel, converterAction, state.turn.active]);
 
   return (
-    <div className="board">
+    <div className={`board mobile-view-${mobileView}`}>
       <header className="topbar">
-        <h1>Tiny Epic Galaxies</h1>
+        <div className="game-title">
+          <span className="game-kicker">Galactic command</span>
+          <h1>Tiny Epic Galaxies</h1>
+        </div>
         <div className="status">
           {gameOver ? (
             <GameOver state={state} />
@@ -102,6 +143,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             </span>
           ) : (
             <span className={`turn-indicator ${activeP.color}`}>
+              <span className="turn-number">Turn {state.turnNumber}</span>
               {activeP.name}'s turn {state.phase === 'finalRound' ? '· FINAL ROUND' : ''}
             </span>
           )}
@@ -110,18 +152,50 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
 
       <section className="players-row">
         {state.players.map((p) => (
-          <PlayerPanel key={p.id} p={p} state={state} isViewer={p.id === viewer} isActive={p.id === state.turn.active} />
+          <PlayerPanel
+            key={p.id}
+            p={p}
+            state={state}
+            isViewer={p.id === viewer}
+            isActive={p.id === state.turn.active}
+            movableShipIds={p.id === state.turn.active ? movableShipIds : new Set()}
+            selectedMoveShip={p.id === state.turn.active ? directMoveShip : null}
+            homeMove={p.id === state.turn.active && directMoveShip != null
+              ? directMoveActions.find((a) => a.shipIdx === directMoveShip && a.dest.kind === 'galaxy')
+              : undefined}
+            onSelectMoveShip={selectMoveShip}
+            onDirectMove={submitDirectMove}
+          />
         ))}
       </section>
 
-      <section className="planet-row">
-        <h2>Discovered Planets</h2>
-        <div className="cards">
-          {state.centerRow.map((id) => (
-            <PlanetCardView key={id} planet={PLANETS_BY_ID[id]} state={state} />
-          ))}
-        </div>
-      </section>
+      <div className="galaxy-column">
+        <section className="planet-row">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">Shared galaxy</span>
+              <h2>Discovered planets</h2>
+            </div>
+            <span className="section-count">{state.centerRow.length} in orbit</span>
+          </div>
+          <div className="cards">
+            {state.centerRow.map((id) => (
+              <PlanetCardView
+                key={id}
+                planet={PLANETS_BY_ID[id]}
+                state={state}
+                activePlayerId={state.turn.active}
+                moveActions={directMoveActions}
+                movableShipIds={movableShipIds}
+                selectedMoveShip={directMoveShip}
+                onSelectMoveShip={selectMoveShip}
+                onDirectMove={submitDirectMove}
+              />
+            ))}
+          </div>
+        </section>
+        <LogPanel log={state.log} />
+      </div>
 
       {!gameOver && (
         <section className="play-area">
@@ -130,7 +204,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             canAct={canAct}
             activatableDieIds={activatableDieIds}
             selectedDie={selectedDie}
-            onSelect={(id) => setSelectedDie((cur) => (cur === id ? null : id))}
+            onSelect={(id) => { setSelectedDie((cur) => (cur === id ? null : id)); setMobileView('command'); }}
             rerollAvailable={!!rerollAction}
             rerollFree={!!rerollAction?.free}
             rerollSel={rerollSel}
@@ -169,27 +243,54 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             viewerName={me.name}
             actorShips={me.ships}
             selectedDie={selectedDie}
+            directMoveShip={directMoveShip}
+            onSelectMoveShip={selectMoveShip}
             canUndo={canUndo}
             onUndo={onUndo}
           />
         </section>
       )}
 
-      <LogPanel log={state.log} />
-
       <footer className="board-footer">
-        {onUndo && (
-          <button className="ghost-btn undo" disabled={!canUndo} onClick={onUndo} title="Take back your last move (until new info is revealed)">
-            ↶ Undo
-          </button>
-        )}
         <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))}>
-          ⬇ Download log
+          ↓ Export log
         </button>
         <button className="ghost-btn" onClick={() => setReportOpen('bug')}>
-          🐞 Report a problem
+          Report a problem
         </button>
       </footer>
+
+      <nav className="mobile-nav" aria-label="Game views">
+        <button
+          type="button"
+          className={mobileView === 'command' ? 'active' : ''}
+          aria-pressed={mobileView === 'command'}
+          onClick={() => setMobileView('command')}
+        >
+          <span className="mobile-nav-icon" aria-hidden="true">⚄</span>
+          <span>Command</span>
+        </button>
+        <button
+          type="button"
+          className={mobileView === 'galaxy' ? 'active' : ''}
+          aria-pressed={mobileView === 'galaxy'}
+          onClick={() => setMobileView('galaxy')}
+        >
+          <span className="mobile-nav-icon" aria-hidden="true">◎</span>
+          <span>Galaxy</span>
+          <b aria-label={`${state.centerRow.length} planets`}>{state.centerRow.length}</b>
+        </button>
+        <button
+          type="button"
+          className={mobileView === 'log' ? 'active' : ''}
+          aria-pressed={mobileView === 'log'}
+          onClick={() => setMobileView('log')}
+        >
+          <span className="mobile-nav-icon" aria-hidden="true">≡</span>
+          <span>Log</span>
+          <b aria-label={`${state.log.length} entries`}>{state.log.length}</b>
+        </button>
+      </nav>
 
       {reportOpen && (
         <ReportDialog
@@ -288,29 +389,60 @@ function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 
   );
 }
 
-function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean }) {
+function PlayerPanel({
+  p,
+  state,
+  isViewer,
+  isActive,
+  movableShipIds,
+  selectedMoveShip,
+  homeMove,
+  onSelectMoveShip,
+  onDirectMove,
+}: {
+  p: PlayerState;
+  state: GameState;
+  isViewer: boolean;
+  isActive: boolean;
+  movableShipIds: Set<number>;
+  selectedMoveShip: number | null;
+  homeMove?: ActivateMoveAction;
+  onSelectMoveShip: (shipIdx: number | null) => void;
+  onDirectMove: (action: ActivateMoveAction) => void;
+}) {
   const lvl = empire(p.empireLevel);
   const asset = useAsset();
   const artless = useArtless();
   return (
-    <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''}`}>
+    <div
+      className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''} ${homeMove ? 'accepts-home-drop' : ''}`}
+      onDragOver={(e) => { if (homeMove) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
+      onDrop={(e) => { if (homeMove) { e.preventDefault(); onDirectMove(homeMove); } }}
+    >
       <div className="pp-head">
-        <span className="pp-name">{p.name}{p.isRogue ? ' ☠' : ''}</span>
+        <span className="pp-name">{p.name}{p.isRogue ? ' ☠' : ''}{isViewer && <small>You</small>}</span>
         <span className="pp-vp">{baseVp(state, p)} VP</span>
       </div>
       {!artless && (
         <div className="pp-mat">
           <img src={asset(`/mats/pads-${p.color}.jpg`)} alt={`${p.name} galaxy mat`} loading="lazy" />
-          <MatTokens p={p} />
+          <MatTokens
+            p={p}
+            movableShipIds={movableShipIds}
+            selectedShip={selectedMoveShip}
+            onSelectShip={onSelectMoveShip}
+          />
           <span className="mat-badge level" title="Current empire level">L{p.empireLevel}</span>
           <span className="mat-badge energy" title="Energy">⚡{p.energy}</span>
           <span className="mat-badge culture" title="Culture">🏛{p.culture}</span>
         </div>
       )}
       <div className="pp-stats">
-        <span title="Empire level">🏛 L{p.empireLevel} ({lvl.dice}d/{lvl.ships}s)</span>
-        <span title="Energy" className="res energy">⚡ {p.energy}</span>
-        <span title="Culture" className="res culture">🏛 {p.culture}</span>
+        <span title="Empire level" className="stat empire"><small>Empire</small><b>L{p.empireLevel}</b></span>
+        <span title="Available dice" className="stat"><small>Dice</small><b>{lvl.dice}</b></span>
+        <span title="Unlocked ships" className="stat"><small>Ships</small><b>{lvl.ships}</b></span>
+        <span title="Energy" className="stat res energy"><small>Energy</small><b>⚡{p.energy}</b></span>
+        <span title="Culture" className="stat res culture"><small>Culture</small><b>◆{p.culture}</b></span>
       </div>
       <div className="pp-ships">
         {p.ships.map((s, i) => {
@@ -319,13 +451,44 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
             : s.kind === 'surface' ? `on ${PLANETS_BY_ID[s.planetId]?.name}`
             : `orbit ${PLANETS_BY_ID[s.planetId]?.name} ${s.level === 0 ? 'start' : `sp.${s.level}`}`;
           const glyph = s.kind === 'galaxy' ? '▲' : s.kind === 'locked' ? '▽' : s.kind === 'surface' ? '⬢' : `◔${s.level}`;
-          return (
+          const movable = movableShipIds.has(i);
+          const contents = movable
+            ? <><span className="ship-rocket" aria-hidden="true">🚀</span><b>{i + 1}</b><small>{glyph}</small></>
+            : <><b>{i + 1}</b>{glyph}</>;
+          return movable ? (
+            <button
+              key={i}
+              type="button"
+              className={`ship ship-move-source ${s.kind} ${selectedMoveShip === i ? 'selected' : ''}`}
+              title={`Select ship #${i + 1}: ${where}`}
+              aria-label={`Select ship ${i + 1}, ${where}`}
+              draggable
+              onClick={() => onSelectMoveShip(selectedMoveShip === i ? null : i)}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(i));
+                onSelectMoveShip(i);
+              }}
+            >
+              {contents}
+            </button>
+          ) : (
             <span key={i} className={`ship ${s.kind}`} title={`Ship #${i + 1}: ${where}`}>
-              <b>{i + 1}</b>{glyph}
+              {contents}
             </span>
           );
         })}
       </div>
+      {movableShipIds.size > 0 && (
+        <p className="direct-move-hint">
+          {selectedMoveShip == null ? 'Tap or drag a rocket' : `Ship ${selectedMoveShip + 1} selected — choose a destination`}
+        </p>
+      )}
+      {homeMove && (
+        <button className="direct-move-target home" type="button" onClick={() => onDirectMove(homeMove)}>
+          <span>⌂</span> Return ship {homeMove.shipIdx + 1} home
+        </button>
+      )}
       {p.colonized.length > 0 && (
         <div className="pp-colonies">
           <span className="pp-colonies-label">Colonies (use via Colony die):</span>
@@ -386,7 +549,25 @@ function RogueCardLadder({ empireLevel, cardId }: { empireLevel: number; cardId?
   );
 }
 
-function PlanetCardView({ planet, state }: { planet: Planet; state: GameState }) {
+function PlanetCardView({
+  planet,
+  state,
+  activePlayerId,
+  moveActions,
+  movableShipIds,
+  selectedMoveShip,
+  onSelectMoveShip,
+  onDirectMove,
+}: {
+  planet: Planet;
+  state: GameState;
+  activePlayerId: string;
+  moveActions: ActivateMoveAction[];
+  movableShipIds: Set<number>;
+  selectedMoveShip: number | null;
+  onSelectMoveShip: (shipIdx: number | null) => void;
+  onDirectMove: (action: ActivateMoveAction) => void;
+}) {
   const asset = useAsset();
   const artless = useArtless();
   // If this card's art can't load (no shipped art / no VASSAL module / a gap in
@@ -407,6 +588,29 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
       {here.length > 0 && <span className="pc-ships">{here.join(' | ')}</span>}
     </div>
   );
+  const planetTargets = selectedMoveShip == null
+    ? []
+    : moveActions.filter((a) =>
+        a.shipIdx === selectedMoveShip
+        && (a.dest.kind === 'surface' || a.dest.kind === 'orbit')
+        && a.dest.planetId === planet.id);
+  const directTargets = planetTargets.length > 0 && (
+    <div className="direct-move-targets" aria-label={`Move ship ${selectedMoveShip! + 1} to ${planet.name}`}>
+      {planetTargets.map((a) => (
+        <button
+          key={a.dest.kind}
+          type="button"
+          className={`direct-move-target ${a.dest.kind}`}
+          onClick={() => onDirectMove(a)}
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+          onDrop={(e) => { e.preventDefault(); onDirectMove(a); }}
+        >
+          <span>{a.dest.kind === 'surface' ? '▼' : '◎'}</span>
+          {a.dest.kind === 'surface' ? 'Surface' : 'Orbit'}
+        </button>
+      ))}
+    </div>
+  );
 
   if (artless || imgFailed) {
     return (
@@ -416,7 +620,13 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
           <span className="pc-vp-badge">{planet.vp}</span>
         </div>
         <div className="pc-text-action">{planet.action}</div>
-        {meta}
+        <div className="pc-facts">
+          <span>{planet.resourceType === 'energy' ? '⚡ Energy' : '◆ Culture'}</span>
+          <span>{planet.colonizeType === 'economy' ? '▥ Economy' : '◇ Diplomacy'}</span>
+          <span>Orbit {planet.orbitTrackLength + 1}</span>
+        </div>
+        {here.length > 0 && <span className="pc-ships">{here.join(' | ')}</span>}
+        {directTargets}
       </div>
     );
   }
@@ -424,9 +634,17 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
     <div className="planet-card">
       <div className="pc-art">
         <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" onError={() => setImgFailed(true)} />
-        <PlanetTokens planet={planet} state={state} />
+        <PlanetTokens
+          planet={planet}
+          state={state}
+          activePlayerId={activePlayerId}
+          movableShipIds={movableShipIds}
+          selectedShip={selectedMoveShip}
+          onSelectShip={onSelectMoveShip}
+        />
       </div>
       {meta}
+      {directTargets}
       {/* Hover to enlarge (escapes the scrolling row via fixed positioning). */}
       <img className="pc-zoom" src={asset(`/cards/${planet.id}.jpg`)} alt="" aria-hidden="true" />
     </div>
@@ -486,7 +704,7 @@ function DiceTray({
   return (
     <div className="dice-tray">
       <div className="dice-head">
-        <h3>Dice {canAct && !rerolling && !converting && <span className="muted small">— click a die to activate it</span>}
+        <h3>Your dice {canAct && !rerolling && !converting && <span className="muted small">Select one to act</span>}
           {rerolling && <span className="muted small">— pick which dice to reroll</span>}
           {converting && <span className="muted small">— Converter: spend 2 dice, then set a 3rd</span>}</h3>
         {canAct && !rerolling && !converting && (rerollAvailable || converterAvailable) && (
@@ -576,6 +794,8 @@ function ActionPanel({
   viewerName,
   actorShips,
   selectedDie,
+  directMoveShip,
+  onSelectMoveShip,
   canUndo,
   onUndo,
 }: {
@@ -586,6 +806,8 @@ function ActionPanel({
   viewerName: string;
   actorShips: import('../engine/index.js').ShipLocation[];
   selectedDie: number | null;
+  directMoveShip: number | null;
+  onSelectMoveShip: (shipIdx: number | null) => void;
   canUndo?: boolean;
   onUndo?: () => void;
 }) {
@@ -603,6 +825,9 @@ function ActionPanel({
     state.turn.pendingFollow?.sourcePlayer,
     state.turn.pendingFollow?.face,
   ]);
+  React.useEffect(() => {
+    if (directMoveShip != null) setMoveShip(directMoveShip);
+  }, [directMoveShip]);
 
   if (!canAct) {
     return (
@@ -773,14 +998,26 @@ function ActionPanel({
       </div>
 
       {selectedDie == null ? (
-        <p className="muted">Click one of your dice on the left to see what it can do.</p>
+        <p className="muted">Tap one of your dice above to see what it can do.</p>
+      ) : selectedDieFace === 'move' && directMoveShip != null ? (
+        <div className="direct-move-summary">
+          <span className="direct-move-summary-icon">🚀</span>
+          <div>
+            <strong>Ship {directMoveShip + 1} ready to move</strong>
+            <p>Choose Surface or Orbit directly on a highlighted planet.</p>
+          </div>
+          <button className="act-btn global" onClick={() => { setMoveShip(null); onSelectMoveShip(null); }}>
+            Change ship
+          </button>
+        </div>
       ) : selectedDieFace === 'move' ? (
         <MoveSteps
           moves={forDie(selectedDie).flatMap((a) => (a.type === 'activateMove' ? [{ shipIdx: a.shipIdx, dest: a.dest, action: a }] : []))}
           actorShips={actorShips}
-          moveShip={moveShip}
-          setMoveShip={setMoveShip}
+          moveShip={directMoveShip ?? moveShip}
+          setMoveShip={(shipIdx) => { setMoveShip(shipIdx); onSelectMoveShip(shipIdx); }}
           submit={submit}
+          prompt="Tap a highlighted rocket, or choose one here"
           emptyText="No ship can move right now."
         />
       ) : (
@@ -813,9 +1050,15 @@ function ActionPanel({
 function LogPanel({ log }: { log: import('digital-boardgame-framework').GameLogEntry[] }) {
   return (
     <section className="log-panel">
-      <h3>Log</h3>
+      <div className="log-head">
+        <div>
+          <span className="section-kicker">Latest events</span>
+          <h3>Flight recorder</h3>
+        </div>
+        <span className="section-count">{log.length}</span>
+      </div>
       <ul>
-        {log.slice(-14).reverse().map((e) => (
+        {log.slice(-8).reverse().map((e) => (
           <li key={e.seq}>{e.msg ?? e.kind}</li>
         ))}
       </ul>
