@@ -73,40 +73,92 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .topbar h1 { font-size: 1.4rem; }
 .turn-indicator { padding: .35rem .8rem; border-radius: 20px; font-weight: 700; background: var(--panel2); }
-.turn-indicator.follow { background: #4a3a00; color: var(--gold); }
+.turn-indicator.follow { display: inline-flex; align-items: center; gap: .4rem; background: linear-gradient(100deg, #4a3a00, #5c3b0b); color: var(--gold); border: 1px solid #ffcc4466; box-shadow: 0 4px 16px #0004; }
+.turn-indicator.follow strong { color: #ffe28a; }
+.follow-indicator-die { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 5px; background: #171321; border: 1px solid #ffcc4499; font-size: .86rem; }
 .turn-indicator.blue { box-shadow: inset 0 0 0 2px var(--blue); }
 .turn-indicator.green { box-shadow: inset 0 0 0 2px var(--green); }
 .turn-indicator.red { box-shadow: inset 0 0 0 2px var(--red); }
 .turn-indicator.yellow { box-shadow: inset 0 0 0 2px var(--yellow); }
 
-.players-row { display: flex; gap: .7rem; flex-wrap: wrap; margin: .8rem 0; }
-.player-panel {
-  flex: 1 1 200px; min-width: 190px; background: var(--panel); border-radius: 12px;
-  padding: .7rem; border: 1px solid #ffffff10;
+.players-row {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(230px, .85fr);
+  gap: .7rem; margin: .7rem 0 1rem; align-items: start;
 }
-.player-panel.active { box-shadow: 0 0 0 2px var(--accent), 0 0 20px #4db8ff44; }
+.opponents { display: grid; gap: .5rem; }
+.player-panel {
+  min-width: 0; background: linear-gradient(135deg, var(--panel), #151e36); border-radius: 12px;
+  padding: .75rem .85rem; border: 1px solid #ffffff14;
+}
+.player-panel.active, .opponent-panel.active { box-shadow: 0 0 0 2px var(--accent), 0 0 20px #4db8ff33; }
+.opponent-panel { background: #121b31dd; border-radius: 10px; padding: .65rem .75rem; border: 1px solid #ffffff12; }
 .player-panel.blue .pp-name { color: #7fb0ff; }
 .player-panel.green .pp-name { color: #7fe5a8; }
 .player-panel.red .pp-name { color: #ff8a82; }
 .player-panel.yellow .pp-name { color: #ffe07a; }
-.pp-head { display: flex; justify-content: space-between; font-weight: 700; }
-.pp-mat { position: relative; margin: .4rem 0; border-radius: 8px; overflow: hidden; border: 1px solid #ffffff14; }
-.pp-mat img { width: 100%; display: block; }
-.player-panel.viewer .pp-mat { box-shadow: inset 0 0 0 2px var(--accent); }
-.mat-badge { position: absolute; top: 6px; font-size: .72rem; font-weight: 700; padding: 1px 6px; border-radius: 10px; background: #000a; color: var(--ink); backdrop-filter: blur(2px); }
-.mat-badge.level { left: 6px; color: var(--gold); }
-.mat-badge.energy { right: 6px; color: var(--energy); }
-.mat-badge.culture { right: 6px; top: 28px; color: var(--culture); }
+.opponent-panel.blue .pp-name { color: #7fb0ff; }
+.opponent-panel.green .pp-name { color: #7fe5a8; }
+.opponent-panel.red .pp-name { color: #ff8a82; }
+.opponent-panel.yellow .pp-name { color: #ffe07a; }
+.pp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .6rem; font-weight: 700; }
+.pp-head > span:first-child { display: flex; flex-direction: column; }
+.pp-name { font-size: 1rem; }
+.eyebrow { color: var(--muted); font-size: .62rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .pp-vp { color: var(--gold); }
-.pp-stats { display: flex; gap: .7rem; flex-wrap: wrap; margin: .4rem 0; font-size: .85rem; }
-.res.energy { color: var(--energy); }
-.res.culture { color: var(--culture); }
-.pp-ships { display: flex; gap: .3rem; font-size: 1.1rem; }
+.player-overview { display: grid; grid-template-columns: minmax(230px, .9fr) minmax(300px, 1.35fr); gap: .65rem; margin-top: .55rem; }
+.key-stats { display: grid; grid-template-columns: repeat(4, minmax(58px, 1fr)); gap: .4rem; }
+.resource-chip { display: flex; flex-direction: column; justify-content: center; min-height: 54px; background: #080d1c88; border: 1px solid #ffffff12; border-radius: 9px; padding: .38rem .48rem; }
+.resource-chip b { font-size: 1.02rem; line-height: 1.1; white-space: nowrap; }
+.resource-chip small { color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; }
+.resource-chip.energy b { color: var(--energy); }
+.resource-chip.culture b { color: var(--culture); }
+.resource-chip.dice b, .resource-chip.ships b, .resource-chip.empire b { color: var(--ink); }
+.resource-gauge { gap: .22rem; }
+.gauge-head { display: flex; align-items: baseline; justify-content: space-between; gap: .35rem; line-height: 1; }
+.gauge-head b { font-size: .9rem; }
+.gauge-head strong { font-size: .92rem; color: var(--ink); }
+.gauge-head strong span { color: var(--muted); font-size: .68rem; font-weight: 600; }
+.gauge-track { height: 6px; width: 100%; overflow: hidden; border-radius: 999px; background: #0009; box-shadow: inset 0 0 0 1px #ffffff12; }
+.gauge-fill { display: block; height: 100%; border-radius: inherit; transition: width .25s ease; }
+.resource-gauge.energy .gauge-fill { background: linear-gradient(90deg, #b88616, var(--energy)); box-shadow: 0 0 8px #ffd34d88; }
+.resource-gauge.culture .gauge-fill { background: linear-gradient(90deg, #2c82ad, var(--culture)); box-shadow: 0 0 8px #6fd0ff88; }
+.empire-summary { display: grid; grid-template-columns: .8fr 1.2fr; overflow: hidden; background: #080d1c88; border: 1px solid #ffffff14; border-radius: 9px; }
+.empire-current, .empire-next { display: flex; flex-direction: column; justify-content: center; padding: .4rem .6rem; }
+.empire-current { border-right: 1px solid #ffffff14; }
+.empire-current strong, .empire-next strong { font-size: .9rem; }
+.empire-current > span:last-child, .empire-next > span:last-child { color: var(--muted); font-size: .7rem; }
+.empire-summary.affordable { border-color: #3ad57b66; box-shadow: inset 0 0 16px #3ad57b0b; }
+.empire-summary.affordable .empire-next strong { color: var(--green); }
+.empire-next.maxed strong { color: var(--gold); }
+.opponent-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin-top: .45rem; }
+.opponent-stats .resource-chip { min-height: 52px; padding: .3rem .42rem; }
+.opponent-stats .resource-chip b { font-size: .9rem; }
+.pp-ships { display: flex; align-items: center; gap: .35rem; margin-top: .5rem; font-size: .95rem; }
+.pp-ships-label { color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-right: .15rem; }
 .ship.galaxy { color: var(--accent); }
 .ship.locked { color: #44506e; }
 .ship.surface { color: var(--gold); }
 .ship.orbit { color: var(--green); font-size: .85rem; }
-.pp-colonies { margin-top: .5rem; }
+/* Tap-to-move: a Fleet ship becomes a real tap target while a move is being
+ * picked (see MovePickerContext) — this replaces the old flat "Move ship #N —
+ * <location>" text-button list with tapping the ship where it already sits. */
+.ship { background: none; border: 1px solid transparent; padding: 0; font: inherit; }
+.ship.tappable { cursor: pointer; padding: .2rem .45rem; min-height: 32px; border-radius: 8px; background: #0006; border-color: #ffffff22; touch-action: manipulation; }
+.ship.tappable:hover { border-color: currentColor; }
+.ship.tappable.selected { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 10px #ffcc4466; background: #ffcc4422; }
+/* A destination pill: the Home-galaxy option next to the Fleet, and Land/Orbit
+ * on a planet card. Same shape everywhere so "this is a move target" reads
+ * consistently regardless of where it's attached. */
+.ship-dest-pill {
+  display: inline-flex; align-items: center; gap: .3rem; min-height: 36px;
+  padding: .35rem .7rem; border-radius: 999px; font-size: .78rem; font-weight: 700;
+  background: linear-gradient(135deg, #214d4b, #26775f); color: var(--ink);
+  border: 1px solid #3ad57b88; box-shadow: inset 0 1px #ffffff1c, 0 4px 12px #071a1644;
+  cursor: pointer; touch-action: manipulation;
+}
+.ship-dest-pill:hover { background: linear-gradient(135deg, #2b655c, #319572); transform: translateY(-1px); }
+.ship-dest-pill.home { margin-left: .2rem; }
+.pp-colonies { margin-top: .45rem; }
 .pp-colonies-label { font-size: .68rem; color: var(--muted); }
 .colony-cards { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .25rem; }
 .colony-text { background: #0004; border: 1px solid #ffffff14; border-radius: 8px; padding: .35rem .5rem; font-size: .78rem; flex: 1 1 100%; }
@@ -115,11 +167,13 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .colony-card .cc-thumb { width: 100%; display: block; border-radius: 6px; }
 .cc-vp { position: absolute; top: 2px; right: 2px; font-size: .6rem; font-weight: 700; color: var(--gold); background: #000a; border-radius: 8px; padding: 0 4px; }
 .cc-name { position: absolute; bottom: 0; left: 0; right: 0; font-size: .52rem; text-align: center; background: #000a; color: var(--ink); }
-.pp-mission { margin-top: .5rem; font-size: .75rem; color: var(--gold); background: #ffcc4411; padding: .35rem; border-radius: 6px; }
+.pp-mission { margin-top: .45rem; font-size: .72rem; color: var(--gold); background: #ffcc4411; padding: .32rem .4rem; border-radius: 6px; }
 
 /* ---------- Rogue Galaxy colony-action ladder (solo) ---------- */
-.pp-rogue-card { margin-top: .5rem; background: #ff333311; border: 1px solid #ff333322; border-radius: 6px; padding: .35rem .4rem; }
+.pp-rogue-card { display: grid; gap: .15rem; margin-top: .45rem; background: #ff333311; border: 1px solid #ff333322; border-radius: 6px; padding: .35rem .4rem; font-size: .7rem; }
 .pp-rogue-card-label { font-size: .68rem; color: var(--muted); font-weight: 700; }
+.pp-rogue-card details { color: var(--muted); }
+.pp-rogue-card summary { cursor: pointer; }
 .rogue-ladder { display: flex; flex-direction: column; gap: .1rem; margin-top: .25rem; }
 .rogue-ladder-row { display: flex; gap: .4rem; align-items: baseline; font-size: .72rem; padding: .1rem .25rem; border-radius: 4px; }
 .rogue-ladder-row.active { background: #ff33331f; }
@@ -128,11 +182,26 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .rogue-ladder-effect { color: var(--ink); }
 
 /* ---------- Planet row ---------- */
-.planet-row { margin: 1rem 0; }
-.planet-row .cards { display: flex; gap: .8rem; overflow-x: auto; padding-bottom: .5rem; }
-.planet-card { flex: 0 0 150px; background: var(--panel); border-radius: 10px; overflow: hidden; border: 1px solid #ffffff10; }
+.planet-row { margin: .8rem 0 1rem; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: .45rem; }
+.section-heading h2 { margin: 0; font-size: 1rem; }
+.section-heading span { color: var(--muted); font-size: .72rem; }
+.planet-row .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 220px)); justify-content: center; gap: .7rem; }
+.planet-card { min-width: 0; background: var(--panel); border-radius: 10px; overflow: hidden; border: 1px solid #ffffff16; box-shadow: 0 8px 22px #0004; }
 .pc-art { position: relative; }
 .pc-art img { width: 100%; display: block; }
+/* A legal target for whatever's currently being picked — a move destination
+ * (MovePickerContext) or a ship to advance (AdvancePickerContext) — flags the
+ * card itself so it's obvious at a glance before reading the pills/buttons. */
+.planet-card.actionable { outline: 2px solid var(--gold); outline-offset: -1px; box-shadow: 0 0 0 1px #ffcc4455, 0 10px 26px #0006; }
+.pc-move-targets { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 .48rem .48rem; }
+.planet-card.text .pc-move-targets { padding: 0; }
+.pc-move-targets .ship-dest-pill { flex: 1 1 auto; justify-content: center; }
+/* Text-mode "enlarge": there's no bigger art to show, so the card pops forward
+ * in place instead (transform, not layout size, so it doesn't reflow the row). */
+.planet-card.text.expanded { position: relative; z-index: 5; transform: scale(1.035); box-shadow: 0 14px 34px #000a; }
+.planet-card.text .pc-zoom-actions { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 .48rem .48rem; }
+.planet-card.text .pc-zoom-actions .ship-dest-pill { flex: 1 1 auto; justify-content: center; }
 
 /* ---- Token overlays (real ship / empire-level art) ---- */
 .token-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -164,16 +233,32 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 }
 .tok-num.orbit { background: var(--gold); color: #1a1a1a; border-color: #fff; }
 .tok-num.locked { opacity: .5; }
-.pc-meta { padding: .4rem; display: flex; flex-direction: column; gap: .15rem; font-size: .72rem; }
-/* Hover-to-enlarge: a big fixed preview so it isn't clipped by the scroll row. */
+.pc-meta { padding: .4rem .48rem; display: flex; flex-direction: column; gap: .15rem; font-size: .72rem; }
+.pc-meta strong { font-size: .82rem; }
+/* Tap-to-enlarge: a big fixed preview so it isn't clipped by the scroll row.
+ * Touch-only on purpose — this app targets tablet/phone, and a mouse-hover
+ * trigger would fire unintentionally while scrolling/panning with a trackpad,
+ * which is exactly the kind of hover-dependent affordance we're avoiding. */
 .pc-zoom {
   display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: 340px; max-width: 80vw; height: auto; border-radius: 14px; z-index: 3000; pointer-events: none;
   box-shadow: 0 24px 70px #000d, 0 0 0 2px #ffffff33;
 }
-.planet-card:hover .pc-zoom,
-.colony-card:hover .pc-zoom { display: block; }
+.pc-zoom.open { display: block; pointer-events: auto; }
+/* Same fixed-centered "escape the scroll row" trick as .pc-zoom, but as a
+ * column (image + confirm/close buttons) for the Diplomacy/Economy advance
+ * flow — see AdvancePickerContext / PlanetCardView. No backdrop on purpose:
+ * unlike the follow popup, the rest of the board should stay reachable. */
+.pc-zoom-wrap { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3000; display: flex; flex-direction: column; align-items: center; gap: .6rem; max-width: 80vw; }
+.pc-zoom-img { width: 340px; max-width: 80vw; height: auto; border-radius: 14px; box-shadow: 0 24px 70px #000d, 0 0 0 2px #ffffff33; cursor: pointer; }
+.pc-zoom-actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+.pc-zoom-actions .ship-dest-pill.close, .pc-zoom-wrap > .ship-dest-pill.close { background: #211f31cc; border-color: #ffffff33; }
 .pc-ships { color: var(--green); }
+
+@media (max-width: 900px) {
+  .players-row { grid-template-columns: 1fr; }
+  .opponents { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+}
 
 /* ---------- Play area ---------- */
 .play-area { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1rem; margin: 1rem 0; }
@@ -211,10 +296,63 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .actions, .global-actions { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
 .global-actions { border-top: 1px solid #ffffff14; padding-top: .6rem; margin-top: .8rem; }
 .act-btn { text-align: left; background: var(--panel2); border: 1px solid #ffffff18; color: var(--ink); border-radius: 8px; padding: .5rem .7rem; }
+/* Status line for the on-board move picker (MoveSteps): the actual ship/
+ * destination choice now happens on the Fleet chips and planet cards, this just
+ * says what's picked and how to back out. */
+.move-status p { line-height: 1.5; }
+.move-hint { color: var(--accent); font-weight: 700; }
+.link-btn { background: none; border: none; padding: 0; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .act-btn:hover { background: #2c3a68; }
 .act-btn.end { background: #3a2230; border-color: #ff8a8244; }
 .act-btn.global { background: #243a52; }
-.action-panel.follow { box-shadow: 0 0 0 2px var(--gold); }
+/* The follow decision renders inside .modal-overlay/.modal-card (shared with
+ * ReportDialog/GameOverDialog — see Dialogs.tsx) as a .follow-card variant, so it
+ * pops up as an unmissable popup instead of sitting inline in the action panel.
+ * Unlike those two (optional, self-contained dialogs), deciding to follow often
+ * depends on info that lives on the board behind it — your own energy/culture
+ * gauges, the next empire-upgrade cost, a planet's colonize track. A heavy dim +
+ * blur (the default .modal-overlay look) hides exactly what the player needs to
+ * read to decide, so this gets its own much lighter, blur-free backdrop instead —
+ * still visually "a popup," just not one that blinds the page behind it.
+ * .modal-overlay.follow-modal (not just .follow-modal): needs to out-specificity
+ * the plain .modal-overlay background/blur rule below regardless of source order. */
+.modal-overlay.follow-modal { z-index: 2600; background: rgba(4, 8, 20, .35); backdrop-filter: none; }
+/* .modal-card.follow-card (not just .follow-card): needs to out-specificity the
+ * plain .modal-card max-width/padding rule below regardless of source order. */
+.modal-card.follow-card { position: relative; overflow: hidden; max-width: 560px; padding: 1.1rem 1.2rem 1.3rem; border: 1px solid #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 20px 60px #000a; }
+.follow-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .22; background-image: radial-gradient(#fff 0.7px, transparent .7px); background-size: 13px 13px; mask-image: linear-gradient(135deg, #000, transparent 60%); }
+.follow-card > * { position: relative; }
+.follow-header { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: .7rem; padding-bottom: .7rem; border-bottom: 1px solid #ffffff14; }
+.follow-die { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 14px; background: #090d1b; border: 2px solid var(--gold); box-shadow: 0 0 18px #ffcc4444; overflow: hidden; }
+.follow-die img { width: 100%; height: 100%; object-fit: cover; }
+.follow-die > span { font-size: 2rem; }
+.follow-title h3 { margin: .08rem 0 .12rem; font-size: 1rem; }
+.follow-title p { margin: 0; color: var(--muted); font-size: .76rem; }
+.follow-cost { display: flex; flex-direction: column; align-items: flex-end; gap: .12rem; padding-left: .5rem; }
+.follow-cost span { color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; }
+.follow-cost strong { color: var(--culture); font-size: .98rem; white-space: nowrap; }
+.follow-cost-after { color: var(--muted); font-size: .64rem; white-space: nowrap; }
+.follow-reward { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin: .65rem 0 .15rem; padding: .58rem .7rem; border-radius: 10px; background: linear-gradient(100deg, #3ad57b1f, #3ad57b08); border: 1px solid #3ad57b55; box-shadow: inset 0 1px #ffffff12; }
+.follow-reward span:first-child { color: var(--green); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; flex: 0 0 auto; }
+.follow-reward strong { font-size: .78rem; display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; text-align: right; }
+.follow-reward-after { color: var(--muted); font-size: .68rem; font-weight: 500; }
+/* Still legal to follow, but there's nothing to gain (already capped, or no ships
+ * positioned right now) — flag it instead of quietly showing a green "bonus". */
+.follow-reward.weak { background: linear-gradient(100deg, #ffcc441f, #ffcc4408); border-color: #ffcc4455; }
+.follow-reward.weak span:first-child { color: var(--gold); }
+.follow-card .actions { margin-top: .55rem; }
+.follow-card .actions > .act-btn { width: min(100%, 460px); min-height: 52px; padding: .72rem .85rem; display: flex; align-items: center; line-height: 1.3; white-space: normal; touch-action: manipulation; }
+.follow-card .follow-choices { display: flex; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: .5rem; }
+.follow-card .follow-choices > .act-btn { flex: 1 1 240px; width: auto; max-width: 380px; min-height: 64px; display: grid; grid-template-columns: 30px minmax(0, 1fr) 18px; gap: .55rem; align-items: center; text-align: left; padding: .65rem .72rem; border-radius: 13px; }
+.follow-action-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #07121dcc; font-size: 1rem; }
+.follow-action-label { font-size: .82rem; }
+.follow-action-arrow { color: #b5f1d1; font-size: 1.1rem; text-align: right; }
+.follow-card .follow-accept { background: linear-gradient(135deg, #214d4b, #26775f); border-color: #3ad57b88; font-weight: 700; box-shadow: inset 0 1px #ffffff1c, 0 5px 14px #071a1644; }
+.follow-card .follow-accept:hover { background: linear-gradient(135deg, #2b655c, #319572); transform: translateY(-1px); }
+.follow-card .follow-accept .follow-action-icon { background: #3ad57b2e; }
+.follow-card .follow-decline { background: #211f31cc; border-color: #ffffff22; color: var(--muted); }
+.follow-card .follow-decline:hover { color: var(--ink); border-color: #ff8a8266; background: #412b3d; }
+.follow-card .follow-decline .follow-action-icon { color: #ff9e96; background: #ff8a821c; font-size: 1.2rem; }
 .action-panel.choose { box-shadow: 0 0 0 2px var(--accent); }
 .ap-head { display: flex; align-items: center; justify-content: space-between; }
 .undo-btn { background: #3a2f00; color: var(--gold); border: 1px solid #ffcc4466; border-radius: 8px; padding: .35rem .8rem; font-weight: 700; cursor: pointer; }
@@ -292,3 +430,25 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .gameover { text-align: right; }
 .gameover strong { color: var(--gold); font-size: 1.1rem; }
 .gameover ul { list-style: none; padding: 0; margin: .3rem 0 0; font-size: .8rem; }
+
+/* ---------- Narrow/tablet overrides ----------
+ * Kept last on purpose: several rules here (e.g. .follow-header, .follow-card
+ * .follow-choices) share exact specificity with a base rule declared earlier in
+ * this file, and CSS breaks ties by source order — a media query placed earlier
+ * than the base rule it's meant to override gets silently out-cascaded at any
+ * width. Add new small-screen overrides to this block, not a new one earlier up. */
+@media (max-width: 620px) {
+  .game-shell { padding: .65rem; }
+  .topbar h1 { font-size: 1.05rem; }
+  .player-overview { grid-template-columns: 1fr; }
+  .key-stats { gap: .3rem; }
+  .resource-chip { padding-inline: .35rem; }
+  .follow-header { grid-template-columns: 50px minmax(0, 1fr) auto; gap: .55rem; }
+  .follow-die { width: 50px; height: 50px; border-radius: 12px; }
+  .follow-title h3 { font-size: .9rem; }
+  .follow-card .follow-choices { flex-direction: column; align-items: flex-start; }
+  .follow-card .follow-choices > .act-btn { flex: 0 1 auto; width: min(100%, 320px); }
+  .follow-card .actions > .act-btn { min-height: 56px; width: min(100%, 320px); }
+  .planet-row .cards { display: flex; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x proximity; padding: .05rem .05rem .55rem; }
+  .planet-card { flex: 0 0 172px; scroll-snap-align: start; }
+}

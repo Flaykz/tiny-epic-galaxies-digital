@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import {
   PLANETS_BY_ID,
   ROGUE_CARDS,
+  MAX_EMPIRE,
+  RESOURCE_MAX,
   baseVp,
   finalScore,
   empire,
+  acquireCount,
   type Action,
   type DieFace,
   type GameState,
@@ -13,7 +16,7 @@ import {
   type ShipLocation,
 } from '../engine/index.js';
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
-import { MatTokens, PlanetTokens } from './Tokens.js';
+import { PlanetTokens } from './Tokens.js';
 import { downloadText, logText } from '../client/report.js';
 import { useAsset, useArtless } from '../client/assets.js';
 import { ReportDialog, GameOverDialog } from './Dialogs.js';
@@ -65,6 +68,12 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   // Which die is selected for activation. Lives here so the dice tray and the
   // action list stay in sync — clicking a real die in the tray selects it.
   const [selectedDie, setSelectedDie] = useState<number | null>(null);
+  // The active ship/destination picker (see MovePickerContext) — published by
+  // whichever MoveSteps is currently mounted, read by the Fleet chips and planet
+  // cards so tapping them (instead of text buttons) drives the same picker.
+  const [picker, setPicker] = useState<MovePicker | null>(null);
+  // Same idea for the Diplomacy/Economy advance picker (see AdvancePickerContext).
+  const [advPicker, setAdvPicker] = useState<AdvancePicker | null>(null);
   // Reroll selection: null = not rerolling; otherwise the set of die ids to reroll.
   const [rerollSel, setRerollSel] = useState<number[] | null>(null);
   // Converter selection: null = not converting; otherwise the 2 dice to spend and
@@ -90,6 +99,8 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   }, [converterSel, converterAction, state.turn.active]);
 
   return (
+    <MovePickerContext.Provider value={{ picker, setPicker }}>
+    <AdvancePickerContext.Provider value={{ picker: advPicker, setPicker: setAdvPicker }}>
     <div className="board">
       <header className="topbar">
         <h1>Tiny Epic Galaxies</h1>
@@ -98,7 +109,8 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
             <GameOver state={state} />
           ) : pending && pending.queue.length > 0 ? (
             <span className="turn-indicator follow">
-              Follow window — {state.players.find((p) => p.id === pending.queue[0])!.name} may follow ({FACE_LABEL[pending.face]})
+              <span className="follow-indicator-die">{({ move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛' } as Record<DieFace, string>)[pending.face]}</span>
+              <span><strong>Follow window</strong> · {state.players.find((p) => p.id === pending.queue[0])!.name} · {FACE_LABEL[pending.face]}</span>
             </span>
           ) : (
             <span className={`turn-indicator ${activeP.color}`}>
@@ -108,14 +120,20 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         </div>
       </header>
 
-      <section className="players-row">
-        {state.players.map((p) => (
-          <PlayerPanel key={p.id} p={p} state={state} isViewer={p.id === viewer} isActive={p.id === state.turn.active} />
-        ))}
+      <section className="players-row" aria-label="Player status">
+        <PlayerPanel p={me} state={state} isViewer isActive={me.id === state.turn.active} />
+        <div className="opponents" aria-label="Opponents">
+          {state.players.filter((p) => p.id !== viewer).map((p) => (
+            <PlayerPanel key={p.id} p={p} state={state} isViewer={false} isActive={p.id === state.turn.active} />
+          ))}
+        </div>
       </section>
 
       <section className="planet-row">
-        <h2>Discovered Planets</h2>
+        <div className="section-heading">
+          <h2>Discovered Planets</h2>
+          <span>{state.centerRow.length} available</span>
+        </div>
         <div className="cards">
           {state.centerRow.map((id) => (
             <PlanetCardView key={id} planet={PLANETS_BY_ID[id]} state={state} />
@@ -209,11 +227,9 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         />
       )}
     </div>
+    </AdvancePickerContext.Provider>
+    </MovePickerContext.Provider>
   );
-}
-
-function resourceDots(n: number) {
-  return '●'.repeat(n) + '○'.repeat(Math.max(0, 7 - n));
 }
 
 /** Where a ship currently sits (for the move-order ship picker). */
@@ -240,6 +256,49 @@ function destText(d: ShipLocation): string {
 interface MoveOption { shipIdx: number; dest: ShipLocation; action: Action; }
 
 /**
+ * The currently-active move picker (at most one of the 4 MoveSteps call sites is
+ * ever mounted at a time — they're mutually exclusive branches in ActionPanel).
+ * MoveSteps publishes itself here instead of rendering ship/destination buttons,
+ * so the Fleet chips (ship source, PlayerPanel) and the planet cards (destination,
+ * PlanetCardView) can become the tap targets — on-board tap-to-move instead of a
+ * text list, and it works with or without art since neither of those depends on it.
+ */
+interface MovePicker {
+  moves: MoveOption[];
+  actorShips: ShipLocation[];
+  shipIdx: number | null;
+  setShipIdx: (n: number | null) => void;
+  submit: (a: Action) => void;
+  verb: string;
+}
+const MovePickerContext = React.createContext<{ picker: MovePicker | null; setPicker: (p: MovePicker | null) => void }>({
+  picker: null,
+  setPicker: () => {},
+});
+
+/** One selectable Diplomacy/Economy advance: an already-orbiting ship on a
+ *  specific planet, and the action to submit. A player can only ever have one
+ *  ship orbiting a given planet, so each planet maps to at most one option. */
+interface AdvanceOption { shipIdx: number; planetId: string; action: Action; }
+
+/**
+ * Same idea as MovePickerContext, for the Diplomacy/Economy dice: advancing a
+ * ship has no destination *choice* (it just moves 1 space further on the orbit
+ * track it's already on), so instead of a flat "Advance ship #N — economy" button
+ * list, the eligible planet cards themselves become the tap targets — highlighted,
+ * tap to confirm (see PlanetCardView).
+ */
+interface AdvancePicker {
+  options: AdvanceOption[];
+  submit: (a: Action) => void;
+  verb: string;
+}
+const AdvancePickerContext = React.createContext<{ picker: AdvancePicker | null; setPicker: (p: AdvancePicker | null) => void }>({
+  picker: null,
+  setPicker: () => {},
+});
+
+/**
  * Two-step move picker: choose the ship, then its destination. Shared by the Move
  * die, NAGATO, and PIEDES repeat-move. `extras` are extra buttons shown alongside
  * the ship list in step 1 (e.g. PIEDES's non-move repeats, NAGATO's "Done").
@@ -255,76 +314,201 @@ function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 
   extras?: React.ReactNode;
   emptyText?: string;
 }) {
+  const { setPicker } = React.useContext(MovePickerContext);
   const shipIdxs = [...new Set(moves.map((m) => m.shipIdx))].sort((a, b) => a - b);
+  const shipPicked = moveShip != null && shipIdxs.includes(moveShip);
 
-  // Step 1 — choose the ship (also shown if a prior pick is no longer movable).
-  if (moveShip == null || !shipIdxs.includes(moveShip)) {
+  // Publish this picker so the Fleet chips (PlayerPanel) and planet cards
+  // (PlanetCardView) become the actual tap targets — see MovePickerContext.
+  // `moves`/`actorShips`/`submit` are FRESH references every render (ActionPanel
+  // rebuilds them from legalActions each time), so depending on them directly
+  // would re-run this effect — and call setPicker — on every single render,
+  // which is an infinite update loop (setPicker → Board re-renders → ActionPanel
+  // re-renders → new moves/submit → effect deps "changed" → setPicker → ...).
+  // Depend on cheap content signatures instead, so the effect (and setPicker)
+  // only actually re-fires when the picker's *content* changed.
+  const movesKey = moves.map((m) => `${m.shipIdx}:${m.dest.kind}${'planetId' in m.dest ? ':' + m.dest.planetId : ''}`).join('|');
+  const shipsKey = actorShips.map((s) => `${s.kind}${'planetId' in s ? ':' + s.planetId : ''}${'level' in s ? ':' + s.level : ''}`).join('|');
+  React.useEffect(() => {
+    setPicker({ moves, actorShips, shipIdx: moveShip, setShipIdx: setMoveShip, submit, verb });
+    return () => setPicker(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- movesKey/shipsKey stand in for moves/actorShips on purpose (see comment above); submit is safe to omit because its behavior only depends on data already covered by these keys plus the stable onAction/setMoveShip.
+  }, [movesKey, shipsKey, moveShip, setMoveShip, verb, setPicker]);
+
+  if (moves.length === 0) {
     return (
       <div className="actions">
-        {moves.length > 0 && <p className="muted small">{prompt}</p>}
-        {moves.length === 0 && !extras && emptyText && <p className="muted">{emptyText}</p>}
-        {shipIdxs.map((idx) => (
-          <button key={`ship${idx}`} className="act-btn" onClick={() => setMoveShip(idx)}>
-            {verb} ship #{idx + 1} — {shipLocText(actorShips[idx])}
-          </button>
-        ))}
+        {!extras && emptyText && <p className="muted">{emptyText}</p>}
         {extras}
       </div>
     );
   }
 
-  // Step 2 — choose the destination for the picked ship.
-  const dests = moves.filter((m) => m.shipIdx === moveShip);
+  // Step 1 — choose the ship (tap a Fleet chip above; also shown if a prior pick
+  // is no longer movable).
+  if (!shipPicked) {
+    return (
+      <div className="actions move-status">
+        <p className="muted small">{prompt} <span className="move-hint">Tap one of your ships above.</span></p>
+        {extras}
+      </div>
+    );
+  }
+
+  // Step 2 — the destination is chosen by tapping a Land/Orbit pill on a planet
+  // card, or the Home-galaxy pill next to the Fleet, both driven by the picker
+  // context above. This status line just confirms what's picked and lets the
+  // player back out.
+  const canGoHome = moves.some((m) => m.shipIdx === moveShip && m.dest.kind === 'galaxy');
   return (
-    <div className="actions">
-      <p className="muted small">{verb} <strong>Ship #{moveShip + 1}</strong> ({shipLocText(actorShips[moveShip])}) to:</p>
-      {dests.map((m, i) => (
-        <button key={i} className="act-btn" onClick={() => submit(m.action)} title={destText(m.dest)}>
-          {destText(m.dest)}
-        </button>
-      ))}
-      <button className="act-btn global" onClick={() => setMoveShip(null)}>← Choose a different ship</button>
+    <div className="actions move-status">
+      <p className="muted small">
+        {verb} <strong>Ship #{moveShip! + 1}</strong> ({shipLocText(actorShips[moveShip!])}) —
+        tap a destination{canGoHome ? ' (or Home, above)' : ''} on a planet card above.{' '}
+        <button className="link-btn" onClick={() => setMoveShip(null)}>Choose a different ship</button>
+      </p>
+      {extras}
+    </div>
+  );
+}
+
+/**
+ * Diplomacy/Economy die: publishes its options to AdvancePickerContext (see
+ * comment there) instead of rendering a flat button list — the eligible planet
+ * cards become the tap targets. This is just a status line + publisher, mirroring
+ * MoveSteps' pattern.
+ */
+function AdvanceSteps({ options, submit, verb, emptyText }: { options: AdvanceOption[]; submit: (a: Action) => void; verb: string; emptyText?: string }) {
+  const { setPicker } = React.useContext(AdvancePickerContext);
+  // Same reasoning as MoveSteps: `options`/`submit` are fresh references every
+  // render, so depend on a cheap content signature instead of the arrays/function
+  // themselves, or this republishes (and re-renders Board) on every render.
+  const optionsKey = options.map((o) => `${o.shipIdx}:${o.planetId}`).join('|');
+  React.useEffect(() => {
+    setPicker({ options, submit, verb });
+    return () => setPicker(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- optionsKey stands in for options on purpose (see comment above).
+  }, [optionsKey, verb, setPicker]);
+
+  if (options.length === 0) {
+    return <div className="actions"><p className="muted">{emptyText ?? 'No ship can advance right now.'}</p></div>;
+  }
+  return (
+    <div className="actions move-status">
+      <p className="muted small">{verb} — tap a highlighted planet above to confirm.</p>
     </div>
   );
 }
 
 function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean }) {
   const lvl = empire(p.empireLevel);
+  const next = p.empireLevel < MAX_EMPIRE ? empire(p.empireLevel + 1) : null;
   const asset = useAsset();
   const artless = useArtless();
+  // Colony-card enlarge is hover-only on desktop; touch has no hover, so tapping
+  // a card toggles the same zoom preview.
+  const [zoomedColony, setZoomedColony] = useState<string | null>(null);
+  // Read unconditionally (before the isViewer branch below) — Rules of Hooks.
+  // Only the viewer's own Fleet chips act as tap targets for the picker.
+  const { picker } = React.useContext(MovePickerContext);
+  const nextBenefits = next ? [
+    next.dice > lvl.dice ? `+${next.dice - lvl.dice} die` : null,
+    next.ships > lvl.ships ? `+${next.ships - lvl.ships} ship` : null,
+    next.vp > lvl.vp ? `+${next.vp - lvl.vp} VP` : null,
+  ].filter(Boolean).join(' · ') : '';
+
+  if (!isViewer) {
+    return (
+      <aside className={`opponent-panel ${p.color} ${isActive ? 'active' : ''}`}>
+        <div className="pp-head">
+          <span className="pp-name">{p.name}{p.isRogue ? ' ☠' : ''}</span>
+          <span className="pp-vp">{baseVp(state, p)} VP</span>
+        </div>
+        <div className="opponent-stats">
+          <ResourceGauge type="energy" value={p.energy} />
+          <ResourceGauge type="culture" value={p.culture} />
+          <span className="resource-chip empire" title={`${lvl.dice} dice and ${lvl.ships} ships`}><b>L{p.empireLevel}</b><small>empire</small></span>
+        </div>
+        {p.isRogue && <RogueCardLadder empireLevel={p.empireLevel} cardId={state.rogueCard} />}
+      </aside>
+    );
+  }
+
   return (
     <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''}`}>
       <div className="pp-head">
-        <span className="pp-name">{p.name}{p.isRogue ? ' ☠' : ''}</span>
+        <span><span className="eyebrow">Your galaxy</span><span className="pp-name">{p.name}</span></span>
         <span className="pp-vp">{baseVp(state, p)} VP</span>
       </div>
-      {!artless && (
-        <div className="pp-mat">
-          <img src={asset(`/mats/pads-${p.color}.jpg`)} alt={`${p.name} galaxy mat`} loading="lazy" />
-          <MatTokens p={p} />
-          <span className="mat-badge level" title="Current empire level">L{p.empireLevel}</span>
-          <span className="mat-badge energy" title="Energy">⚡{p.energy}</span>
-          <span className="mat-badge culture" title="Culture">🏛{p.culture}</span>
+      <div className="player-overview">
+        <div className="key-stats">
+          <ResourceGauge type="energy" value={p.energy} />
+          <ResourceGauge type="culture" value={p.culture} />
+          <span className="resource-chip dice" title="Dice unlocked"><b>{lvl.dice}</b><small>dice</small></span>
+          <span className="resource-chip ships" title="Ships unlocked"><b>{lvl.ships}</b><small>ships</small></span>
         </div>
-      )}
-      <div className="pp-stats">
-        <span title="Empire level">🏛 L{p.empireLevel} ({lvl.dice}d/{lvl.ships}s)</span>
-        <span title="Energy" className="res energy">⚡ {p.energy}</span>
-        <span title="Culture" className="res culture">🏛 {p.culture}</span>
+        <div className={`empire-summary ${next && (p.energy >= next.upgradeCost || p.culture >= next.upgradeCost) ? 'affordable' : ''}`}>
+          <div className="empire-current">
+            <span className="eyebrow">Empire</span>
+            <strong>Level {p.empireLevel}</strong>
+            <span>{lvl.vp} VP</span>
+          </div>
+          {next ? (
+            <div className="empire-next">
+              <span className="eyebrow">Next upgrade</span>
+              <strong>{next.upgradeCost} ⚡ or {next.upgradeCost} 🏛</strong>
+              <span>{nextBenefits}</span>
+            </div>
+          ) : (
+            <div className="empire-next maxed"><span className="eyebrow">Empire</span><strong>Maximum level</strong><span>All dice and ships unlocked</span></div>
+          )}
+        </div>
       </div>
-      <div className="pp-ships">
+      <div className="pp-ships" aria-label="Ship locations">
+        <span className="pp-ships-label">Fleet</span>
         {p.ships.map((s, i) => {
           const where = s.kind === 'galaxy' ? 'home'
             : s.kind === 'locked' ? 'locked'
             : s.kind === 'surface' ? `on ${PLANETS_BY_ID[s.planetId]?.name}`
             : `orbit ${PLANETS_BY_ID[s.planetId]?.name} ${s.level === 0 ? 'start' : `sp.${s.level}`}`;
           const glyph = s.kind === 'galaxy' ? '▲' : s.kind === 'locked' ? '▽' : s.kind === 'surface' ? '⬢' : `◔${s.level}`;
+          // A ship is a tap target when a move picker is active and it has at
+          // least one legal destination (Home/Land/Orbit — see MovePickerContext).
+          const movable = picker?.moves.some((m) => m.shipIdx === i) ?? false;
+          const selected = picker?.shipIdx === i;
+          if (!movable) {
+            return (
+              <span key={i} className={`ship ${s.kind}`} title={`Ship #${i + 1}: ${where}`}>
+                <b>{i + 1}</b>{glyph}
+              </span>
+            );
+          }
           return (
-            <span key={i} className={`ship ${s.kind}`} title={`Ship #${i + 1}: ${where}`}>
+            <button
+              key={i}
+              type="button"
+              className={`ship ${s.kind} tappable ${selected ? 'selected' : ''}`}
+              title={`Ship #${i + 1}: ${where} — tap to move`}
+              onClick={() => picker!.setShipIdx(selected ? null : i)}
+            >
               <b>{i + 1}</b>{glyph}
-            </span>
+            </button>
           );
         })}
+        {/* Home-galaxy is a legal destination for a picked ship but isn't tied to
+         *  any planet card, so it gets its own pill right next to the Fleet. */}
+        {picker?.shipIdx != null && picker.moves.some((m) => m.shipIdx === picker.shipIdx && m.dest.kind === 'galaxy') && (
+          <button
+            type="button"
+            className="ship-dest-pill home"
+            onClick={() => {
+              const m = picker.moves.find((mv) => mv.shipIdx === picker.shipIdx && mv.dest.kind === 'galaxy');
+              if (m) picker.submit(m.action);
+            }}
+          >
+            ⤴ Home galaxy
+          </button>
+        )}
       </div>
       {p.colonized.length > 0 && (
         <div className="pp-colonies">
@@ -342,12 +526,12 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
                 );
               }
               return (
-                <div key={id} className="colony-card" title={`${cp?.name}: ${cp?.action}`}>
+                <div key={id} className="colony-card" title={`${cp?.name}: ${cp?.action}`} onClick={() => setZoomedColony((cur) => (cur === id ? null : id))}>
                   {/* Hide a broken thumb (missing art); the name/VP overlay stays. */}
                   <img className="cc-thumb" src={asset(`/cards/${id}.jpg`)} alt={cp?.name} loading="lazy" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
                   <span className="cc-vp">+{cp?.vp}</span>
                   <span className="cc-name">{cp?.name}</span>
-                  <img className="pc-zoom" src={asset(`/cards/${id}.jpg`)} alt="" aria-hidden="true" />
+                  <img className={`pc-zoom ${zoomedColony === id ? 'open' : ''}`} src={asset(`/cards/${id}.jpg`)} alt="" aria-hidden="true" />
                 </div>
               );
             })}
@@ -359,8 +543,23 @@ function PlayerPanel({ p, state, isViewer, isActive }: { p: PlayerState; state: 
           🎯 {p.mission.name}: {p.mission.objective}
         </div>
       )}
-      {p.isRogue && <RogueCardLadder empireLevel={p.empireLevel} cardId={state.rogueCard} />}
     </div>
+  );
+}
+
+function ResourceGauge({ type, value }: { type: 'energy' | 'culture'; value: number }) {
+  const energy = type === 'energy';
+  const label = energy ? 'Energy' : 'Culture';
+  const icon = energy ? '⚡' : '🏛';
+  const percent = Math.min(100, Math.max(0, (value / RESOURCE_MAX) * 100));
+  return (
+    <span className={`resource-chip resource-gauge ${type}`} title={`${label}: ${value}/${RESOURCE_MAX}`}>
+      <span className="gauge-head"><b>{icon}</b><strong>{value}<span>/{RESOURCE_MAX}</span></strong></span>
+      <span className="gauge-track" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={RESOURCE_MAX} aria-valuenow={value}>
+        <span className="gauge-fill" style={{ width: `${percent}%` }} />
+      </span>
+      <small>{label}</small>
+    </span>
   );
 }
 
@@ -373,15 +572,19 @@ function RogueCardLadder({ empireLevel, cardId }: { empireLevel: number; cardId?
   const active = Math.min(Math.max(empireLevel, 1), 5);
   return (
     <div className="pp-rogue-card">
-      <span className="pp-rogue-card-label">☠ {card.name} — {card.tier} · Colony Action ladder</span>
-      <div className="rogue-ladder">
-        {[1, 2, 3, 4, 5].map((lvl) => (
-          <div key={lvl} className={`rogue-ladder-row ${lvl === active ? 'active' : ''}`} title={lvl === active ? 'Current Rogue empire level' : undefined}>
-            <span className="rogue-ladder-lvl">L{lvl}</span>
-            <span className="rogue-ladder-effect">{card.desc[lvl]}</span>
-          </div>
-        ))}
-      </div>
+      <span className="pp-rogue-card-label">☠ Colony action</span>
+      <strong>{card.desc[active]}</strong>
+      <details>
+        <summary>{card.name} · {card.tier} — all levels</summary>
+        <div className="rogue-ladder">
+          {[1, 2, 3, 4, 5].map((lvl) => (
+            <div key={lvl} className={`rogue-ladder-row ${lvl === active ? 'active' : ''}`} title={lvl === active ? 'Current Rogue empire level' : undefined}>
+              <span className="rogue-ladder-lvl">L{lvl}</span>
+              <span className="rogue-ladder-effect">{card.desc[lvl]}</span>
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
@@ -392,6 +595,11 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
   // If this card's art can't load (no shipped art / no VASSAL module / a gap in
   // either), fall back to the clean text card instead of a broken image.
   const [imgFailed, setImgFailed] = useState(false);
+  const textMode = artless || imgFailed;
+  // Enlarge is hover-only on desktop; touch has no hover, so a tap toggles it too.
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const { picker } = React.useContext(MovePickerContext);
+  const { picker: advPicker } = React.useContext(AdvancePickerContext);
   // Ships currently on/around this planet.
   const here: string[] = [];
   for (const pl of state.players) {
@@ -402,33 +610,93 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
   }
   const meta = (
     <div className="pc-meta">
-      <strong>{planet.name}</strong>
+      {!textMode && <strong>{planet.name}</strong>}
       <span>{planet.resourceType === 'energy' ? '⚡' : '🏛'} · {planet.colonizeType} · colonize in {planet.orbitTrackLength + 1} · {planet.vp}VP</span>
       {here.length > 0 && <span className="pc-ships">{here.join(' | ')}</span>}
     </div>
   );
 
-  if (artless || imgFailed) {
+  // When a ship is picked for a move (see MovePickerContext), this planet becomes
+  // a tap target for whichever of "land"/"orbit" is a legal destination for it —
+  // replaces the old flat "PLANETNAME — land on surface" text-button list.
+  const landMove = picker?.shipIdx != null
+    ? picker.moves.find((m) => m.shipIdx === picker.shipIdx && m.dest.kind === 'surface' && m.dest.planetId === planet.id)
+    : undefined;
+  const orbitMove = picker?.shipIdx != null
+    ? picker.moves.find((m) => m.shipIdx === picker.shipIdx && m.dest.kind === 'orbit' && m.dest.planetId === planet.id)
+    : undefined;
+  const movePills = (landMove || orbitMove) && (
+    <div className="pc-move-targets">
+      {landMove && (
+        <button type="button" className="ship-dest-pill" title={destText(landMove.dest)} onClick={() => picker!.submit(landMove.action)}>
+          🛬 Land here
+        </button>
+      )}
+      {orbitMove && (
+        <button type="button" className="ship-dest-pill" title={destText(orbitMove.dest)} onClick={() => picker!.submit(orbitMove.action)}>
+          🛰 Enter orbit
+        </button>
+      )}
+    </div>
+  );
+
+  // Diplomacy/Economy: this planet has one of the viewer's ships already
+  // orbiting it and eligible to advance (see AdvancePickerContext) — there's no
+  // destination to pick (it just moves 1 space further on the track it's
+  // already on), so tapping the card itself is the whole interaction.
+  const advance = advPicker?.options.find((o) => o.planetId === planet.id);
+  const actionable = !!(movePills || advance);
+  // Confirm/close controls, shown once the player taps an actionable card to
+  // "look closer" at it — the same deliberate extra step the orbit-abandon
+  // confirm() already asks for on a move, just spatial instead of a native
+  // dialog. Text mode has nothing to visually enlarge (the card already shows
+  // everything), so it expands in place instead of opening the floating preview.
+  const advanceControls = advance && zoomOpen && (
+    <div className="pc-zoom-actions">
+      <button type="button" className="ship-dest-pill" onClick={(e) => { e.stopPropagation(); advPicker!.submit(advance.action); }}>
+        ✓ Advance ship #{advance.shipIdx + 1}
+      </button>
+      <button type="button" className="ship-dest-pill close" onClick={(e) => { e.stopPropagation(); setZoomOpen(false); }}>
+        ✕ Close
+      </button>
+    </div>
+  );
+
+  if (textMode) {
     return (
-      <div className={`planet-card text ${planet.colonizeType}`}>
+      <div
+        className={`planet-card text ${planet.colonizeType} ${actionable ? 'actionable' : ''} ${advance && zoomOpen ? 'expanded' : ''}`}
+        onClick={advance ? () => setZoomOpen((v) => !v) : undefined}
+      >
         <div className="pc-text-head">
           <strong>{planet.name}</strong>
           <span className="pc-vp-badge">{planet.vp}</span>
         </div>
         <div className="pc-text-action">{planet.action}</div>
         {meta}
+        {movePills}
+        {advanceControls}
       </div>
     );
   }
   return (
-    <div className="planet-card">
-      <div className="pc-art">
+    <div className={`planet-card ${actionable ? 'actionable' : ''}`}>
+      <div className="pc-art" onClick={() => setZoomOpen((v) => !v)}>
         <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" onError={() => setImgFailed(true)} />
         <PlanetTokens planet={planet} state={state} />
       </div>
       {meta}
-      {/* Hover to enlarge (escapes the scrolling row via fixed positioning). */}
-      <img className="pc-zoom" src={asset(`/cards/${planet.id}.jpg`)} alt="" aria-hidden="true" />
+      {movePills}
+      {/* Tap the art to enlarge (escapes the scrolling row via fixed positioning);
+       *  an eligible advance gets its confirm/close buttons attached here too. */}
+      {zoomOpen && (
+        <div className="pc-zoom-wrap">
+          <img className="pc-zoom-img" src={asset(`/cards/${planet.id}.jpg`)} alt="" onClick={() => setZoomOpen(false)} />
+          {advance ? advanceControls : (
+            <button type="button" className="ship-dest-pill close" onClick={() => setZoomOpen(false)}>✕ Close</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -727,10 +995,10 @@ function ActionPanel({
             ? [{ shipIdx: a.params.shipIdx, dest: a.params.dest, action: a }]
             : [])
       : [];
-    return (
-      <div className="action-panel follow">
-        <h3>Follow?</h3>
-        <p>{viewerName}, you may copy the {FACE_LABEL[face]} action by spending 1 culture.</p>
+    const follower = state.players.find((p) => p.id === state.turn.pendingFollow?.queue[0]);
+    const card = (
+      <div className="modal-card follow-card">
+        <FollowHeader face={face} sourceName={state.players.find((p) => p.id === state.turn.pendingFollow?.sourcePlayer)?.name ?? 'the active player'} follower={follower} state={state} />
         {face === 'move' ? (
           <MoveSteps
             moves={followMoves}
@@ -740,17 +1008,32 @@ function ActionPanel({
             submit={onAction}
             verb="Follow move:"
             prompt="Follow the move — which ship?"
-            extras={declineBtn}
+            extras={declineBtn && React.cloneElement(declineBtn, { className: 'follow-decline' })}
           />
         ) : (
-          <div className="actions">
+          <div className="actions follow-choices">
             {followActions.map((a, i) => (
-              <button key={i} className={`act-btn ${a.type === 'follow' && !a.accept ? 'end' : ''}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
-                {actionLabel(a, actorShips, actor)}
+              <button key={i} className={`act-btn ${a.type === 'follow' && a.accept ? 'follow-accept' : 'follow-decline'}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
+                <span className="follow-action-icon" aria-hidden="true">{a.type === 'follow' && a.accept ? ({ move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '✦' } as Record<DieFace, string>)[face] : '×'}</span>
+                <span className="follow-action-label">{actionLabel(a, actorShips, actor)}</span>
+                <span className="follow-action-arrow" aria-hidden="true">{a.type === 'follow' && a.accept ? '→' : ''}</span>
               </button>
             ))}
           </div>
         )}
+      </div>
+    );
+    // A Move follow needs to tap ships/planet cards that live OUTSIDE this panel
+    // (see MovePickerContext) — a blocking modal backdrop would make them
+    // unreachable, so render inline (same spot as the normal action panel)
+    // instead of as a popup for this one face. Every other face is fully
+    // self-contained (its choices are buttons right here), so those stay a true
+    // popup: the decision happens mid opponent-turn and is easy to miss
+    // otherwise, and there's nothing else on the board the player needs to reach.
+    if (face === 'move') return card;
+    return (
+      <div className="modal-overlay follow-modal" role="dialog" aria-modal="true">
+        {card}
       </div>
     );
   }
@@ -783,6 +1066,17 @@ function ActionPanel({
           submit={submit}
           emptyText="No ship can move right now."
         />
+      ) : selectedDieFace === 'diplomacy' || selectedDieFace === 'economy' ? (
+        <AdvanceSteps
+          options={forDie(selectedDie).flatMap((a) => {
+            if (a.type !== 'activateAdvance') return [];
+            const loc = actorShips[a.shipIdx];
+            return loc?.kind === 'orbit' ? [{ shipIdx: a.shipIdx, planetId: loc.planetId, action: a }] : [];
+          })}
+          submit={submit}
+          verb={`Advance ${FACE_LABEL[selectedDieFace]}`}
+          emptyText="No ship is orbiting a matching planet right now."
+        />
       ) : (
         <div className="actions">
           <p className="muted small">Selected die: <strong>{selectedDieFace && FACE_LABEL[selectedDieFace]}</strong></p>
@@ -807,6 +1101,90 @@ function ActionPanel({
         ))}
       </div>
     </div>
+  );
+}
+
+/** What accepting a follow actually gets you, per die face — shown instead of the
+ *  generic "Play the X action" so the reward is concrete at a glance. Mirrors
+ *  applyFollowEffect() in src/engine/adapter.ts. Energy/culture faces are handled
+ *  separately below (the gain isn't fixed — see FollowHeader). */
+const FOLLOW_REWARD: Partial<Record<DieFace, string>> = {
+  move: 'Move one of your ships',
+  diplomacy: 'Advance a ship 1 step (diplomacy)',
+  economy: 'Advance a ship 1 step (economy)',
+  colony: 'Trigger a colonized planet, or spend toward an empire upgrade',
+};
+
+function FollowHeader({ face, sourceName, follower, state }: { face: DieFace; sourceName: string; follower?: PlayerState; state: GameState }) {
+  const asset = useAsset();
+  const artless = useArtless();
+  const glyph: Record<DieFace, string> = { move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛' };
+  const cost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
+  const culture = follower?.culture;
+
+  // Unlike a normal die, an Acquire follow doesn't gain a flat amount — it's +1
+  // per ship on a matching planet (and +1 energy per ship still on the Galaxy
+  // Card), same as the die itself (rulebook p.6). acquireCount() is the engine's
+  // own side-effect-free helper for that count, so the preview here can never
+  // drift from what actually happens if the player accepts.
+  const gainFace = face === 'energy' || face === 'culture' ? face : null;
+  const gain = gainFace && follower ? acquireCount(follower, gainFace) : null;
+  const before = gainFace && follower ? (gainFace === 'energy' ? follower.energy : follower.culture) : null;
+  const after = gain != null && before != null ? Math.min(RESOURCE_MAX, before + gain) : null;
+  const next = follower && follower.empireLevel < MAX_EMPIRE ? empire(follower.empireLevel + 1) : null;
+  // Call out the one case that actually matters strategically: this follow is
+  // what pushes the follower up to affording their next empire upgrade.
+  const unlocksUpgrade = next && before != null && after != null && before < next.upgradeCost && after >= next.upgradeCost;
+
+  let reward: React.ReactNode;
+  let weak = false;
+  if (gainFace && gain != null && before != null && after != null) {
+    const icon = gainFace === 'energy' ? '⚡' : '🏛';
+    if (before >= RESOURCE_MAX) {
+      weak = true;
+      reward = <>Already at {RESOURCE_MAX} {icon} {gainFace} — following won't gain anything</>;
+    } else if (gain === 0) {
+      weak = true;
+      reward = <>No ships positioned to gain {icon} {gainFace} right now — following would gain nothing</>;
+    } else {
+      reward = (
+        <>
+          Gain {gain} {icon} {gainFace}
+          <small className="follow-reward-after">
+            {before} → {after} {icon}
+            {next && (unlocksUpgrade ? ` · unlocks the ${next.upgradeCost}${icon} empire upgrade!` : ` · upgrade needs ${next.upgradeCost}${icon}`)}
+          </small>
+        </>
+      );
+    }
+  } else {
+    reward = FOLLOW_REWARD[face];
+  }
+
+  return (
+    <>
+      <div className="follow-header">
+        <div className="follow-die" aria-label={`${FACE_LABEL[face]} die`}>
+          {artless ? <span>{glyph[face]}</span> : <img src={asset(DIE_IMG[face])} alt="" />}
+        </div>
+        <div className="follow-title">
+          <span className="eyebrow">Follow window</span>
+          <h3>{sourceName} plays {FACE_LABEL[face]}</h3>
+          <p>Copy this action on your turn</p>
+        </div>
+        <div className="follow-cost">
+          <span>Cost</span>
+          <strong>{cost} 🏛</strong>
+          {culture != null && (
+            <small className="follow-cost-after">You have {culture} 🏛 → {Math.max(0, culture - cost)} 🏛 after</small>
+          )}
+        </div>
+      </div>
+      <div className={`follow-reward ${weak ? 'weak' : ''}`}>
+        <span>{weak ? '⚠ Follow bonus' : '↗ Follow bonus'}</span>
+        <strong>{reward}</strong>
+      </div>
+    </>
   );
 }
 
