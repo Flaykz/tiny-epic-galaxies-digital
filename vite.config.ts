@@ -2,7 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { versionStamp } from 'digital-boardgame-framework/vite';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages serves this as a project page (github.com/Flaykz/tiny-epic-
+  // galaxies-digital → flaykz.github.io/tiny-epic-galaxies-digital/), so built
+  // asset URLs need that subpath prefix. Dev keeps serving from root.
+  base: command === 'build' ? '/tiny-epic-galaxies-digital/' : '/',
   // DBF_NO_ASSETS=1 builds WITHOUT copying public/ (the VASSAL-derived art), so a
   // public deploy doesn't redistribute copyrighted images. The app shows its
   // "run setup-assets" notice; local dev keeps the art.
@@ -18,4 +22,4 @@ export default defineConfig({
       '/api': 'http://localhost:8787',
     },
   },
-});
+}));

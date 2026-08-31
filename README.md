@@ -45,6 +45,24 @@ For multiplayer: open the app → **Multiplayer** → create a game → share ea
 seat's invite link. The server persists games to `.data/` via the framework's
 `FsStore`, redacts opponents' secret missions per-seat, and validates turns.
 
+## Deploying (GitHub Pages)
+
+Local hotseat and solo-vs-Rogue-Galaxy run entirely in the browser, so a plain
+static host is enough for those. `.github/workflows/deploy-pages.yml` builds
+with `DBF_NO_ASSETS=1` (never redistribute the copyrighted VASSAL art — visitors
+get the same in-app "bring your own module" dialog as local dev) and deploys
+`dist/` via GitHub's official Pages actions on every push to `main`.
+
+One-time repo setup: **Settings → Pages → Source → GitHub Actions**. The site
+then serves from `https://<owner>.github.io/tiny-epic-galaxies-digital/` —
+`vite.config.ts`'s `base` is set to that subpath for production builds.
+
+Async multiplayer and the server-backed "report a problem" submission need the
+`/api` backend (`npm run server`, or the Cloudflare Pages Functions in
+`functions/api/`) — GitHub Pages can't serve those, so they won't work on this
+deploy. The UI degrades gracefully: Multiplayer shows a "could not reach the
+server" message, and reports fall back to a local file download.
+
 ## Architecture
 
 ```
