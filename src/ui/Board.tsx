@@ -39,6 +39,44 @@ const FACE_LABEL: Record<DieFace, string> = {
   colony: 'Colony',
 };
 
+/** Toggle browser fullscreen — most useful on a tablet/phone, where the browser
+ *  chrome eats real screen space. Self-hides if the Fullscreen API isn't
+ *  available at all (e.g. iPhone Safari doesn't support it). */
+function FullscreenButton() {
+  const supported = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen && document.fullscreenEnabled !== false;
+  const [isFullscreen, setIsFullscreen] = useState(() => supported && !!document.fullscreenElement);
+
+  React.useEffect(() => {
+    if (!supported) return;
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, [supported]);
+
+  if (!supported) return null;
+
+  const toggle = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="ghost-btn fullscreen-btn"
+      onClick={toggle}
+      title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+      aria-pressed={isFullscreen}
+    >
+      {isFullscreen ? '⛶ Exit fullscreen' : '⛶ Fullscreen'}
+    </button>
+  );
+}
+
 export interface BoardProps {
   state: GameState;
   /** The seat this screen acts as (its missions are visible, it can submit when on the clock). */
@@ -105,6 +143,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
       <header className="topbar">
         <h1>Tiny Epic Galaxies</h1>
         <div className="status">
+          <FullscreenButton />
           {gameOver ? (
             <GameOver state={state} />
           ) : pending && pending.queue.length > 0 ? (
