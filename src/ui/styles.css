@@ -39,6 +39,8 @@ code { background: #0006; padding: 1px 5px; border-radius: 4px; }
   padding: 2rem; max-width: 480px; width: 100%; box-shadow: 0 20px 60px #0008;
 }
 .lobby-card h1 { font-size: 2rem; background: linear-gradient(90deg, var(--accent), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lobby-head { display: flex; align-items: center; justify-content: space-between; gap: .7rem; flex-wrap: wrap; }
+.install-btn { min-height: 38px; white-space: nowrap; touch-action: manipulation; }
 .tagline { color: var(--muted); margin-bottom: 1.5rem; }
 .lobby-section { border-top: 1px solid #ffffff14; padding: 1.1rem 0; }
 .counter { display: flex; align-items: center; gap: .6rem; margin: .4rem 0; }

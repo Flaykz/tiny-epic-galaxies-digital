@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { UpdateBanner, VmodSetupDialog } from 'digital-boardgame-framework/client';
 import { AssetContext, useGameAssets, VMOD_URL } from '../client/assets.js';
 import { Board } from './Board.js';
@@ -42,15 +42,56 @@ export function App() {
           skipLabel="Play without images (text mode)"
         />
       )}
-      {/* Shows a "new version — Reload" bar at the bottom only when a newer build is deployed. */}
+      {/* Shows a "new version — Reload" bar at the bottom only when a newer build is deployed.
+          `url` must be base-aware (import.meta.env.BASE_URL) — the hook's own default is
+          root-absolute ('/version.json'), which 404s once the app is served from a subpath
+          like GitHub Pages' /tiny-epic-galaxies-digital/, silently disabling this forever. */}
       <UpdateBanner
         currentBuild={typeof __DBF_BUILD_ID__ !== 'undefined' ? __DBF_BUILD_ID__ : 'dev'}
+        url={`${import.meta.env.BASE_URL}version.json`}
         message="A new version of Tiny Epic Galaxies is available."
         reloadLabel="Reload"
         unstyled
         className="update-banner"
       />
     </AssetContext.Provider>
+  );
+}
+
+/** Offer to install the PWA (adds it to the home screen / app list, and it
+ *  then works fully offline for local/solo play — see vite.config.ts). Browsers
+ *  fire `beforeinstallprompt` only when the page is actually installable and
+ *  not already installed; this self-hides otherwise (notably: iOS Safari never
+ *  fires it at all — install there is manual, via the Share sheet). */
+function InstallButton() {
+  const [prompt, setPrompt] = useState<any>(null);
+  const [installed, setInstalled] = useState(
+    () => (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && (navigator as any).standalone === true),
+  );
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => { e.preventDefault(); setPrompt(e); };
+    const onInstalled = () => { setPrompt(null); setInstalled(true); };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  if (installed || !prompt) return null;
+
+  const install = async () => {
+    prompt.prompt();
+    await prompt.userChoice.catch(() => {});
+    setPrompt(null); // a prompt event can only be used once
+  };
+
+  return (
+    <button type="button" className="ghost-btn install-btn" onClick={install}>
+      📲 Install app
+    </button>
   );
 }
 
@@ -82,7 +123,10 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
   return (
     <div className="lobby">
       <div className="lobby-card">
-        <h1>Tiny Epic Galaxies</h1>
+        <div className="lobby-head">
+          <h1>Tiny Epic Galaxies</h1>
+          <InstallButton />
+        </div>
         <p className="tagline">A digital port — built on the Digital Boardgame Framework, with real card art from the VASSAL module.</p>
 
         <div className="lobby-section">

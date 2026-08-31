@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a2440"/>
+      <stop offset="100%" stop-color="#0a0e1a"/>
+    </linearGradient>
+    <linearGradient id="planet" x1="20%" y1="10%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#7fd4ff"/>
+      <stop offset="55%" stop-color="#4db8ff"/>
+      <stop offset="100%" stop-color="#2f6fae"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffcc44" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffe28a"/>
+      <stop offset="100%" stop-color="#ffcc44" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background: deep space, rounded square (maskable-safe: content stays inside the middle) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- A few distant stars -->
+  <g fill="#e6ecff">
+    <circle cx="96" cy="120" r="3.5" opacity=".8"/>
+    <circle cx="150" cy="86" r="2.2" opacity=".55"/>
+    <circle cx="420" cy="132" r="3" opacity=".7"/>
+    <circle cx="70" cy="330" r="2.6" opacity=".6"/>
+    <circle cx="430" cy="360" r="2.4" opacity=".5"/>
+    <circle cx="380" cy="420" r="3.2" opacity=".65"/>
+  </g>
+
+  <!-- Ring, behind the planet -->
+  <ellipse cx="256" cy="276" rx="182" ry="46" fill="none" stroke="url(#ring)" stroke-width="14" transform="rotate(-18 256 276)" opacity=".55"/>
+
+  <!-- Planet -->
+  <circle cx="256" cy="266" r="108" fill="url(#planet)"/>
+  <path d="M162 300a108 108 0 0 0 188 8 122 122 0 0 1-188-8z" fill="#0a0e1a" opacity=".18"/>
+
+  <!-- Ring, in front of the planet -->
+  <ellipse cx="256" cy="276" rx="182" ry="46" fill="none" stroke="url(#ring)" stroke-width="16" transform="rotate(-18 256 276)"/>
+  <ellipse cx="256" cy="276" rx="182" ry="46" fill="none" stroke="#fff" stroke-width="2" transform="rotate(-18 256 276)" opacity=".3"/>
+</svg>

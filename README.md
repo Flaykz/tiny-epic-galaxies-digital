@@ -63,6 +63,26 @@ Async multiplayer and the server-backed "report a problem" submission need the
 deploy. The UI degrades gracefully: Multiplayer shows a "could not reach the
 server" message, and reports fall back to a local file download.
 
+### Offline / installable (PWA)
+
+The site is installable and works fully offline for local hotseat and solo
+play — useful when you don't always have internet. `vite-plugin-pwa`
+(`vite.config.ts`) precaches the whole app shell on first visit; after that,
+local/solo games start and run with zero network. An "📲 Install app" button
+appears in the lobby once the browser considers the page installable (it
+self-hides otherwise — notably on iOS Safari, which never offers the install
+prompt API at all; there it's the manual Share → Add to Home Screen).
+
+The service worker updates its cache silently in the background
+(`registerType: 'autoUpdate'`) — the app's own "new version — Reload" banner
+(bottom of the screen) is still what tells *you* a new build is live and lets
+you choose when to reload; the two don't double-prompt.
+
+App icons live in `app-icons/` (an original SVG-derived design, not VASSAL
+art) and are always shipped regardless of `DBF_NO_ASSETS`/`publicDir` — see
+the `copyAppIcons` plugin in `vite.config.ts` for why they need their own copy
+step instead of just living in `public/`.
+
 ## Architecture
 
 ```
