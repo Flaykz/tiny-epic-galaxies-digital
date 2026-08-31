@@ -77,6 +77,20 @@ function FullscreenButton() {
   );
 }
 
+/** Abandon the current game and start a fresh one (same seats/settings) — local
+ *  games only (see BoardProps.onReset). Confirms first: this discards all
+ *  progress and can't be undone, same as the orbit-abandon confirm() below. */
+function ResetButton({ onReset }: { onReset: () => void }) {
+  const click = () => {
+    if (window.confirm('Reset the current game? All progress will be lost — this can’t be undone.')) onReset();
+  };
+  return (
+    <button type="button" className="ghost-btn reset-btn" onClick={click} title="Abandon this game and start a fresh one">
+      ↺ Reset game
+    </button>
+  );
+}
+
 export interface BoardProps {
   state: GameState;
   /** The seat this screen acts as (its missions are visible, it can submit when on the clock). */
@@ -91,9 +105,13 @@ export interface BoardProps {
   /** Local games only: take back the last move (until new info is revealed). */
   canUndo?: boolean;
   onUndo?: () => void;
+  /** Local games only: abandon the current game and start a fresh one with the
+   *  same seats/settings. Omitted for multiplayer — you can't unilaterally
+   *  discard other players' progress. */
+  onReset?: () => void;
 }
 
-export function Board({ state, viewer, canAct, legalActions, onAction, onReport, canUndo, onUndo }: BoardProps) {
+export function Board({ state, viewer, canAct, legalActions, onAction, onReport, canUndo, onUndo, onReset }: BoardProps) {
   const me = state.players.find((p) => p.id === viewer)!;
   const activeP = state.players.find((p) => p.id === state.turn.active)!;
   const pending = state.turn.pendingFollow;
@@ -144,6 +162,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         <h1>Tiny Epic Galaxies</h1>
         <div className="status">
           <FullscreenButton />
+          {onReset && <ResetButton onReset={onReset} />}
           {gameOver ? (
             <GameOver state={state} />
           ) : pending && pending.queue.length > 0 ? (

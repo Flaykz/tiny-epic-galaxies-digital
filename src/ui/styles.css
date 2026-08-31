@@ -76,6 +76,8 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .topbar h1 { font-size: 1.4rem; }
 .status { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .fullscreen-btn { min-height: 38px; white-space: nowrap; touch-action: manipulation; }
+.reset-btn { min-height: 38px; white-space: nowrap; touch-action: manipulation; }
+.reset-btn:hover { color: var(--red); border-color: #e5544b66; }
 .turn-indicator { padding: .35rem .8rem; border-radius: 20px; font-weight: 700; background: var(--panel2); }
 .turn-indicator.follow { display: inline-flex; align-items: center; gap: .4rem; background: linear-gradient(100deg, #4a3a00, #5c3b0b); color: var(--gold); border: 1px solid #ffcc4466; box-shadow: 0 4px 16px #0004; }
 .turn-indicator.follow strong { color: #ffe28a; }

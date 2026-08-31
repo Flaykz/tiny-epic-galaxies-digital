@@ -29,7 +29,21 @@ export function App() {
     <AssetContext.Provider value={{ resolve: assets.resolve, artless: assets.artless }}>
       {mode.kind === 'lobby' && <Lobby onStart={setMode} />}
       {mode.kind === 'multiplayer' && <MultiplayerApp onExit={() => setMode({ kind: 'lobby' })} />}
-      {mode.kind === 'local' && <LocalGame seats={mode.seats} seed={mode.seed} rogueDifficulty={mode.rogueDifficulty} rogueCard={mode.rogueCard} onExit={() => setMode({ kind: 'lobby' })} />}
+      {mode.kind === 'local' && (
+        <LocalGame
+          // Keying on `seed` forces a full remount (fresh LocalEngine — see
+          // useLocalGame.ts, which only ever initializes once per instance) when
+          // onReset below picks a new one, instead of the game silently
+          // continuing on stale state.
+          key={mode.seed}
+          seats={mode.seats}
+          seed={mode.seed}
+          rogueDifficulty={mode.rogueDifficulty}
+          rogueCard={mode.rogueCard}
+          onExit={() => setMode({ kind: 'lobby' })}
+          onReset={() => setMode((m) => (m.kind === 'local' ? { ...m, seed: Math.floor(Math.random() * 1e9) } : m))}
+        />
+      )}
       {/* Bring-your-own-art: when the build ships no images, prompt the user to
           download + choose the official VASSAL module (cached locally). */}
       {assets.needsSetup && (
@@ -210,7 +224,7 @@ function PlayCount() {
   return <p className="muted small play-count">{count.toLocaleString()} games played</p>;
 }
 
-function LocalGame({ seats, seed, rogueDifficulty, rogueCard, onExit }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; onExit: () => void }) {
+function LocalGame({ seats, seed, rogueDifficulty, rogueCard, onExit, onReset }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; onExit: () => void; onReset: () => void }) {
   const engine = useLocalGame({ seats, seed, rogueDifficulty, rogueCard });
   const state = engine.state;
 
@@ -233,6 +247,7 @@ function LocalGame({ seats, seed, rogueDifficulty, rogueCard, onExit }: { seats:
         onAction={(a) => actor && engine.submit(a, actor)}
         canUndo={canAct && engine.canUndo()}
         onUndo={() => engine.undo()}
+        onReset={onReset}
       />
     </div>
   );
