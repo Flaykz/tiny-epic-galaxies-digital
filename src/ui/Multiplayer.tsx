@@ -82,7 +82,11 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
   return (
     <div className="lobby">
       <button className="exit-btn" onClick={onExit}>← Lobby</button>
-      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev/leaderboard?game=tiny-epic-galaxies" />
+      {/* `unstyled` + className: the framework's own restyle hook (see
+          node_modules/…/client/sign-in-bar.js) — its default inline styling is
+          a desktop bar with 30px controls and 24px of vertical margin. Styled
+          as .signin-bar in styles.css (44px tap targets, no dead margin). */}
+      <SignInBar unstyled className="signin-bar" leaderboardHref="https://games-hub-5vo.pages.dev/leaderboard?game=tiny-epic-galaxies" />
       <div className="lobby-card">
         <h1>Async Multiplayer</h1>
         {!invites ? (
@@ -125,7 +129,12 @@ function MultiplayerLobby({ onExit }: { onExit: () => void }) {
                       {copied === seat ? 'Copied!' : 'Copy link'}
                     </button>
                   </div>
-                  <a className="invite-link" href={link} target="_blank" rel="noreferrer">{link}</a>
+                  {/* One ellipsised line, full URL in the tooltip: an invite URL
+                      is ~90 chars and wrapped to 3-4 lines per seat, which is
+                      what pushed a 5-seat list past the viewport. Open/Copy
+                      above are the real affordances; this is just proof of what
+                      you're about to send. */}
+                  <a className="invite-link" href={link} target="_blank" rel="noreferrer" title={link}>{link}</a>
                 </li>
               ))}
             </ul>
@@ -161,7 +170,7 @@ function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: str
   return (
     <div className="game-shell">
       <button className="exit-btn" onClick={() => { window.history.replaceState({}, '', '/'); onExit(); }}>← Lobby</button>
-      <SignInBar leaderboardHref="https://games-hub-5vo.pages.dev/leaderboard?game=tiny-epic-galaxies" />
+      <SignInBar unstyled className="signin-bar" leaderboardHref="https://games-hub-5vo.pages.dev/leaderboard?game=tiny-epic-galaxies" />
       <BoardBoundary resetKey={game.turn}>
         <Board
           state={game.view}
@@ -172,7 +181,16 @@ function MultiplayerGame({ gameId, token, onExit }: { gameId: string; token: str
           onReport={(message) => game.reportBug(message)}
         />
       </BoardBoundary>
-      {game.gameOver && <RankedStatus ranked={game.ranked} />}
+      {/* Same unstyled treatment as SignInBar: its default is an inline-styled
+          <p> with a hard-coded green/grey. The recorded/not-recorded distinction
+          it encodes in that color has to be re-derived here for the class. */}
+      {game.gameOver && (
+        <RankedStatus
+          ranked={game.ranked}
+          unstyled
+          className={`ranked-status ${game.ranked?.recorded ? 'ok' : 'warn'}`}
+        />
+      )}
     </div>
   );
 }

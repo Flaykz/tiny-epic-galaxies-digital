@@ -47,6 +47,13 @@ export function App() {
       {/* Bring-your-own-art: when the build ships no images, prompt the user to
           download + choose the official VASSAL module (cached locally). */}
       {assets.needsSetup && (
+        // `unstyled` + a className is the framework's own opt-out from its
+        // inline desktop styling (see node_modules/…/client/vmod-dialog.js):
+        // without it the dialog ships a fixed 520px card with 1.6rem padding
+        // that overflowed a 390px-wide phone in both axes. The bare DOM it
+        // renders instead (wrapper > card > h2/p/ol/label/buttons) is styled
+        // as a bottom sheet under `.vmod-setup` in styles.css, matching the
+        // rest of the app's popups.
         <VmodSetupDialog
           api={assets.vmod}
           gameName="Tiny Epic Galaxies"
@@ -54,6 +61,8 @@ export function App() {
           moduleUrl={VMOD_URL}
           onSkip={assets.dismiss}
           skipLabel="Play without images (text mode)"
+          unstyled
+          className="vmod-setup"
         />
       )}
       {/* Shows a "new version — Reload" bar at the bottom only when a newer build is deployed.
@@ -109,7 +118,12 @@ function InstallButton() {
   );
 }
 
+/** The three ways to start a game — one visible at a time, see LOBBY_TABS. */
+type LobbyTab = 'local' | 'solo' | 'multiplayer';
+const LOBBY_TABS: [LobbyTab, string][] = [['local', 'Local'], ['solo', 'Solo'], ['multiplayer', 'Multiplayer']];
+
 function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
+  const [tab, setTab] = useState<LobbyTab>('local');
   const [humans, setHumans] = useState(2);
   const [ais, setAis] = useState(0);
   const [soloDifficulty, setSoloDifficulty] = useState<'beginner' | 'advanced'>('beginner');
@@ -141,8 +155,29 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
           <h1>Tiny Epic Galaxies</h1>
           <InstallButton />
         </div>
-        <p className="tagline">A digital port — built on the Digital Boardgame Framework, with real card art from the VASSAL module.</p>
+        <p className="tagline">A digital port, with real card art from the VASSAL module.</p>
 
+        {/* One mode at a time. Stacked, the three sections were ~1000px tall and
+            needed a page scroll to reach Multiplayer on a phone — the lobby now
+            fits a single viewport like every other screen. Same segmented
+            control as the solo difficulty toggle below (.seg / .seg-btn). */}
+        <div className="seg lobby-tabs" role="tablist" aria-label="Game mode">
+          {LOBBY_TABS.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`lobby-tab-${id}`}
+              aria-selected={tab === id}
+              aria-controls={tab === id ? 'lobby-panel' : undefined}
+              className={`seg-btn ${tab === id ? 'on' : ''}`}
+              onClick={() => setTab(id)}
+            >{label}</button>
+          ))}
+        </div>
+
+        <div className="lobby-panel" role="tabpanel" id="lobby-panel" aria-labelledby={`lobby-tab-${tab}`}>
+        {tab === 'local' && (
         <div className="lobby-section">
           <h2>Local game (hotseat + AI)</h2>
           <div className="counter">
@@ -162,7 +197,9 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
             Start local game
           </button>
         </div>
+        )}
 
+        {tab === 'solo' && (
         <div className="lobby-section">
           <h2>Solo — The Rogue Galaxy ☠</h2>
           <p className="muted small">Defeat the automated Rogue Galaxy before it reaches 21 VP.</p>
@@ -194,13 +231,17 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
           </p>
           <button className="primary" onClick={startSolo}>Start solo game</button>
         </div>
+        )}
 
+        {tab === 'multiplayer' && (
         <div className="lobby-section">
           <h2>Async multiplayer</h2>
           <p className="muted small">Create a game and share invite links. Requires the dev server (npm run server).</p>
           <button className="primary" onClick={() => onStart({ kind: 'multiplayer' })}>
             Multiplayer
           </button>
+        </div>
+        )}
         </div>
 
         <PlayCount />

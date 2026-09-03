@@ -1,213 +1,550 @@
+/* ===========================================================================
+ * Design tokens
+ * ---------------------------------------------------------------------------
+ * Nothing below this block should use a literal color / spacing / radius /
+ * font-size that has a token equivalent. The scales are deliberately short
+ * (5 overlays, 5 shades, 8 spaces, 7 type steps, 3 radii) — when a value
+ * doesn't fit exactly, snap to the nearest step instead of adding a new one.
+ * Alpha *glows* and multi-stop gradients are still literal on purpose: they
+ * are one-off tints of a token, not scale members.
+ * =========================================================================== */
 :root {
-  --bg: #0a0e1a;
-  --bg2: #121a30;
-  --panel: #1a2440;
-  --panel2: #222e52;
-  --ink: #e6ecff;
-  --muted: #8a96b8;
-  --accent: #4db8ff;
-  --gold: #ffcc44;
-  --blue: #3a7bd5;
-  --green: #3ad57b;
-  --red: #e5544b;
-  --yellow: #e5c04b;
-  --black: #888;
-  --energy: #ffd34d;
-  --culture: #6fd0ff;
+  /* ---- Surfaces & ink ---- */
+  --color-bg: #0a0e1a;
+  --color-bg-glow: #1a2547;           /* top stop of the page radial gradient */
+  --color-surface: #1a2440;           /* panels, cards, dialogs */
+  --color-surface-2: #222e52;         /* controls sitting on a surface */
+  --color-surface-3: #121b31dd;       /* one step back: opponent panels */
+  --color-surface-sunken: #080d1c88;  /* inset wells (resource chips, empire summary) */
+  --color-ink: #e6ecff;
+  --color-ink-muted: #8a96b8;
+  --color-ink-faint: #44506e;         /* locked / unavailable glyphs */
+
+  /* ---- Accent & semantic ---- */
+  --color-accent: #4db8ff;
+  --color-gold: #ffcc44;
+  --color-success: #3ad57b;
+  --color-danger: #e5544b;
+  --color-energy: #ffd34d;
+  --color-culture: #6fd0ff;
+
+  /* ---- Player seat colors (same values as before, semantic names) ---- */
+  --color-player-blue: #3a7bd5;
+  --color-player-green: #3ad57b;
+  --color-player-red: #e5544b;
+  --color-player-yellow: #e5c04b;
+  --color-player-black: #888;
+  /* Lightened variants — the seat colors as *text* on a dark panel. */
+  --color-player-blue-ink: #7fb0ff;
+  --color-player-green-ink: #7fe5a8;
+  --color-player-red-ink: #ff8a82;
+  --color-player-yellow-ink: #ffe07a;
+
+  /* ---- Overlays: white hairlines & fills, subtlest → strongest ---- */
+  --overlay-1: #ffffff10;
+  --overlay-2: #ffffff16;
+  --overlay-3: #ffffff22;
+  --overlay-4: #ffffff33;
+  --overlay-5: #ffffffaa;             /* near-solid; only the token-number outline */
+
+  /* ---- Shades: black fills & shadow colors, lightest → darkest ---- */
+  --shade-1: #0004;
+  --shade-2: #0006;
+  --shade-3: #0008;
+  --shade-4: #000a;
+  --shade-5: #000d;
+
+  /* ---- Scrims: dialog backdrops ---- */
+  --scrim-1: rgba(4, 8, 20, .35);     /* light — the board stays readable behind it */
+  --scrim-2: rgba(4, 8, 20, .82);     /* heavy — self-contained dialogs */
+
+  /* ---- Spacing (4px base) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* ---- Type scale ---- */
+  --fs-100: .62rem;                   /* eyebrows, uppercase micro-labels */
+  --fs-200: .7rem;
+  --fs-300: .78rem;
+  --fs-400: .86rem;
+  --fs-500: 1rem;
+  --fs-600: 1.2rem;
+  --fs-700: 1.6rem;
+
+  /* ---- Radii ---- */
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ---- Smallest comfortable touch target ---- */
+  --tap-min: 44px;
 }
 
 * { box-sizing: border-box; }
 body {
   margin: 0;
   font-family: 'Segoe UI', system-ui, sans-serif;
-  background: radial-gradient(ellipse at top, #1a2547 0%, var(--bg) 60%);
-  color: var(--ink);
+  background: radial-gradient(ellipse at top, var(--color-bg-glow) 0%, var(--color-bg) 60%);
+  color: var(--color-ink);
+  /* dvh, not vh: on mobile `100vh` is the *large* viewport (URL bar hidden), so
+   * a 100vh body next to the game shell's 100dvh would leave the page
+   * scrollable by exactly the height of the browser chrome. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 h1, h2, h3 { margin: 0 0 .4em; }
 button { font-family: inherit; cursor: pointer; }
-.muted { color: var(--muted); }
-.small { font-size: .8rem; }
-.error { color: var(--red); }
-a { color: var(--accent); word-break: break-all; }
-code { background: #0006; padding: 1px 5px; border-radius: 4px; }
+.muted { color: var(--color-ink-muted); }
+.small { font-size: var(--fs-300); }
+.error { color: var(--color-danger); }
+a { color: var(--color-accent); word-break: break-all; }
+code { background: var(--shade-2); padding: 1px 5px; border-radius: var(--radius-sm); }
 
-/* ---------- Lobby ---------- */
-.lobby { min-height: 100vh; display: grid; place-items: center; padding: 2rem; }
-.lobby-card {
-  background: var(--panel); border: 1px solid #ffffff14; border-radius: 16px;
-  padding: 2rem; max-width: 480px; width: 100%; box-shadow: 0 20px 60px #0008;
+/* ---------- Lobby ----------
+ * Same contract as the game shell below: exactly one viewport tall, never a
+ * page scroll. A centred flex column rather than a grid so the card can be a
+ * `flex: 0 1 auto; min-height: 0` item — it sits at its natural height when it
+ * fits and scrolls *inside itself* when it can't (the 5-seat multiplayer invite
+ * list is the only thing that ever does; it's opened on demand, not blocking a
+ * live decision). The local-play lobby fits without that valve because only one
+ * mode's controls are mounted at a time (see .lobby-tabs). */
+.lobby {
+  height: 100vh; height: 100dvh; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2);
+  padding: max(var(--space-4), env(safe-area-inset-top, 0px))
+           max(var(--space-4), env(safe-area-inset-right, 0px))
+           max(var(--space-4), env(safe-area-inset-bottom, 0px))
+           max(var(--space-4), env(safe-area-inset-left, 0px));
 }
-.lobby-card h1 { font-size: 2rem; background: linear-gradient(90deg, var(--accent), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.lobby-head { display: flex; align-items: center; justify-content: space-between; gap: .7rem; flex-wrap: wrap; }
-.install-btn { min-height: 38px; white-space: nowrap; touch-action: manipulation; }
-.tagline { color: var(--muted); margin-bottom: 1.5rem; }
-.lobby-section { border-top: 1px solid #ffffff14; padding: 1.1rem 0; }
-.counter { display: flex; align-items: center; gap: .6rem; margin: .4rem 0; }
-.counter label { width: 90px; color: var(--muted); }
-.counter button { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--panel2); color: var(--ink); font-size: 1.1rem; }
-.counter span { min-width: 24px; text-align: center; font-weight: 700; }
-.difficulty { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; }
-.difficulty label { width: 90px; color: var(--muted); }
-.difficulty select { flex: 1; background: var(--panel2); color: var(--ink); border: 1px solid #ffffff22; border-radius: 8px; padding: .4rem .6rem; font-weight: 600; }
-.seg { display: inline-flex; border-radius: 8px; overflow: hidden; border: 1px solid #ffffff22; }
-.seg-btn { border: none; background: var(--panel2); color: var(--muted); padding: .4rem .9rem; font-weight: 600; cursor: pointer; }
-.seg-btn.on { background: var(--accent, #4f7cff); color: #fff; }
+.lobby-card {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto;
+  background: var(--color-surface); border: 1px solid var(--overlay-2); border-radius: var(--radius-lg);
+  padding: var(--space-5); max-width: 480px; width: 100%; box-shadow: 0 20px 60px var(--shade-3);
+  scrollbar-width: thin; scrollbar-color: var(--overlay-3) transparent;
+}
+.lobby > .signin-bar { flex: 0 0 auto; max-width: 480px; }
+.lobby-card h1 { font-size: clamp(1.5rem, 6vw, 2rem); background: linear-gradient(90deg, var(--color-accent), var(--color-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lobby-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.install-btn { min-height: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
+.tagline { color: var(--color-ink-muted); margin: 0; font-size: var(--fs-400); }
+/* Full-width 3-up segmented control; the base .seg is an inline pill sized to
+ * its content (the solo difficulty toggle), which is why the width/flex live
+ * here rather than on .seg itself. */
+.lobby-tabs { display: flex; width: 100%; margin: var(--space-4) 0; }
+.lobby-tabs .seg-btn { flex: 1 1 0; min-width: 0; padding-inline: var(--space-2); }
+.lobby-section { border-top: 1px solid var(--overlay-2); padding: var(--space-4) 0; }
+.lobby-section h2 { font-size: var(--fs-500); }
+/* Only one mode's controls are mounted, so the separator that used to divide
+ * the three stacked sections is now noise. */
+.lobby-panel > .lobby-section { border-top: none; padding-top: 0; }
+.counter { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0; }
+.counter label { width: 90px; color: var(--color-ink-muted); }
+.counter button { min-width: var(--tap-min); min-height: var(--tap-min); border-radius: var(--radius-sm); border: none; background: var(--color-surface-2); color: var(--color-ink); font-size: var(--fs-600); touch-action: manipulation; }
+.counter span { min-width: var(--space-6); text-align: center; font-weight: 700; }
+.difficulty { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0; }
+/* 100px, not the .counter's 90: "Rogue Galaxy" wraps to two lines below that. */
+.difficulty label { flex: 0 0 auto; width: 100px; color: var(--color-ink-muted); }
+/* 16px, not a type-scale step: iOS Safari auto-zooms the page when a control
+ * with a smaller font takes focus, which would break the no-scroll contract
+ * from inside the viewport. Same reason on .sheet-field's inputs. */
+.difficulty select {
+  flex: 1; min-width: 0; min-height: var(--tap-min); background: var(--color-surface-2); color: var(--color-ink);
+  border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+  font-family: inherit; font-size: 16px; font-weight: 600; touch-action: manipulation;
+}
+.seg { display: inline-flex; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--overlay-3); }
+.seg-btn { min-height: var(--tap-min); border: none; background: var(--color-surface-2); color: var(--color-ink-muted); padding: var(--space-2) var(--space-4); font-family: inherit; font-size: var(--fs-400); font-weight: 600; cursor: pointer; touch-action: manipulation; }
+.seg-btn.on { background: var(--color-accent); color: #fff; }
 button.primary {
-  margin-top: .6rem; padding: .6rem 1.2rem; border: none; border-radius: 10px;
-  background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700;
+  min-height: var(--tap-min); margin-top: var(--space-3); padding: var(--space-3) var(--space-5); border: none; border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent)); color: #fff; font-weight: 700;
+  touch-action: manipulation;
 }
 button.primary:disabled { opacity: .4; cursor: not-allowed; }
+.play-count { margin-bottom: 0; }
+/* "Play vs AI (ranked)" — a second, differently-rated way to start, so it gets
+ * a separator from the plain Create-game flow above it. */
+.vs-ai { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--overlay-2); }
 .invites ul { list-style: none; padding: 0; }
-.invites li { margin: .5rem 0; padding: .5rem; background: #0004; border-radius: 8px; }
-.invites button { border: none; background: var(--panel2); color: var(--ink); border-radius: 6px; padding: 4px 10px; }
-.invite-row { display: flex; align-items: center; gap: .5rem; }
-.invite-row strong { flex: 1; }
-.invites button.primary.small { background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700; }
-.invite-link { display: block; font-size: .72rem; color: var(--muted); margin-top: .25rem; word-break: break-all; }
+.invites li { margin: var(--space-2) 0; padding: var(--space-2); background: var(--shade-1); border-radius: var(--radius-sm); }
+.invites button { min-height: var(--tap-min); border: none; background: var(--color-surface-2); color: var(--color-ink); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-3); touch-action: manipulation; }
+/* Two 44px buttons plus a seat name don't fit one line on a phone, and shrinking
+ * them is not an option — so the name takes its own line and the buttons split
+ * the next one evenly. */
+.invite-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.invite-row strong { flex: 1 1 100%; }
+.invite-row button { flex: 1 1 0; min-width: 0; }
+.invites button.primary.small { margin-top: 0; background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent)); color: #fff; font-weight: 700; }
+.invite-link {
+  display: block; margin-top: var(--space-1); font-size: var(--fs-200); color: var(--color-ink-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal;
+}
 
-/* ---------- Game shell ---------- */
-.game-shell { padding: 1rem; max-width: 1400px; margin: 0 auto; }
-.exit-btn { background: var(--panel); border: 1px solid #ffffff22; color: var(--ink); border-radius: 8px; padding: .35rem .8rem; margin-bottom: .6rem; }
-.loading { display: grid; place-items: center; height: 100vh; font-size: 1.2rem; color: var(--muted); }
+/* ---------- Game shell ----------
+ * The shell owns the viewport while a game is on screen: exactly one viewport
+ * tall and overflow:hidden, so the *page* can never scroll during a decision.
+ * The ← Lobby button (and the multiplayer sign-in bar) sit above the board as
+ * fixed-height rows; the board itself takes whatever is left. Because those
+ * rows are the top-most content, the top safe-area inset belongs here rather
+ * than on .topbar. Never give this element (or .board) a transform/filter:
+ * .modal-overlay & friends are position:fixed and must keep escaping it. */
+.game-shell {
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  overflow: hidden; overscroll-behavior: none;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.exit-btn {
+  flex: 0 0 auto; align-self: flex-start;
+  background: var(--color-surface); border: 1px solid var(--overlay-3); color: var(--color-ink);
+  border-radius: var(--radius-sm); padding: var(--space-1) var(--space-3);
+  margin: var(--space-1) max(var(--space-2), env(safe-area-inset-left, 0px)) 0;
+}
+.loading { display: grid; place-items: center; height: 100dvh; font-size: var(--fs-600); color: var(--color-ink-muted); }
+
+/* ===========================================================================
+ * Board layout — two orientation-driven layouts, never a page scroll
+ * ---------------------------------------------------------------------------
+ * .board is a named-area grid filling the shell. Every flexible region gets a
+ * height *budget* — minmax(0, Nfr) plus its own min-height:0 / overflow:auto —
+ * so a region whose content is too tall scrolls inside itself instead of
+ * pushing the topbar or footer off screen.
+ *
+ * The two layouts switch on `orientation`, never on a width breakpoint: a
+ * phone held sideways is short-and-wide exactly like a tablet and wants the
+ * same two-column layout, which a max-width query can't express.
+ *
+ * Columns are minmax(0, …) everywhere so no over-wide child can stretch a
+ * track and reintroduce a horizontal overflow.
+ *
+ * Regions still scroll internally at this stage; the remaining internal
+ * scrolls (planet strip, log, action list) are what the later steps of the
+ * redesign — 2x2 planet grid, log drawer, action sheet — are for.
+ * =========================================================================== */
+.board {
+  flex: 1 1 auto; min-height: 0; min-width: 0;
+  display: grid; gap: var(--space-2); overflow: hidden;
+  padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px))
+                  max(var(--space-2), env(safe-area-inset-right, 0px));
+}
+.topbar { grid-area: topbar; }
+.players-row { grid-area: players; }
+.planet-row { grid-area: planets; }
+.play-area { grid-area: play; }
+.board-footer { grid-area: footer; }
+/* A region that spends its budget scrolls internally, so its scrollbar is
+ * part of the board's look — keep it hairline instead of a chrome-grey slab. */
+.players-row, .planet-row .cards, .dice-tray, .action-panel {
+  scrollbar-width: thin;
+  scrollbar-color: var(--overlay-3) transparent;
+}
+
+@media (orientation: portrait) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "players"
+      "planets"
+      "play"
+      "footer";
+    /* Hand-tuned fr ratios (1.9/1.5/.65) used to live here, calibrated against
+     * two viewport sizes (390x844, 1180x820) — on a real tablet with a
+     * different aspect ratio they gave the mostly-idle topbar/play areas way
+     * more room than their content needs while starving `planets`, which is
+     * the one region whose content is both variable (4-7 cards) and must
+     * never be cropped. Every OTHER row now sizes to its own content (`auto`
+     * — each already has its own overflow:auto fallback if that content is
+     * ever taller than the viewport itself), and `planets` gets whatever's
+     * actually left as `1fr`, so a taller/shorter/wider device just gives
+     * planets more or less room instead of clipping it to a guessed slice. */
+    /* `minmax(180px, 1fr)`, not `minmax(0, 1fr)`: pure "whatever's left" let
+     * planets collapse to 0 on a phone once players+play's own auto/content
+     * sizing (real card-art dice, two full panels) added up to more than the
+     * viewport — found live at 390x844 (cardsH: 0). This floor forces the
+     * *other* auto tracks to actually give up space (shrinking toward their
+     * own min-content, each already falling back to its own internal scroll
+     * if that's still not enough — same pattern already used everywhere else
+     * on this board) rather than the reverse. */
+    grid-template-rows: auto auto minmax(180px, 1fr) auto auto;
+  }
+  /* `minmax(96px, auto)`, not plain `auto`, on both rows: an `overflow:auto`
+   * cell (dice-tray/action-panel both are) is treated by grid sizing as
+   * shrinkable to 0 — "safe", it can scroll — so under pressure it lost
+   * almost everything to its sibling instead of both compressing evenly.
+   * A floor keeps the dice tray from vanishing to a sliver on a short phone. */
+  .play-area { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(96px, auto) minmax(96px, auto); }
+}
+
+@media (orientation: landscape) {
+  .board {
+    /* Narrow left column = who you are (you + opponents), wide right
+     * column = what you can do (planets, then dice + actions). */
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    grid-template-areas:
+      "topbar  topbar"
+      "players planets"
+      "players play"
+      "footer  footer";
+    /* Same content-driven reasoning as portrait: `play` (dice tray + a status
+     * line) sizes to what it actually needs, `planets` takes the rest. Rows
+     * 2+3 combined are `players`' own budget (it spans both), which is
+     * comfortably more than its ~300px natural height in every case that
+     * matters — any leftover just sits blank under the player panel rather
+     * than starving something else. */
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+  .opponents { grid-template-columns: minmax(0, 1fr); }
+  .play-area { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: auto; }
+}
 
 /* ---------- Board ---------- */
-.topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
-.topbar h1 { font-size: 1.4rem; }
-.status { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.fullscreen-btn { min-height: 38px; white-space: nowrap; touch-action: manipulation; }
-.reset-btn { min-height: 38px; white-space: nowrap; touch-action: manipulation; }
-.reset-btn:hover { color: var(--red); border-color: #e5544b66; }
-.turn-indicator { padding: .35rem .8rem; border-radius: 20px; font-weight: 700; background: var(--panel2); }
-.turn-indicator.follow { display: inline-flex; align-items: center; gap: .4rem; background: linear-gradient(100deg, #4a3a00, #5c3b0b); color: var(--gold); border: 1px solid #ffcc4466; box-shadow: 0 4px 16px #0004; }
+/* Two groups spread across the full width (space-between) instead of one
+ * left-aligned cluster — with no <h1> any more, a single group left most of
+ * the header empty on the right. */
+.topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); min-width: 0; padding-block: var(--space-2); }
+.status-turn { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; min-width: 0; }
+.status-tools { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; flex: 0 0 auto; }
+.fullscreen-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
+.reset-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
+.reset-btn:hover { color: var(--color-danger); border-color: #e5544b66; }
+.turn-indicator { padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); font-weight: 700; background: var(--color-surface-2); }
+.turn-indicator.follow { display: inline-flex; align-items: center; gap: var(--space-1); background: linear-gradient(100deg, #4a3a00, #5c3b0b); color: var(--color-gold); border: 1px solid #ffcc4466; box-shadow: 0 4px 16px var(--shade-1); }
 .turn-indicator.follow strong { color: #ffe28a; }
-.follow-indicator-die { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 5px; background: #171321; border: 1px solid #ffcc4499; font-size: .86rem; }
-.turn-indicator.blue { box-shadow: inset 0 0 0 2px var(--blue); }
-.turn-indicator.green { box-shadow: inset 0 0 0 2px var(--green); }
-.turn-indicator.red { box-shadow: inset 0 0 0 2px var(--red); }
-.turn-indicator.yellow { box-shadow: inset 0 0 0 2px var(--yellow); }
+.follow-indicator-die { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: var(--radius-sm); background: var(--color-bg); border: 1px solid #ffcc4499; font-size: var(--fs-400); }
+.turn-indicator.blue { box-shadow: inset 0 0 0 2px var(--color-player-blue); }
+.turn-indicator.green { box-shadow: inset 0 0 0 2px var(--color-player-green); }
+.turn-indicator.red { box-shadow: inset 0 0 0 2px var(--color-player-red); }
+.turn-indicator.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
 
-.players-row {
-  display: grid; grid-template-columns: minmax(0, 2fr) minmax(230px, .85fr);
-  gap: .7rem; margin: .7rem 0 1rem; align-items: start;
-}
-.opponents { display: grid; gap: .5rem; }
+/* Player status region. Single column in both layouts: in landscape it *is*
+ * the narrow left column, in portrait the panels are too wide to sit side by
+ * side on a phone. (This is what the old max-width:900px override did.) */
+/* Two things are needed for any grid whose *rows* are implicit now that its
+ * height comes from a budget rather than its content:
+ *  - align-content: start — auto rows in a definite-height grid stretch by
+ *    default, which would strand the opponents halfway down the column;
+ *  - grid-auto-rows: min-content — when the budget is *smaller* than the
+ *    content, Chrome divides the container height between the auto rows
+ *    anyway (align-content doesn't opt out), so each panel would overflow its
+ *    row and paint over the next one. Content-sized rows + a region scroll. */
+/* Flex column, not grid: the *opponents* chip strip is the one piece of this
+ * region that must always be visible at a glance (who else is playing, their
+ * VP) — found live squeezed to 0 in a 5-player game because a grid with two
+ * min-content rows gives no priority between them, and the viewer's own
+ * (taller, more content) panel simply came first and ate the budget. `flex:
+ * 0 0 auto` pins opponents to its natural size; the viewer panel is the one
+ * that flexes and, if truly tight, scrolls internally instead. */
+.players-row { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+.player-panel.viewer { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* Opponents: a compact single-row strip of chips (see .opponent-chip below) —
+ * shrinks before it ever wraps or scrolls, so 4-5 opponents always fit on one
+ * line. Tapping a chip opens the full detail in a bottom sheet. */
+.opponents { flex: 0 0 auto; display: flex; flex-wrap: nowrap; gap: var(--space-1); min-width: 0; overflow: hidden; }
 .player-panel {
-  min-width: 0; background: linear-gradient(135deg, var(--panel), #151e36); border-radius: 12px;
-  padding: .75rem .85rem; border: 1px solid #ffffff14;
+  min-width: 0; background: linear-gradient(135deg, var(--color-surface), #151e36); border-radius: var(--radius-md);
+  padding: var(--space-3); border: 1px solid var(--overlay-2);
 }
-.player-panel.active, .opponent-panel.active { box-shadow: 0 0 0 2px var(--accent), 0 0 20px #4db8ff33; }
-.opponent-panel { background: #121b31dd; border-radius: 10px; padding: .65rem .75rem; border: 1px solid #ffffff12; }
-.player-panel.blue .pp-name { color: #7fb0ff; }
-.player-panel.green .pp-name { color: #7fe5a8; }
-.player-panel.red .pp-name { color: #ff8a82; }
-.player-panel.yellow .pp-name { color: #ffe07a; }
-.opponent-panel.blue .pp-name { color: #7fb0ff; }
-.opponent-panel.green .pp-name { color: #7fe5a8; }
-.opponent-panel.red .pp-name { color: #ff8a82; }
-.opponent-panel.yellow .pp-name { color: #ffe07a; }
-.pp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .6rem; font-weight: 700; }
+.player-panel.active { box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px #4db8ff33; }
+.player-panel.blue .pp-name { color: var(--color-player-blue-ink); }
+.player-panel.green .pp-name { color: var(--color-player-green-ink); }
+.player-panel.red .pp-name { color: var(--color-player-red-ink); }
+.player-panel.yellow .pp-name { color: var(--color-player-yellow-ink); }
+
+/* ---- Opponent chip (compact row) + detail sheet ----
+ * A glanceable strip: color dot, name, VP, and two mini resource gauges —
+ * everything else (full gauges, empire level, colonies, mission, Rogue
+ * ladder) moves into a tap-triggered detail sheet, see .opponent-detail. */
+.opponent-chip {
+  display: flex; align-items: center; gap: var(--space-1); min-width: 0; flex: 1 1 0;
+  min-height: 40px; padding: var(--space-1) var(--space-2); background: var(--color-surface-3);
+  border: 1px solid var(--overlay-1); border-radius: var(--radius-md); color: var(--color-ink);
+  font: inherit; cursor: pointer; touch-action: manipulation;
+}
+.opponent-chip.active { box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px #4db8ff33; }
+.oc-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.opponent-chip.blue { color: var(--color-player-blue-ink); }
+.opponent-chip.green { color: var(--color-player-green-ink); }
+.opponent-chip.red { color: var(--color-player-red-ink); }
+.opponent-chip.yellow { color: var(--color-player-yellow-ink); }
+.oc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-300); font-weight: 700; color: var(--color-ink); }
+.oc-vp { flex: 0 0 auto; font-size: var(--fs-300); font-weight: 700; color: var(--color-gold); display: flex; align-items: baseline; gap: 2px; }
+.oc-vp small { font-size: var(--fs-100); color: var(--color-ink-muted); font-weight: 600; }
+.oc-gauge { flex: 0 0 auto; width: 16px; }
+.oc-gauge-track { display: block; height: 5px; width: 100%; overflow: hidden; border-radius: var(--radius-pill); background: var(--shade-3); box-shadow: inset 0 0 0 1px var(--overlay-1); }
+.oc-gauge-fill { display: block; height: 100%; border-radius: inherit; }
+.oc-gauge.energy .oc-gauge-fill { background: var(--color-energy); }
+.oc-gauge.culture .oc-gauge-fill { background: var(--color-culture); }
+.opponent-detail .pp-head { margin-bottom: var(--space-2); }
+.pp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); font-weight: 700; }
 .pp-head > span:first-child { display: flex; flex-direction: column; }
-.pp-name { font-size: 1rem; }
-.eyebrow { color: var(--muted); font-size: .62rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-.pp-vp { color: var(--gold); }
-.player-overview { display: grid; grid-template-columns: minmax(230px, .9fr) minmax(300px, 1.35fr); gap: .65rem; margin-top: .55rem; }
-.key-stats { display: grid; grid-template-columns: repeat(4, minmax(58px, 1fr)); gap: .4rem; }
-.resource-chip { display: flex; flex-direction: column; justify-content: center; min-height: 54px; background: #080d1c88; border: 1px solid #ffffff12; border-radius: 9px; padding: .38rem .48rem; }
-.resource-chip b { font-size: 1.02rem; line-height: 1.1; white-space: nowrap; }
-.resource-chip small { color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; }
-.resource-chip.energy b { color: var(--energy); }
-.resource-chip.culture b { color: var(--culture); }
-.resource-chip.dice b, .resource-chip.ships b, .resource-chip.empire b { color: var(--ink); }
-.resource-gauge { gap: .22rem; }
-.gauge-head { display: flex; align-items: baseline; justify-content: space-between; gap: .35rem; line-height: 1; }
-.gauge-head b { font-size: .9rem; }
-.gauge-head strong { font-size: .92rem; color: var(--ink); }
-.gauge-head strong span { color: var(--muted); font-size: .68rem; font-weight: 600; }
-.gauge-track { height: 6px; width: 100%; overflow: hidden; border-radius: 999px; background: #0009; box-shadow: inset 0 0 0 1px #ffffff12; }
+.pp-name { font-size: var(--fs-500); }
+.eyebrow { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.pp-vp { color: var(--color-gold); }
+/* Always one column: the left grid column is capped at 320px, so the old
+ * two-column overview never has room in either layout. */
+.player-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); margin-top: var(--space-2); }
+.key-stats { display: grid; grid-template-columns: repeat(4, minmax(50px, 1fr)); gap: var(--space-1); }
+.resource-chip { display: flex; flex-direction: column; justify-content: center; min-height: 54px; background: var(--color-surface-sunken); border: 1px solid var(--overlay-1); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); }
+.resource-chip b { font-size: var(--fs-500); line-height: 1.1; white-space: nowrap; }
+.resource-chip small { color: var(--color-ink-muted); font-size: var(--fs-100); text-transform: uppercase; letter-spacing: .04em; }
+.resource-chip.energy b { color: var(--color-energy); }
+.resource-chip.culture b { color: var(--color-culture); }
+.resource-chip.dice b, .resource-chip.ships b, .resource-chip.empire b { color: var(--color-ink); }
+.resource-chip.vp b { color: var(--color-gold); }
+.resource-gauge { gap: var(--space-1); }
+.gauge-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-1); line-height: 1; }
+.gauge-head b { font-size: var(--fs-400); }
+.gauge-head strong { font-size: var(--fs-400); color: var(--color-ink); }
+.gauge-head strong span { color: var(--color-ink-muted); font-size: var(--fs-200); font-weight: 600; }
+.gauge-track { height: 6px; width: 100%; overflow: hidden; border-radius: var(--radius-pill); background: var(--shade-3); box-shadow: inset 0 0 0 1px var(--overlay-1); }
 .gauge-fill { display: block; height: 100%; border-radius: inherit; transition: width .25s ease; }
-.resource-gauge.energy .gauge-fill { background: linear-gradient(90deg, #b88616, var(--energy)); box-shadow: 0 0 8px #ffd34d88; }
-.resource-gauge.culture .gauge-fill { background: linear-gradient(90deg, #2c82ad, var(--culture)); box-shadow: 0 0 8px #6fd0ff88; }
-.empire-summary { display: grid; grid-template-columns: .8fr 1.2fr; overflow: hidden; background: #080d1c88; border: 1px solid #ffffff14; border-radius: 9px; }
-.empire-current, .empire-next { display: flex; flex-direction: column; justify-content: center; padding: .4rem .6rem; }
-.empire-current { border-right: 1px solid #ffffff14; }
-.empire-current strong, .empire-next strong { font-size: .9rem; }
-.empire-current > span:last-child, .empire-next > span:last-child { color: var(--muted); font-size: .7rem; }
+.resource-gauge.energy .gauge-fill { background: linear-gradient(90deg, #b88616, var(--color-energy)); box-shadow: 0 0 8px #ffd34d88; }
+.resource-gauge.culture .gauge-fill { background: linear-gradient(90deg, #2c82ad, var(--color-culture)); box-shadow: 0 0 8px #6fd0ff88; }
+.empire-summary { display: grid; grid-template-columns: .8fr 1.2fr; overflow: hidden; background: var(--color-surface-sunken); border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); }
+.empire-current, .empire-next { display: flex; flex-direction: column; justify-content: center; padding: var(--space-1) var(--space-3); }
+.empire-current { border-right: 1px solid var(--overlay-2); }
+.empire-current strong, .empire-next strong { font-size: var(--fs-400); }
+.empire-current > span:last-child, .empire-next > span:last-child { color: var(--color-ink-muted); font-size: var(--fs-200); }
 .empire-summary.affordable { border-color: #3ad57b66; box-shadow: inset 0 0 16px #3ad57b0b; }
-.empire-summary.affordable .empire-next strong { color: var(--green); }
-.empire-next.maxed strong { color: var(--gold); }
-.opponent-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin-top: .45rem; }
-.opponent-stats .resource-chip { min-height: 52px; padding: .3rem .42rem; }
-.opponent-stats .resource-chip b { font-size: .9rem; }
-.pp-ships { display: flex; align-items: center; gap: .35rem; margin-top: .5rem; font-size: .95rem; }
-.pp-ships-label { color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-right: .15rem; }
-.ship.galaxy { color: var(--accent); }
-.ship.locked { color: #44506e; }
-.ship.surface { color: var(--gold); }
-.ship.orbit { color: var(--green); font-size: .85rem; }
+.empire-summary.affordable .empire-next strong { color: var(--color-success); }
+.empire-next.maxed strong { color: var(--color-gold); }
+.opponent-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-2); }
+.opponent-stats .resource-chip { min-height: 52px; padding: var(--space-1); }
+.opponent-stats .resource-chip b { font-size: var(--fs-400); }
+.pp-ships { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); font-size: var(--fs-400); }
+.pp-ships-label { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-right: var(--space-1); }
+.ship.galaxy { color: var(--color-accent); }
+.ship.locked { color: var(--color-ink-faint); }
+.ship.surface { color: var(--color-gold); }
+.ship.orbit { color: var(--color-success); font-size: var(--fs-400); }
 /* Tap-to-move: a Fleet ship becomes a real tap target while a move is being
  * picked (see MovePickerContext) — this replaces the old flat "Move ship #N —
  * <location>" text-button list with tapping the ship where it already sits. */
 .ship { background: none; border: 1px solid transparent; padding: 0; font: inherit; }
-.ship.tappable { cursor: pointer; padding: .2rem .45rem; min-height: 32px; border-radius: 8px; background: #0006; border-color: #ffffff22; touch-action: manipulation; }
+.ship.tappable { cursor: pointer; padding: var(--space-1) var(--space-2); min-height: var(--space-7); border-radius: var(--radius-sm); background: var(--shade-2); border-color: var(--overlay-3); touch-action: manipulation; }
 .ship.tappable:hover { border-color: currentColor; }
-.ship.tappable.selected { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 10px #ffcc4466; background: #ffcc4422; }
+.ship.tappable.selected { border-color: var(--color-gold); box-shadow: 0 0 0 2px var(--color-gold), 0 0 10px #ffcc4466; background: #ffcc4422; }
 /* A destination pill: the Home-galaxy option next to the Fleet, and Land/Orbit
  * on a planet card. Same shape everywhere so "this is a move target" reads
  * consistently regardless of where it's attached. */
 .ship-dest-pill {
-  display: inline-flex; align-items: center; gap: .3rem; min-height: 36px;
-  padding: .35rem .7rem; border-radius: 999px; font-size: .78rem; font-weight: 700;
-  background: linear-gradient(135deg, #214d4b, #26775f); color: var(--ink);
-  border: 1px solid #3ad57b88; box-shadow: inset 0 1px #ffffff1c, 0 4px 12px #071a1644;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-pill); font-size: var(--fs-300); font-weight: 700;
+  background: linear-gradient(135deg, #214d4b, #26775f); color: var(--color-ink);
+  border: 1px solid #3ad57b88; box-shadow: inset 0 1px var(--overlay-2), 0 4px 12px #071a1644;
   cursor: pointer; touch-action: manipulation;
 }
 .ship-dest-pill:hover { background: linear-gradient(135deg, #2b655c, #319572); transform: translateY(-1px); }
-.ship-dest-pill.home { margin-left: .2rem; }
-.pp-colonies { margin-top: .45rem; }
-.pp-colonies-label { font-size: .68rem; color: var(--muted); }
-.colony-cards { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .25rem; }
-.colony-text { background: #0004; border: 1px solid #ffffff14; border-radius: 8px; padding: .35rem .5rem; font-size: .78rem; flex: 1 1 100%; }
-.colony-text-action { color: var(--ink); margin-top: .15rem; font-size: .74rem; }
-.colony-card { position: relative; width: 56px; border-radius: 6px; border: 1px solid #ffffff22; }
-.colony-card .cc-thumb { width: 100%; display: block; border-radius: 6px; }
-.cc-vp { position: absolute; top: 2px; right: 2px; font-size: .6rem; font-weight: 700; color: var(--gold); background: #000a; border-radius: 8px; padding: 0 4px; }
-.cc-name { position: absolute; bottom: 0; left: 0; right: 0; font-size: .52rem; text-align: center; background: #000a; color: var(--ink); }
-.pp-mission { margin-top: .45rem; font-size: .72rem; color: var(--gold); background: #ffcc4411; padding: .32rem .4rem; border-radius: 6px; }
+.ship-dest-pill.home { margin-left: var(--space-1); }
+.pp-colonies { margin-top: var(--space-2); }
+.pp-colonies-label { font-size: var(--fs-200); color: var(--color-ink-muted); }
+.colony-cards { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); }
+.colony-text { background: var(--shade-1); border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); font-size: var(--fs-300); flex: 1 1 100%; }
+.colony-text-action { color: var(--color-ink); margin-top: var(--space-1); font-size: var(--fs-200); }
+.colony-card { position: relative; width: 56px; border-radius: var(--radius-sm); border: 1px solid var(--overlay-3); }
+.colony-card .cc-thumb { width: 100%; display: block; border-radius: var(--radius-sm); }
+.cc-vp { position: absolute; top: 2px; right: 2px; font-size: var(--fs-100); font-weight: 700; color: var(--color-gold); background: var(--shade-4); border-radius: var(--radius-sm); padding: 0 var(--space-1); }
+.cc-name { position: absolute; bottom: 0; left: 0; right: 0; font-size: var(--fs-100); text-align: center; background: var(--shade-4); color: var(--color-ink); }
+.pp-mission { margin-top: var(--space-2); font-size: var(--fs-200); color: var(--color-gold); background: #ffcc4411; padding: var(--space-1); border-radius: var(--radius-sm); }
 
 /* ---------- Rogue Galaxy colony-action ladder (solo) ---------- */
-.pp-rogue-card { display: grid; gap: .15rem; margin-top: .45rem; background: #ff333311; border: 1px solid #ff333322; border-radius: 6px; padding: .35rem .4rem; font-size: .7rem; }
-.pp-rogue-card-label { font-size: .68rem; color: var(--muted); font-weight: 700; }
-.pp-rogue-card details { color: var(--muted); }
+.pp-rogue-card { display: grid; gap: var(--space-1); margin-top: var(--space-2); background: #ff333311; border: 1px solid #ff333322; border-radius: var(--radius-sm); padding: var(--space-1); font-size: var(--fs-200); }
+.pp-rogue-card-label { font-size: var(--fs-200); color: var(--color-ink-muted); font-weight: 700; }
+.pp-rogue-card details { color: var(--color-ink-muted); }
 .pp-rogue-card summary { cursor: pointer; }
-.rogue-ladder { display: flex; flex-direction: column; gap: .1rem; margin-top: .25rem; }
-.rogue-ladder-row { display: flex; gap: .4rem; align-items: baseline; font-size: .72rem; padding: .1rem .25rem; border-radius: 4px; }
+.rogue-ladder { display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-1); }
+.rogue-ladder-row { display: flex; gap: var(--space-1); align-items: baseline; font-size: var(--fs-200); padding: 2px var(--space-1); border-radius: var(--radius-sm); }
 .rogue-ladder-row.active { background: #ff33331f; }
-.rogue-ladder-lvl { flex: 0 0 1.6rem; font-weight: 700; color: var(--muted); }
-.rogue-ladder-row.active .rogue-ladder-lvl { color: var(--gold); }
-.rogue-ladder-effect { color: var(--ink); }
+.rogue-ladder-lvl { flex: 0 0 1.6rem; font-weight: 700; color: var(--color-ink-muted); }
+.rogue-ladder-row.active .rogue-ladder-lvl { color: var(--color-gold); }
+.rogue-ladder-effect { color: var(--color-ink); }
 
 /* ---------- Planet row ---------- */
-.planet-row { margin: .8rem 0 1rem; }
-.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: .45rem; }
-.section-heading h2 { margin: 0; font-size: 1rem; }
-.section-heading span { color: var(--muted); font-size: .72rem; }
-.planet-row .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 220px)); justify-content: center; gap: .7rem; }
-.planet-card { min-width: 0; background: var(--panel); border-radius: 10px; overflow: hidden; border: 1px solid #ffffff16; box-shadow: 0 8px 22px #0004; }
-.pc-art { position: relative; }
-.pc-art img { width: 100%; display: block; }
+/* The heading stays put and only the card area scrolls, so the region's height
+ * budget is spent on cards rather than on a scrolled-away title. */
+.planet-row { display: flex; flex-direction: column; min-width: 0; min-height: 0; container-type: inline-size; container-name: planet-row; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-2); }
+.section-heading h2 { margin: 0; font-size: var(--fs-500); }
+.section-heading span { color: var(--color-ink-muted); font-size: var(--fs-200); }
+/* grid-auto-rows: min-content + start alignment for the same reason as
+ * .players-row above: with plain `auto` rows this region's height budget gets
+ * divided between the card rows and every card paints over the next row. */
+/* centerRow is exactly 4 planets in solo/2-human games, but grows with more
+ * seats (humanCount + 2 — up to 7 at 5 humans, see engine/setup.ts). A 2x2
+ * grid is the safe baseline for the common ≤4 case — never depends on
+ * track-width math like the old auto-fit did — and a container query bumps to
+ * a single 4-across row once the `planets` grid area is verified wide enough.
+ * `.dense` (5+ planets, see the className in Board.tsx) trades a 3rd column
+ * for fewer rows instead of leaving the extra planets to scroll off — a legal
+ * move target must never need a scroll to become visible. */
+.planet-row .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: min-content; justify-content: stretch; align-content: start; align-items: start; gap: var(--space-3); min-height: 0; overflow: auto; }
+/* Art-mode cards are real card scans at a tall ~1.4:1 (h:w) ratio — left at
+ * their natural width-driven height (the text-mode-only sizing above), a card
+ * ~380px wide renders 500px+ tall, several times the region's actual budget
+ * (found live on a tablet: 4 cards needing 1200px in a ~250px-tall container).
+ * `:has(.pc-art)` (only art-mode cards render that element, nothing from
+ * Board.tsx needs to know this) switches to *dividing* the available height
+ * instead of taking each card's natural size — `.cards` itself has to
+ * actually claim that height (`flex: 1 1 auto` in .planet-row's column) for
+ * there to be anything to divide; see .planet-card/.pc-art below for how each
+ * card fills its row and the image crops (object-fit) to match, rather than
+ * dictating it. */
+/* 4 columns even for the base ≤4 case (not just `.dense`): a card's ~350:500
+ * (w:h) natural ratio means a *narrower* cell is a *closer* match to it — 2
+ * wide-and-short columns (measured live: a 389x115 cell) forced cropping to
+ * ~20% of the image's height just to fill that shape; 4 narrower, tallerish
+ * columns land close enough to the card's own ratio that cropping is mostly
+ * gone. Still `object-fit: cover`, not `aspect-ratio` sized by width, so a
+ * genuine mismatch (a very short/wide `planets` area) safely crops instead of
+ * pushing the row's total height past its budget. */
+.planet-row .cards:has(.pc-art) { flex: 1 1 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); align-items: stretch; }
+/* 4 columns, not 3: at up to 7 planets (5 humans), 3 columns is still 3 rows
+ * (3/3/1) — the 3rd row's cards were measured overflowing their own container
+ * by ~50px on a 390px phone. 4 columns is at most 2 rows (4/3), which fits. */
+.planet-row .cards.dense { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
+@container planet-row (min-width: 900px) {
+  .planet-row .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .planet-row .cards.dense { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+.planet-card { min-width: 0; background: var(--color-surface); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--overlay-2); box-shadow: 0 8px 22px var(--shade-1); }
+/* Flex column: the art fills the card's whole (grid-stretched) height — no
+ * text meta line to share it with any more (Board.tsx dropped it: the card
+ * scan already prints name/resource/colonize-cost/VP, so a text summary under
+ * a *cropped* copy of the same card was both redundant and the reason the
+ * image had less height than it needed). `movePills`, when actionable, is
+ * the only other possible child, sized to its own content underneath. */
+.planet-card:has(.pc-art) { display: flex; flex-direction: column; }
+.pc-art { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.pc-art img { width: 100%; height: 100%; display: block; object-fit: cover; }
 /* A legal target for whatever's currently being picked — a move destination
  * (MovePickerContext) or a ship to advance (AdvancePickerContext) — flags the
  * card itself so it's obvious at a glance before reading the pills/buttons. */
-.planet-card.actionable { outline: 2px solid var(--gold); outline-offset: -1px; box-shadow: 0 0 0 1px #ffcc4455, 0 10px 26px #0006; }
-.pc-move-targets { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 .48rem .48rem; }
+.planet-card.actionable { outline: 2px solid var(--color-gold); outline-offset: -1px; box-shadow: 0 0 0 1px #ffcc4455, 0 10px 26px var(--shade-2); }
+.pc-move-targets { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: 0 var(--space-2) var(--space-2); }
 .planet-card.text .pc-move-targets { padding: 0; }
-.pc-move-targets .ship-dest-pill { flex: 1 1 auto; justify-content: center; }
-/* Text-mode "enlarge": there's no bigger art to show, so the card pops forward
- * in place instead (transform, not layout size, so it doesn't reflow the row). */
-.planet-card.text.expanded { position: relative; z-index: 5; transform: scale(1.035); box-shadow: 0 14px 34px #000a; }
-.planet-card.text .pc-zoom-actions { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 .48rem .48rem; }
-.planet-card.text .pc-zoom-actions .ship-dest-pill { flex: 1 1 auto; justify-content: center; }
+.pc-move-targets .ship-dest-pill { flex: 1 1 auto; }
+.planet-card.text .pc-zoom-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: 0 var(--space-2) var(--space-2); }
+.planet-card.text .pc-zoom-actions .ship-dest-pill { flex: 1 1 auto; }
+/* Text-mode "enlarge": no bigger art to show, so the full effect text opens in
+ * the same fixed, scroll-row-escaping overlay the art card uses for its image
+ * (.pc-zoom-wrap) — just a text card instead of an <img>. */
+.pc-zoom-wrap.text { width: 340px; max-width: 86vw; }
+.pc-zoom-text-card {
+  width: 100%; background: var(--color-surface); border: 1px solid var(--overlay-3);
+  border-radius: var(--radius-lg); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  box-shadow: 0 24px 70px var(--shade-5), 0 0 0 2px var(--overlay-4);
+  max-height: 80vh; overflow-y: auto;
+}
+.pc-zoom-text-card .pc-text-action.full { -webkit-line-clamp: unset; }
 
 /* ---- Token overlays (real ship / empire-level art) ---- */
 .token-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -216,101 +553,120 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   filter:
     drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
     drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
-    drop-shadow(0 2px 2px #0009); }
+    drop-shadow(0 2px 2px var(--shade-3)); }
 .empire-tok {
   filter:
     drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
     drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
-    drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 4px var(--gold)); }
+    drop-shadow(0 0 4px var(--color-gold)) drop-shadow(0 0 4px var(--color-gold)); }
 .ship-tok { width: 22%; max-width: 30px; }
 .pp-mat .ship-tok { width: 12%; }
 .empire-tok { width: 11%; max-width: 26px; }
 .ship-tok.standing { transform: translate(-50%, -70%); }
 .ship-tok.orbit { transform: translate(-50%, -50%) rotate(35deg); }
-.ship-tok.locked { opacity: .4; filter: grayscale(.4) drop-shadow(0 2px 3px #000a); }
+.ship-tok.locked { opacity: .4; filter: grayscale(.4) drop-shadow(0 2px 3px var(--shade-4)); }
 .planet-card .ship-tok { width: 20%; max-width: 30px; }
 
-/* Small number badge on each ship token (which ship / which orbit space). */
+/* Small number badge on each ship token (which ship / which orbit space).
+ * Deliberately in px, not on the type scale: the glyph has to stay inside a
+ * fixed 14px box, so it must not scale with the root font size. */
 .tok-num {
   position: absolute; transform: translate(40%, -90%);
-  min-width: 14px; height: 14px; padding: 0 3px; border-radius: 8px;
-  background: #000c; color: #fff; font-size: 10px; font-weight: 800; line-height: 14px;
-  text-align: center; border: 1px solid #ffffffaa; pointer-events: none; z-index: 5;
+  min-width: 14px; height: 14px; padding: 0 3px; border-radius: var(--radius-sm);
+  background: var(--shade-5); color: #fff; font-size: 10px; font-weight: 800; line-height: 14px;
+  text-align: center; border: 1px solid var(--overlay-5); pointer-events: none; z-index: 5;
 }
-.tok-num.orbit { background: var(--gold); color: #1a1a1a; border-color: #fff; }
+.tok-num.orbit { background: var(--color-gold); color: #1a1a1a; border-color: #fff; }
 .tok-num.locked { opacity: .5; }
-.pc-meta { padding: .4rem .48rem; display: flex; flex-direction: column; gap: .15rem; font-size: .72rem; }
-.pc-meta strong { font-size: .82rem; }
+.pc-meta { padding: var(--space-1) var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--fs-200); }
+.pc-meta strong { font-size: var(--fs-300); }
 /* Tap-to-enlarge: a big fixed preview so it isn't clipped by the scroll row.
  * Touch-only on purpose — this app targets tablet/phone, and a mouse-hover
  * trigger would fire unintentionally while scrolling/panning with a trackpad,
  * which is exactly the kind of hover-dependent affordance we're avoiding. */
 .pc-zoom {
   display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 340px; max-width: 80vw; height: auto; border-radius: 14px; z-index: 3000; pointer-events: none;
-  box-shadow: 0 24px 70px #000d, 0 0 0 2px #ffffff33;
+  width: 340px; max-width: 80vw; height: auto; border-radius: var(--radius-md); z-index: 3000; pointer-events: none;
+  box-shadow: 0 24px 70px var(--shade-5), 0 0 0 2px var(--overlay-4);
 }
 .pc-zoom.open { display: block; pointer-events: auto; }
 /* Same fixed-centered "escape the scroll row" trick as .pc-zoom, but as a
  * column (image + confirm/close buttons) for the Diplomacy/Economy advance
  * flow — see AdvancePickerContext / PlanetCardView. No backdrop on purpose:
  * unlike the follow popup, the rest of the board should stay reachable. */
-.pc-zoom-wrap { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3000; display: flex; flex-direction: column; align-items: center; gap: .6rem; max-width: 80vw; }
-.pc-zoom-img { width: 340px; max-width: 80vw; height: auto; border-radius: 14px; box-shadow: 0 24px 70px #000d, 0 0 0 2px #ffffff33; cursor: pointer; }
-.pc-zoom-actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
-.pc-zoom-actions .ship-dest-pill.close, .pc-zoom-wrap > .ship-dest-pill.close { background: #211f31cc; border-color: #ffffff33; }
-.pc-ships { color: var(--green); }
-
-@media (max-width: 900px) {
-  .players-row { grid-template-columns: 1fr; }
-  .opponents { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-}
+.pc-zoom-wrap { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3000; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); max-width: 80vw; }
+.pc-zoom-img { width: 340px; max-width: 80vw; height: auto; border-radius: var(--radius-md); box-shadow: 0 24px 70px var(--shade-5), 0 0 0 2px var(--overlay-4); cursor: pointer; }
+.pc-zoom-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.pc-zoom-actions .ship-dest-pill.close, .pc-zoom-wrap > .ship-dest-pill.close { background: #211f31cc; border-color: var(--overlay-4); }
+.pc-ships { color: var(--color-success); }
 
 /* ---------- Play area ---------- */
-.play-area { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1rem; margin: 1rem 0; }
-@media (max-width: 800px) { .play-area { grid-template-columns: 1fr; } }
-.dice-tray, .action-panel, .log-panel { background: var(--panel); border-radius: 12px; padding: 1rem; border: 1px solid #ffffff10; }
-.dice-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+/* Dice tray and action panel each scroll on their own so a long action list
+ * never steals the dice off screen (grid-template-* live in the two
+ * orientation blocks above). */
+.play-area { display: grid; gap: var(--space-4); min-width: 0; min-height: 0; }
+.dice-tray, .action-panel { background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-4); border: 1px solid var(--overlay-1); }
+.dice-tray, .action-panel { min-width: 0; min-height: 0; overflow: auto; }
+.dice-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
 .dice-head h3 { margin: 0; }
-.reroll-controls { display: flex; gap: .4rem; }
-.reroll-btn { background: var(--panel2); color: var(--ink); border: 1px solid #ffffff22; border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font-size: .82rem; }
-.reroll-btn.primary { background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700; border: none; }
+.reroll-controls { display: flex; gap: var(--space-1); }
+.reroll-btn { display: inline-flex; align-items: center; min-height: var(--tap-min); background: var(--color-surface-2); color: var(--color-ink); border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-3); cursor: pointer; font-size: var(--fs-300); touch-action: manipulation; }
+.reroll-btn.primary { background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent)); color: #fff; font-weight: 700; border: none; }
 .reroll-btn:disabled { opacity: .4; cursor: not-allowed; }
-.die.reroll-pick img, .die.reroll-pick.text { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
-.dice-tools { display: flex; gap: .4rem; }
+.die.reroll-pick img, .die.reroll-pick.text { outline: 3px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-md); }
+.dice-tools { display: flex; gap: var(--space-1); }
 .converter-controls { flex-wrap: wrap; align-items: center; }
-.die.converter-spend img, .die.converter-spend.text { outline: 3px solid var(--red); outline-offset: 2px; border-radius: 10px; }
-.die.converter-target img, .die.converter-target.text { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 10px; }
+.die.converter-spend img, .die.converter-spend.text { outline: 3px solid var(--color-danger); outline-offset: 2px; border-radius: var(--radius-md); }
+.die.converter-target img, .die.converter-target.text { outline: 3px solid var(--color-gold); outline-offset: 2px; border-radius: var(--radius-md); }
 .die:not(.reroll-pick).usable.die { } /* dice not picked during reroll show normal */
-.dice { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
-.die { width: 64px; text-align: center; font-size: .68rem; background: none; border: none; color: var(--ink); padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default; }
-.die img { width: 56px; height: 56px; border-radius: 10px; border: 2px solid #ffffff22; transition: transform .1s, border-color .1s, box-shadow .1s; }
+.dice { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-2); }
+.die { width: 64px; text-align: center; font-size: var(--fs-200); background: none; border: none; color: var(--color-ink); padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default; }
+.die img { width: 56px; height: 56px; border-radius: var(--radius-md); border: 2px solid var(--overlay-3); transition: transform .1s, border-color .1s, box-shadow .1s; }
 .die.usable { cursor: pointer; }
-.die.usable img { border-color: var(--accent); box-shadow: 0 0 10px #4db8ff55; }
+.die.usable img { border-color: var(--color-accent); box-shadow: 0 0 10px #4db8ff55; }
 .die.usable:hover img { transform: translateY(-3px) scale(1.05); }
-.die.sel img { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold), 0 0 14px #ffcc4488; }
+.die.sel img { border-color: var(--color-gold); box-shadow: 0 0 0 3px var(--color-gold), 0 0 14px #ffcc4488; }
 .die.activated { opacity: .35; }
-.die.activated img { border-color: var(--green); box-shadow: none; }
+.die.activated img { border-color: var(--color-success); box-shadow: none; }
 .die.converter { opacity: .5; }
-.die.converter img { border-color: var(--red); box-shadow: none; }
+.die.converter img { border-color: var(--color-danger); box-shadow: none; }
 .die:disabled { cursor: default; }
 
-.die-selectors { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; }
-.die-select { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--panel2); border: 2px solid transparent; border-radius: 10px; padding: .3rem; color: var(--ink); font-size: .7rem; }
-.die-select img { width: 40px; height: 40px; border-radius: 6px; }
-.die-select.sel { border-color: var(--accent); }
-.actions, .global-actions { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
-.global-actions { border-top: 1px solid #ffffff14; padding-top: .6rem; margin-top: .8rem; }
-.act-btn { text-align: left; background: var(--panel2); border: 1px solid #ffffff18; color: var(--ink); border-radius: 8px; padding: .5rem .7rem; }
+.die-selectors { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+/* The 40px face image keeps its size; the button around it carries the tap target. */
+.die-select { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: var(--tap-min); min-height: var(--tap-min); background: var(--color-surface-2); border: 2px solid transparent; border-radius: var(--radius-md); padding: var(--space-1); color: var(--color-ink); font-size: var(--fs-200); touch-action: manipulation; }
+.die-select img { width: 40px; height: 40px; border-radius: var(--radius-sm); }
+.die-select.sel { border-color: var(--color-accent); }
+.actions, .global-actions { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-2); }
+.global-actions { border-top: 1px solid var(--overlay-2); padding-top: var(--space-3); margin-top: var(--space-4); }
+.act-btn { display: flex; align-items: center; min-height: var(--tap-min); text-align: left; background: var(--color-surface-2); border: 1px solid var(--overlay-2); color: var(--color-ink); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); touch-action: manipulation; }
 /* Status line for the on-board move picker (MoveSteps): the actual ship/
  * destination choice now happens on the Fleet chips and planet cards, this just
  * says what's picked and how to back out. */
 .move-status p { line-height: 1.5; }
-.move-hint { color: var(--accent); font-weight: 700; }
-.link-btn { background: none; border: none; padding: 0; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.move-hint { color: var(--color-accent); font-weight: 700; }
+.link-btn { background: none; border: none; padding: 0; color: var(--color-accent); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .act-btn:hover { background: #2c3a68; }
 .act-btn.end { background: #3a2230; border-color: #ff8a8244; }
 .act-btn.global { background: #243a52; }
+/* A choice list with exactly one entry isn't a list — it's a confirmation (see
+ * §4 single-choice automation in Board.tsx). Centered, taller, and tinted like
+ * a sheet's primary button so it reads as "the" action rather than "an" option. */
+.act-btn.single-choice {
+  min-height: 56px; justify-content: center; text-align: center;
+  font-weight: 700; font-size: var(--fs-500); line-height: 1.3;
+  background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent));
+  color: #fff; border: none;
+}
+.act-btn.single-choice:hover { background: linear-gradient(90deg, #4a8ce4, #63c4ff); }
+/* Ending the turn is the only legal action left (no die is usable, no reroll, no
+ * Converter): pulse the button so the dead end reads as "you're done" instead of
+ * "the UI is stuck". Never auto-submitted — the player always ends their own turn. */
+.act-btn.end.forced { border-color: #ff8a8299; animation: end-turn-pulse 1.7s ease-in-out infinite; }
+@keyframes end-turn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 #ff8a8200; }
+  50% { box-shadow: 0 0 0 4px #ff8a8226, 0 0 16px #ff8a8244; }
+}
 /* The follow decision renders inside .modal-overlay/.modal-card (shared with
  * ReportDialog/GameOverDialog — see Dialogs.tsx) as a .follow-card variant, so it
  * pops up as an unmissable popup instead of sitting inline in the action panel.
@@ -322,139 +678,394 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
  * still visually "a popup," just not one that blinds the page behind it.
  * .modal-overlay.follow-modal (not just .follow-modal): needs to out-specificity
  * the plain .modal-overlay background/blur rule below regardless of source order. */
-.modal-overlay.follow-modal { z-index: 2600; background: rgba(4, 8, 20, .35); backdrop-filter: none; }
+.modal-overlay.follow-modal { z-index: 2600; background: var(--scrim-1); backdrop-filter: none; }
 /* .modal-card.follow-card (not just .follow-card): needs to out-specificity the
  * plain .modal-card max-width/padding rule below regardless of source order. */
-.modal-card.follow-card { position: relative; overflow: hidden; max-width: 560px; padding: 1.1rem 1.2rem 1.3rem; border: 1px solid #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 20px 60px #000a; }
+.modal-card.follow-card { position: relative; overflow: hidden; max-width: 560px; padding: var(--space-4) var(--space-5) var(--space-5); border: 1px solid #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 20px 60px var(--shade-4); }
 .follow-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .22; background-image: radial-gradient(#fff 0.7px, transparent .7px); background-size: 13px 13px; mask-image: linear-gradient(135deg, #000, transparent 60%); }
 .follow-card > * { position: relative; }
-.follow-header { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: .7rem; padding-bottom: .7rem; border-bottom: 1px solid #ffffff14; }
-.follow-die { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 14px; background: #090d1b; border: 2px solid var(--gold); box-shadow: 0 0 18px #ffcc4444; overflow: hidden; }
+.follow-header { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--overlay-2); }
+.follow-die { width: 58px; height: 58px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--color-bg); border: 2px solid var(--color-gold); box-shadow: 0 0 18px #ffcc4444; overflow: hidden; }
 .follow-die img { width: 100%; height: 100%; object-fit: cover; }
-.follow-die > span { font-size: 2rem; }
-.follow-title h3 { margin: .08rem 0 .12rem; font-size: 1rem; }
-.follow-title p { margin: 0; color: var(--muted); font-size: .76rem; }
-.follow-cost { display: flex; flex-direction: column; align-items: flex-end; gap: .12rem; padding-left: .5rem; }
-.follow-cost span { color: var(--muted); font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; }
-.follow-cost strong { color: var(--culture); font-size: .98rem; white-space: nowrap; }
-.follow-cost-after { color: var(--muted); font-size: .64rem; white-space: nowrap; }
-.follow-reward { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin: .65rem 0 .15rem; padding: .58rem .7rem; border-radius: 10px; background: linear-gradient(100deg, #3ad57b1f, #3ad57b08); border: 1px solid #3ad57b55; box-shadow: inset 0 1px #ffffff12; }
-.follow-reward span:first-child { color: var(--green); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; flex: 0 0 auto; }
-.follow-reward strong { font-size: .78rem; display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; text-align: right; }
-.follow-reward-after { color: var(--muted); font-size: .68rem; font-weight: 500; }
+.follow-die > span { font-size: var(--fs-700); }
+.follow-title h3 { margin: 0 0 2px; font-size: var(--fs-500); }
+.follow-title p { margin: 0; color: var(--color-ink-muted); font-size: var(--fs-300); }
+.follow-cost { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-left: var(--space-2); }
+.follow-cost span { color: var(--color-ink-muted); font-size: var(--fs-100); text-transform: uppercase; letter-spacing: .08em; }
+.follow-cost strong { color: var(--color-culture); font-size: var(--fs-500); white-space: nowrap; }
+.follow-cost-after { color: var(--color-ink-muted); font-size: var(--fs-100); white-space: nowrap; }
+.follow-reward { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: var(--space-3) 0 var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: linear-gradient(100deg, #3ad57b1f, #3ad57b08); border: 1px solid #3ad57b55; box-shadow: inset 0 1px var(--overlay-1); }
+.follow-reward span:first-child { color: var(--color-success); font-size: var(--fs-200); font-weight: 800; text-transform: uppercase; letter-spacing: .05em; flex: 0 0 auto; }
+.follow-reward strong { font-size: var(--fs-300); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.follow-reward-after { color: var(--color-ink-muted); font-size: var(--fs-200); font-weight: 500; }
 /* Still legal to follow, but there's nothing to gain (already capped, or no ships
  * positioned right now) — flag it instead of quietly showing a green "bonus". */
 .follow-reward.weak { background: linear-gradient(100deg, #ffcc441f, #ffcc4408); border-color: #ffcc4455; }
-.follow-reward.weak span:first-child { color: var(--gold); }
-.follow-card .actions { margin-top: .55rem; }
-.follow-card .actions > .act-btn { width: min(100%, 460px); min-height: 52px; padding: .72rem .85rem; display: flex; align-items: center; line-height: 1.3; white-space: normal; touch-action: manipulation; }
-.follow-card .follow-choices { display: flex; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: .5rem; }
-.follow-card .follow-choices > .act-btn { flex: 1 1 240px; width: auto; max-width: 380px; min-height: 64px; display: grid; grid-template-columns: 30px minmax(0, 1fr) 18px; gap: .55rem; align-items: center; text-align: left; padding: .65rem .72rem; border-radius: 13px; }
-.follow-action-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #07121dcc; font-size: 1rem; }
-.follow-action-label { font-size: .82rem; }
-.follow-action-arrow { color: #b5f1d1; font-size: 1.1rem; text-align: right; }
-.follow-card .follow-accept { background: linear-gradient(135deg, #214d4b, #26775f); border-color: #3ad57b88; font-weight: 700; box-shadow: inset 0 1px #ffffff1c, 0 5px 14px #071a1644; }
+.follow-reward.weak span:first-child { color: var(--color-gold); }
+.follow-card .actions { margin-top: var(--space-2); }
+.follow-card .actions > .act-btn { width: min(100%, 460px); min-height: 52px; padding: var(--space-3); display: flex; align-items: center; line-height: 1.3; white-space: normal; touch-action: manipulation; }
+.follow-card .follow-choices { display: flex; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: var(--space-2); }
+.follow-card .follow-choices > .act-btn { flex: 1 1 240px; width: auto; max-width: 380px; min-height: 64px; display: grid; grid-template-columns: 30px minmax(0, 1fr) 18px; gap: var(--space-2); align-items: center; text-align: left; padding: var(--space-3); border-radius: var(--radius-md); }
+.follow-action-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--radius-sm); background: #07121dcc; font-size: var(--fs-500); }
+.follow-action-label { font-size: var(--fs-300); }
+.follow-action-arrow { color: #b5f1d1; font-size: var(--fs-600); text-align: right; }
+.follow-card .follow-accept { background: linear-gradient(135deg, #214d4b, #26775f); border-color: #3ad57b88; font-weight: 700; box-shadow: inset 0 1px var(--overlay-2), 0 5px 14px #071a1644; }
 .follow-card .follow-accept:hover { background: linear-gradient(135deg, #2b655c, #319572); transform: translateY(-1px); }
 .follow-card .follow-accept .follow-action-icon { background: #3ad57b2e; }
-.follow-card .follow-decline { background: #211f31cc; border-color: #ffffff22; color: var(--muted); }
-.follow-card .follow-decline:hover { color: var(--ink); border-color: #ff8a8266; background: #412b3d; }
-.follow-card .follow-decline .follow-action-icon { color: #ff9e96; background: #ff8a821c; font-size: 1.2rem; }
-.action-panel.choose { box-shadow: 0 0 0 2px var(--accent); }
+.follow-card .follow-decline { background: #211f31cc; border-color: var(--overlay-3); color: var(--color-ink-muted); }
+.follow-card .follow-decline:hover { color: var(--color-ink); border-color: #ff8a8266; background: #412b3d; }
+.follow-card .follow-decline .follow-action-icon { color: #ff9e96; background: #ff8a821c; font-size: var(--fs-600); }
+.action-panel.choose { box-shadow: 0 0 0 2px var(--color-accent); }
 .ap-head { display: flex; align-items: center; justify-content: space-between; }
-.undo-btn { background: #3a2f00; color: var(--gold); border: 1px solid #ffcc4466; border-radius: 8px; padding: .35rem .8rem; font-weight: 700; cursor: pointer; }
+.undo-btn { display: inline-flex; align-items: center; min-height: var(--tap-min); background: #3a2f00; color: var(--color-gold); border: 1px solid #ffcc4466; border-radius: var(--radius-sm); padding: var(--space-1) var(--space-4); font-weight: 700; cursor: pointer; touch-action: manipulation; }
 .undo-btn:hover:not(:disabled) { background: #4a3d00; }
 .undo-btn:disabled { opacity: .35; cursor: not-allowed; }
 .action-panel.waiting .muted { font-style: italic; }
 
 /* ---------- Log ---------- */
-.log-panel { margin-top: 1rem; max-height: 220px; overflow-y: auto; }
-.log-panel ul { list-style: none; padding: 0; margin: 0; font-size: .82rem; }
-.log-panel li { padding: .25rem 0; border-bottom: 1px solid #ffffff0a; color: var(--muted); }
+/* Renders inside the on-demand log Sheet (see .sheet-card) — that's the
+ * scroll container now, this is just the list. */
+.log-list { list-style: none; padding: 0; margin: 0; font-size: var(--fs-300); }
+.log-list li { padding: var(--space-1) 0; border-bottom: 1px solid var(--overlay-1); color: var(--color-ink-muted); overflow-wrap: anywhere; }
 
 /* ---------- Text / lo-fi mode (no art loaded) ---------- */
-.planet-card.text { padding: .6rem; display: flex; flex-direction: column; gap: .4rem; }
+.planet-card.text { padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); }
 .planet-card.text.diplomacy { border-left: 4px solid #6fb0ff; }
-.planet-card.text.economy { border-left: 4px solid var(--gold); }
-.pc-text-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
-.pc-text-head strong { font-size: .95rem; }
-.pc-vp-badge { background: var(--blue); color: #fff; border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex: 0 0 auto; }
-.pc-text-action { font-size: .82rem; color: var(--ink); background: #0004; border-radius: 8px; padding: .5rem; min-height: 3.4em; }
-.die.text { background: var(--panel2); border: 2px solid #ffffff22; border-radius: 10px; width: 64px; height: 80px; justify-content: center; }
-.die.text.usable { border-color: var(--accent); box-shadow: 0 0 10px #4db8ff55; }
-.die.text.sel { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold); }
-.die-glyph { font-size: 1.7rem; line-height: 1; }
+.planet-card.text.economy { border-left: 4px solid var(--color-gold); }
+.pc-text-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.pc-text-head strong { font-size: var(--fs-400); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-expand-hint { color: var(--color-ink-muted); font-size: var(--fs-200); flex: 0 0 auto; }
+.pc-vp-badge { background: var(--color-player-blue); color: #fff; border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; font-weight: 700; font-size: var(--fs-300); flex: 0 0 auto; }
+/* Collapsed card only has room for ~2 lines — cut off with an ellipsis rather
+ * than forcing every card to a fixed min-height (that's what didn't fit two
+ * rows of the 2x2 grid on a phone). The full, untruncated text is always one
+ * tap away (see .pc-zoom-text-card), never lost. */
+.pc-text-action {
+  font-size: var(--fs-300); color: var(--color-ink); background: var(--shade-1);
+  border-radius: var(--radius-sm); padding: var(--space-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* 5+ planets (.dense, see .planet-row .cards.dense above): one row of text
+ * instead of two, and tighter card padding — the 3rd/5th column already
+ * narrowed the cards, this keeps their height down to match so the extra
+ * row(s) the wider grid still needs actually fit their share of the budget. */
+.cards.dense .planet-card.text { padding: var(--space-1) var(--space-2); gap: 2px; }
+.cards.dense .pc-text-action { -webkit-line-clamp: 1; }
+.cards.dense .pc-meta { padding-top: 0; }
+/* At 4 narrow columns the name/badge row has ~85px to share — drop the
+ * redundant expand chevron (every card here is already known-tappable, same
+ * convention as the rest of the app) and shrink the VP badge, so the name
+ * (still ellipsised, always readable in full one tap away) gets more of it. */
+.cards.dense .pc-expand-hint { display: none; }
+.cards.dense .pc-vp-badge { width: 20px; height: 20px; font-size: var(--fs-200); }
+.die.text { background: var(--color-surface-2); border: 2px solid var(--overlay-3); border-radius: var(--radius-md); width: 64px; height: 80px; justify-content: center; }
+.die.text.usable { border-color: var(--color-accent); box-shadow: 0 0 10px #4db8ff55; }
+.die.text.sel { border-color: var(--color-gold); box-shadow: 0 0 0 3px var(--color-gold); }
+.die-glyph { font-size: var(--fs-700); line-height: 1; }
 
 /* ---------- Missing-asset notice ---------- */
 .asset-notice {
-  background: #4a3a00; color: var(--gold); border-bottom: 1px solid #ffcc4444;
-  padding: .7rem 1rem; text-align: center; font-size: .9rem;
+  background: #4a3a00; color: var(--color-gold); border-bottom: 1px solid #ffcc4444;
+  padding: var(--space-3) var(--space-4); text-align: center; font-size: var(--fs-400);
 }
-.asset-notice code { background: #0006; color: #fff; }
+.asset-notice code { background: var(--shade-2); color: #fff; }
 
-/* ---------- Update banner (new version available) ---------- */
+/* ---------- Update banner (new version available) ----------
+ * <UpdateBanner unstyled className="update-banner"> — the framework component
+ * renders a bare `div > span + button(reload) + button(✕)` and every inline
+ * style is dropped by `unstyled`, so everything below is ours. Bottom-anchored
+ * chrome, hence the home-indicator inset. */
 .update-banner {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
-  display: flex; align-items: center; justify-content: center; gap: 1rem;
-  padding: .7rem 1rem; background: linear-gradient(90deg, var(--blue), var(--accent));
-  color: #fff; font-weight: 600; box-shadow: 0 -4px 20px #0008;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-3);
+  padding: var(--space-2) max(var(--space-4), env(safe-area-inset-right, 0px))
+           max(var(--space-2), env(safe-area-inset-bottom, 0px))
+           max(var(--space-4), env(safe-area-inset-left, 0px));
+  background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent));
+  color: #fff; font-size: var(--fs-400); font-weight: 600; box-shadow: 0 -4px 20px var(--shade-3);
 }
 .update-banner button {
-  background: #fff; color: var(--blue); border: none; border-radius: 8px;
-  padding: .4rem 1rem; font-weight: 700; cursor: pointer;
+  flex: 0 0 auto; display: inline-flex; align-items: center; min-height: var(--tap-min);
+  background: #fff; color: var(--color-player-blue); border: none; border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4); font-family: inherit; font-size: var(--fs-400); font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
 }
 .update-banner button:hover { background: #eaf4ff; }
+/* The dismiss ✕ must not read as a second call to action next to Reload. */
+.update-banner button[aria-label="Dismiss"] {
+  min-width: var(--tap-min); justify-content: center; padding: 0;
+  background: none; color: #fff; font-size: var(--fs-600); line-height: 1;
+}
+.update-banner button[aria-label="Dismiss"]:hover { background: var(--overlay-3); }
 
-/* ---------- Modals (report + game over) ---------- */
-.modal-overlay { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; background: rgba(4,8,20,.82); backdrop-filter: blur(3px); padding: 1rem; }
-.modal-card { position: relative; max-width: 480px; width: 100%; background: var(--panel); border: 1px solid #ffffff22; border-radius: 14px; padding: 1.6rem; box-shadow: 0 20px 60px #000a; }
-.modal-card h2 { margin-top: 0; }
-.modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; }
-.field { display: block; margin: .8rem 0; }
-.field span { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .3rem; }
-.field textarea, .field select { width: 100%; background: #0004; color: var(--ink); border: 1px solid #ffffff22; border-radius: 8px; padding: .5rem; font-family: inherit; }
-.field-check { display: flex; align-items: center; gap: .5rem; font-size: .85rem; margin: .6rem 0; }
-.modal-actions { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1.2rem; flex-wrap: wrap; }
-.modal-actions button { background: var(--panel2); color: var(--ink); border: 1px solid #ffffff22; border-radius: 8px; padding: .5rem 1rem; cursor: pointer; }
-.modal-actions button.primary { background: linear-gradient(90deg, var(--blue), var(--accent)); color: #fff; font-weight: 700; border: none; }
-.modal-actions button:disabled { opacity: .5; cursor: not-allowed; }
-.gameover-headline { font-size: 1.5rem; }
+/* ---------- VASSAL module setup (bring-your-own-art gate) ----------
+ * <VmodSetupDialog unstyled className="vmod-setup"> — see App.tsx. `unstyled`
+ * drops the framework's own inline overlay/card/drop-zone/button styles, so
+ * the fixed positioning has to be re-established here or the dialog lands
+ * in-flow and pushes the page. The inner elements get no classNames, hence the
+ * element selectors scoped under .vmod-setup; the DOM is
+ *   .vmod-setup > div > [button✕, h2, p, ol, label, p.error?, p, button(skip)]
+ * so the two buttons are told apart by :first-child / :last-child (neither
+ * matches when `onSkip` is absent and neither button is rendered).
+ *
+ * Caveat: `unstyled` is not total — the h2/p/ol/li/a text colors and margins
+ * are inline *unconditionally* in the framework component (#9fb0d6, #cdd8f5,
+ * #6f7ea3, 1.2rem padding-left …). They're close enough to the ink tokens to
+ * live with, and overriding them would take !important on half a dozen
+ * selectors, so they're deliberately left alone. The drag-hover highlight is
+ * inline-only too and is lost with `unstyled`; :hover below stands in for it. */
+.vmod-setup {
+  position: fixed; inset: 0; z-index: 2900;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: var(--scrim-2);
+}
+.vmod-setup > div {
+  width: 100%; max-width: 560px; max-height: min(92dvh, 760px); overflow-y: auto;
+  background: var(--color-surface); border: 1px solid var(--overlay-3);
+  border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 40px var(--shade-4);
+  animation: sheet-up .18s ease-out;
+  scrollbar-width: thin; scrollbar-color: var(--overlay-3) transparent;
+}
+/* Stands in for .sheet-handle, which we can't add to the DOM from out here. */
+.vmod-setup > div::before {
+  content: ''; display: block; width: 40px; height: 4px; border-radius: var(--radius-pill);
+  background: var(--overlay-4); margin: 0 auto var(--space-3);
+}
+.vmod-setup h2 { padding-right: var(--tap-min); font-size: var(--fs-600); }
+.vmod-setup p { font-size: var(--fs-400); }
+/* The framework's card is inline `position: relative`, so the ✕ can be lifted
+ * out of the flow into the usual top-right corner. */
+.vmod-setup > div > button:first-child {
+  position: absolute; top: var(--space-2); right: var(--space-2);
+  display: grid; place-items: center; min-width: var(--tap-min); min-height: var(--tap-min);
+  background: none; border: none; color: var(--color-ink-muted);
+  font-family: inherit; font-size: var(--fs-700); line-height: 1; cursor: pointer; touch-action: manipulation;
+}
+/* "Download module". `li > a` and not just `a`: the "VASSAL module library"
+ * link is nested a level deeper and must stay a plain text link. */
+.vmod-setup ol > li > a {
+  display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap-min);
+  margin-top: var(--space-2); padding: 0 var(--space-5); border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent));
+  color: #fff; font-weight: 700; text-decoration: none; word-break: normal; touch-action: manipulation;
+}
+/* The drop zone doubles as the file picker on touch (the <input type=file> it
+ * wraps is inline `display: none`), so it has to read as a button-sized target. */
+.vmod-setup label {
+  display: flex; align-items: center; justify-content: center; min-height: 72px;
+  margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius-md);
+  border: 2px dashed var(--overlay-4); background: var(--color-surface-sunken);
+  color: var(--color-ink); font-size: var(--fs-400); font-weight: 600; text-align: center;
+  cursor: pointer; touch-action: manipulation;
+}
+.vmod-setup label:hover, .vmod-setup label:focus-within { border-color: var(--color-accent); background: #4db8ff1a; }
+.vmod-setup > div > button:last-child {
+  display: block; width: 100%; min-height: 48px; margin-top: var(--space-4);
+  border: 1px solid var(--overlay-3); border-radius: var(--radius-md);
+  background: none; color: var(--color-ink-muted);
+  font-family: inherit; font-size: var(--fs-400); font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+.vmod-setup > div > button:last-child:hover { color: var(--color-ink); border-color: var(--color-accent); }
+
+/* ---------- Sign-in bar / ranked status (framework, unstyled) ----------
+ * <SignInBar unstyled className="signin-bar"> renders a bare row of spans,
+ * buttons, an optional name <input> and the leaderboard link — `unstyled`
+ * really does drop every inline style here, so this is a clean reskin.
+ * Used both above the multiplayer lobby card and above the board in a live
+ * multiplayer game, where it is a fixed-height row of the .game-shell column. */
+.signin-bar {
+  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; min-width: 0; width: 100%;
+  gap: var(--space-1) var(--space-2);
+  padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px)) max(var(--space-2), env(safe-area-inset-right, 0px));
+  color: var(--color-ink-muted); font-size: var(--fs-300);
+}
+.signin-bar strong { color: var(--color-ink); }
+.signin-bar button {
+  display: inline-flex; align-items: center; min-height: var(--tap-min); padding: 0 var(--space-3);
+  background: var(--color-surface-2); border: 1px solid var(--overlay-3); border-radius: var(--radius-sm);
+  color: var(--color-ink); font-family: inherit; font-size: var(--fs-300); font-weight: 600;
+  cursor: pointer; touch-action: manipulation;
+}
+/* Icon-only affordances: the rename pencil and the dismiss ✕ keep the 44px
+ * target but drop the chrome so they don't read as primary actions. */
+.signin-bar button[aria-label="Change name"], .signin-bar button[aria-label="Dismiss"] {
+  min-width: var(--tap-min); justify-content: center; padding: 0;
+  background: none; border: none; color: var(--color-ink-muted); font-size: var(--fs-500);
+}
+.signin-bar input {
+  min-height: var(--tap-min); width: 9rem; max-width: 100%;
+  background: var(--color-surface-sunken); color: var(--color-ink);
+  border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: 0 var(--space-2);
+  font-family: inherit; font-size: 16px; /* see .difficulty select — iOS focus zoom */
+}
+.signin-bar > a {
+  display: inline-flex; align-items: center; min-height: var(--tap-min); margin-left: auto;
+  padding-inline: var(--space-2); color: var(--color-accent); font-weight: 600;
+  text-decoration: none; white-space: nowrap; word-break: normal;
+}
+.ranked-status {
+  flex: 0 0 auto; margin: 0; text-align: center; font-size: var(--fs-300); color: var(--color-ink-muted);
+  background: var(--color-surface); border-top: 1px solid var(--overlay-2);
+  padding: var(--space-2) var(--space-4) max(var(--space-2), env(safe-area-inset-bottom, 0px));
+}
+.ranked-status.ok { color: var(--color-success); }
+.ranked-status.warn { color: var(--color-gold); }
+
+/* ---------- Bottom sheets (confirm / detail / drawer / contextual choice) ----------
+ * Shared visual language for every popup that needs to escape a clipped grid
+ * track: slide up from the bottom, rounded top corners, safe-area bottom
+ * padding. See Sheet / ConfirmSheet in Dialogs.tsx. */
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 2700; display: flex; align-items: flex-end; justify-content: center;
+  background: var(--scrim-2);
+}
+.sheet-card {
+  width: 100%; max-width: 560px; max-height: min(84vh, 640px); overflow-y: auto;
+  background: var(--color-surface); border: 1px solid var(--overlay-3);
+  border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);
+  padding: 0 var(--space-5) max(var(--space-5), env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 40px var(--shade-4);
+  animation: sheet-up .18s ease-out;
+}
+@keyframes sheet-up { from { transform: translateY(20px); opacity: .6; } to { transform: translateY(0); opacity: 1; } }
+.sheet-handle { width: 40px; height: 4px; border-radius: var(--radius-pill); background: var(--overlay-4); margin: var(--space-3) auto var(--space-2); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
+.sheet-title { margin: 0 0 var(--space-2); font-size: var(--fs-500); }
+.sheet-head .sheet-title { margin: 0; }
+.sheet-desc { margin: 0 0 var(--space-4); color: var(--color-ink-muted); }
+.sheet-actions { display: flex; flex-direction: column; gap: var(--space-2); padding-bottom: var(--space-2); }
+.sheet-btn { min-height: 48px; border-radius: var(--radius-md); font-weight: 700; font-size: var(--fs-400); border: 1px solid var(--overlay-3); background: var(--color-surface-2); color: var(--color-ink); touch-action: manipulation; }
+.sheet-btn.primary { background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent)); color: #fff; border: none; }
+.sheet-btn.danger { background: linear-gradient(90deg, #7a2620, var(--color-danger)); color: #fff; border: none; }
+.sheet-btn.ghost { background: none; }
+.sheet-close {
+  min-width: var(--tap-min); min-height: var(--tap-min); display: grid; place-items: center;
+  background: none; border: none; color: var(--color-ink-muted); font-size: var(--fs-700); cursor: pointer; line-height: 1;
+  touch-action: manipulation;
+}
+.sheet-body { display: flex; flex-direction: column; gap: var(--space-2); padding-bottom: var(--space-2); }
+.sheet-body .actions, .sheet-body .global-actions { margin-top: 0; }
+
+/* ---- Form controls inside a sheet (ReportDialog) ---- */
+.sheet-field { display: block; }
+.sheet-field > span { display: block; margin-bottom: var(--space-1); font-size: var(--fs-300); color: var(--color-ink-muted); }
+.sheet-field textarea, .sheet-field select {
+  width: 100%; background: var(--color-surface-sunken); color: var(--color-ink);
+  border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+  /* 16px, not a type-scale step: anything smaller makes iOS Safari zoom the
+   * page in when the control takes focus — a page scroll from the inside. */
+  font-family: inherit; font-size: 16px;
+}
+.sheet-field textarea { min-height: 88px; resize: vertical; line-height: 1.4; }
+.sheet-field select { min-height: var(--tap-min); touch-action: manipulation; }
+/* The whole label is the target, so it carries the 44px height rather than the
+ * (deliberately still small, but enlarged) box itself. */
+.sheet-check { display: flex; align-items: center; gap: var(--space-3); min-height: var(--tap-min); font-size: var(--fs-400); cursor: pointer; touch-action: manipulation; }
+.sheet-check input { flex: 0 0 auto; width: 22px; height: 22px; accent-color: var(--color-accent); }
+
+/* ---- Final scores (GameOverDialog) ---- */
+.gameover-headline { margin: 0; font-size: clamp(1.15rem, 4vw, 1.5rem); }
 .gameover-scores { list-style: none; padding: 0; margin: 0; }
-.gameover-scores li { display: flex; align-items: center; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid #ffffff10; }
-.gameover-scores li strong { color: var(--gold); margin-left: auto; }
-.gameover-scores li.won { color: var(--gold); }
+.gameover-scores li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--overlay-1); }
+.gameover-scores li strong { color: var(--color-gold); margin-left: auto; }
+.gameover-scores li.won { color: var(--color-gold); }
+
+/* ---------- Toast (auto-resolved decision) ----------
+ * The counterpart to the sheets: those ask, this only tells. Anchored top-center
+ * above every overlay, never interactive (pointer-events: none — it must not be
+ * able to eat a tap), auto-hides itself. See Toast in Dialogs.tsx. */
+.toast-banner {
+  position: fixed; z-index: 2800; pointer-events: none;
+  top: max(var(--space-3), env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  max-width: min(92vw, 460px);
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-pill); border: 1px solid var(--overlay-3);
+  background: var(--color-surface); color: var(--color-ink);
+  font-size: var(--fs-300); font-weight: 600; line-height: 1.35; text-align: center;
+  box-shadow: 0 10px 30px var(--shade-4);
+  animation: toast-in .18s ease-out;
+}
+@keyframes toast-in { from { transform: translate(-50%, -8px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+/* Honour a reduced-motion preference for the two *looping/attention* animations
+ * added with the single-choice automation; one-shot slide-ins stay. */
+@media (prefers-reduced-motion: reduce) {
+  .act-btn.end.forced { animation: none; box-shadow: 0 0 0 2px #ff8a8255; }
+  .toast-banner { animation: none; }
+}
+
+/* ---------- Centered modal (follow window only) ----------
+ * The last centered-card popup in the app. ReportDialog and GameOverDialog used
+ * to live here too and are bottom sheets now (see .sheet-* above and Dialogs.tsx),
+ * which retired the whole .modal-x / .field / .field-check / .modal-actions
+ * family with them — the follow window uses .follow-* + .act-btn instead, so
+ * only the shell below is still referenced (from Board.tsx). */
+.modal-overlay { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; background: var(--scrim-2); backdrop-filter: blur(3px); padding: var(--space-4); }
+.modal-card { position: relative; max-width: 480px; width: 100%; background: var(--color-surface); border: 1px solid var(--overlay-3); border-radius: var(--radius-md); padding: var(--space-6); box-shadow: 0 20px 60px var(--shade-4); }
+.modal-card h2 { margin-top: 0; }
 
 /* ---------- Footer ---------- */
-.board-footer { display: flex; gap: .6rem; margin: 1rem 0 2rem; }
-.ghost-btn { background: var(--panel); border: 1px solid #ffffff22; color: var(--muted); border-radius: 8px; padding: .45rem .9rem; font-size: .85rem; }
-.ghost-btn:hover { color: var(--ink); border-color: var(--accent); }
+/* Bottom-most element on screen, so it carries the home-indicator inset. */
+.board-footer {
+  display: flex; flex-wrap: wrap; gap: var(--space-3); min-width: 0;
+  padding-block: var(--space-2) max(var(--space-2), env(safe-area-inset-bottom, 0px));
+}
+.ghost-btn { display: inline-flex; align-items: center; min-height: var(--tap-min); background: var(--color-surface); border: 1px solid var(--overlay-3); color: var(--color-ink-muted); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-4); font-size: var(--fs-400); touch-action: manipulation; }
+.ghost-btn:hover { color: var(--color-ink); border-color: var(--color-accent); }
 .ghost-btn:disabled { opacity: .4; cursor: not-allowed; }
-.ghost-btn.undo:not(:disabled) { color: var(--gold); border-color: #ffcc4455; }
-.gameover .ghost-btn { margin-top: .5rem; }
-.gameover-actions { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+.ghost-btn.undo:not(:disabled) { color: var(--color-gold); border-color: #ffcc4455; }
+.gameover .ghost-btn { margin-top: var(--space-2); }
+.gameover-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap; }
 
 /* ---------- Game over ---------- */
 .gameover { text-align: right; }
-.gameover strong { color: var(--gold); font-size: 1.1rem; }
-.gameover ul { list-style: none; padding: 0; margin: .3rem 0 0; font-size: .8rem; }
+.gameover strong { color: var(--color-gold); font-size: var(--fs-500); }
+.gameover ul { list-style: none; padding: 0; margin: var(--space-1) 0 0; font-size: var(--fs-300); }
 
 /* ---------- Narrow/tablet overrides ----------
  * Kept last on purpose: several rules here (e.g. .follow-header, .follow-card
  * .follow-choices) share exact specificity with a base rule declared earlier in
  * this file, and CSS breaks ties by source order — a media query placed earlier
  * than the base rule it's meant to override gets silently out-cascaded at any
- * width. Add new small-screen overrides to this block, not a new one earlier up. */
+ * width. Add new small-screen overrides to this block, not a new one earlier up.
+ *
+ * What used to live here and no longer needs to: `.game-shell { padding }` (the
+ * shell is edge-to-edge now, .board owns the inset padding), `.topbar h1`
+ * (clamp()ed), and `.player-overview { 1fr }` (now the base). The old
+ * max-width:900px / :800px blocks are gone the same way — their two rules
+ * (.players-row, .play-area columns) are expressed per-orientation above. */
 @media (max-width: 620px) {
-  .game-shell { padding: .65rem; }
-  .topbar h1 { font-size: 1.05rem; }
-  .player-overview { grid-template-columns: 1fr; }
-  .key-stats { gap: .3rem; }
-  .resource-chip { padding-inline: .35rem; }
-  .follow-header { grid-template-columns: 50px minmax(0, 1fr) auto; gap: .55rem; }
-  .follow-die { width: 50px; height: 50px; border-radius: 12px; }
-  .follow-title h3 { font-size: .9rem; }
+  .key-stats { gap: var(--space-1); }
+  .resource-chip { padding-inline: var(--space-1); }
+  /* Trim the chrome, not the tap targets: on a phone the topbar and footer
+   * buttons keep their 44px height but lose horizontal padding and a type
+   * step, which is what gets each of those rows down to a single line. Every
+   * line they wrap is ~44px stolen from the play area's height budget. */
+  .board-footer { gap: var(--space-2); }
+  .topbar { gap: var(--space-1) var(--space-2); padding-block: var(--space-1); }
+  .topbar .ghost-btn, .board-footer .ghost-btn { padding-inline: var(--space-3); font-size: var(--fs-300); }
+  .turn-indicator { padding-inline: var(--space-3); font-size: var(--fs-300); }
+  .dice-tray, .action-panel { padding: var(--space-3); }
+  .sheet-card { padding: 0 var(--space-4) max(var(--space-4), env(safe-area-inset-bottom, 0px)); }
+  .follow-header { grid-template-columns: 50px minmax(0, 1fr) auto; gap: var(--space-2); }
+  .follow-die { width: 50px; height: 50px; border-radius: var(--radius-md); }
+  .follow-title h3 { font-size: var(--fs-400); }
   .follow-card .follow-choices { flex-direction: column; align-items: flex-start; }
   .follow-card .follow-choices > .act-btn { flex: 0 1 auto; width: min(100%, 320px); }
   .follow-card .actions > .act-btn { min-height: 56px; width: min(100%, 320px); }
-  .planet-row .cards { display: flex; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x proximity; padding: .05rem .05rem .55rem; }
-  .planet-card { flex: 0 0 172px; scroll-snap-align: start; }
+  /* No carousel (a legal move target must never be scrolled or clipped out of
+   * view during a decision). What actually fits on a narrow phone is the base
+   * 2x2 grid *plus* the text-mode cards' 2-line clamp (.pc-text-action) and the
+   * portrait row rebalance above — the grid alone was not enough, the cards
+   * overflowed their row. That covers the common case of ≤4 planets; a 4-5
+   * human game (6-7 planets, see .cards.dense above) switches to 4 narrow
+   * columns + a 1-line clamp instead of scrolling a 3rd row — verified fitting
+   * with zero overflow at 390px, at the cost of names truncating to a couple
+   * of characters (full name always one tap away, same "compact + tap for
+   * detail" contract as everything else in dense/small layouts). Revisit
+   * once there's real planet art to size the cards against — the text-mode
+   * fallback used to derive all of this may not need to be this dense there. */
 }
