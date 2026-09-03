@@ -255,16 +255,32 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
       "planets"
       "play"
       "footer";
-    /* `players` still has to fit the viewer's own full-detail panel (unchanged,
-     * see PlayerPanel's isViewer branch) at its natural content height (~300px
-     * measured) — only the *opponents* sub-row shrank (compact chip strip
-     * instead of stacked cards, see .opponent-chip), and that's exactly what
-     * this share is sized for, so the chip row is never pushed into this
-     * region's own internal scroll. The log's old row (now an on-demand
-     * drawer, see the footer trigger) rolls into planets/play instead. */
-    grid-template-rows: auto minmax(0, 1.9fr) minmax(0, 1.5fr) minmax(0, .65fr) auto;
+    /* Hand-tuned fr ratios (1.9/1.5/.65) used to live here, calibrated against
+     * two viewport sizes (390x844, 1180x820) — on a real tablet with a
+     * different aspect ratio they gave the mostly-idle topbar/play areas way
+     * more room than their content needs while starving `planets`, which is
+     * the one region whose content is both variable (4-7 cards) and must
+     * never be cropped. Every OTHER row now sizes to its own content (`auto`
+     * — each already has its own overflow:auto fallback if that content is
+     * ever taller than the viewport itself), and `planets` gets whatever's
+     * actually left as `1fr`, so a taller/shorter/wider device just gives
+     * planets more or less room instead of clipping it to a guessed slice. */
+    /* `minmax(180px, 1fr)`, not `minmax(0, 1fr)`: pure "whatever's left" let
+     * planets collapse to 0 on a phone once players+play's own auto/content
+     * sizing (real card-art dice, two full panels) added up to more than the
+     * viewport — found live at 390x844 (cardsH: 0). This floor forces the
+     * *other* auto tracks to actually give up space (shrinking toward their
+     * own min-content, each already falling back to its own internal scroll
+     * if that's still not enough — same pattern already used everywhere else
+     * on this board) rather than the reverse. */
+    grid-template-rows: auto auto minmax(180px, 1fr) auto auto;
   }
-  .play-area { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1.1fr); }
+  /* `minmax(96px, auto)`, not plain `auto`, on both rows: an `overflow:auto`
+   * cell (dice-tray/action-panel both are) is treated by grid sizing as
+   * shrinkable to 0 — "safe", it can scroll — so under pressure it lost
+   * almost everything to its sibling instead of both compressing evenly.
+   * A floor keeps the dice tray from vanishing to a sliver on a short phone. */
+  .play-area { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(96px, auto) minmax(96px, auto); }
 }
 
 @media (orientation: landscape) {
@@ -277,19 +293,25 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
       "players planets"
       "players play"
       "footer  footer";
-    /* Rows 2+3 are the player-status column's budget as well as the play
-     * area's (the log used to take the leftover bottom-left corner — now an
-     * on-demand drawer, see the footer trigger). */
-    grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1.6fr) auto;
+    /* Same content-driven reasoning as portrait: `play` (dice tray + a status
+     * line) sizes to what it actually needs, `planets` takes the rest. Rows
+     * 2+3 combined are `players`' own budget (it spans both), which is
+     * comfortably more than its ~300px natural height in every case that
+     * matters — any leftover just sits blank under the player panel rather
+     * than starving something else. */
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
   }
   .opponents { grid-template-columns: minmax(0, 1fr); }
-  .play-area { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: minmax(0, 1fr); }
+  .play-area { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: auto; }
 }
 
 /* ---------- Board ---------- */
-.topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-width: 0; padding-block: var(--space-2); }
-.topbar h1 { margin: 0; font-size: clamp(1.05rem, 3.2vw, 1.4rem); }
-.status { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+/* Two groups spread across the full width (space-between) instead of one
+ * left-aligned cluster — with no <h1> any more, a single group left most of
+ * the header empty on the right. */
+.topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); min-width: 0; padding-block: var(--space-2); }
+.status-turn { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; min-width: 0; }
+.status-tools { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; flex: 0 0 auto; }
 .fullscreen-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
 .reset-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
 .reset-btn:hover { color: var(--color-danger); border-color: #e5544b66; }
@@ -313,15 +335,19 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
  *    content, Chrome divides the container height between the auto rows
  *    anyway (align-content doesn't opt out), so each panel would overflow its
  *    row and paint over the next one. Content-sized rows + a region scroll. */
-.players-row {
-  display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-rows: min-content;
-  gap: var(--space-3); align-items: start; align-content: start;
-  min-height: 0; overflow: auto;
-}
+/* Flex column, not grid: the *opponents* chip strip is the one piece of this
+ * region that must always be visible at a glance (who else is playing, their
+ * VP) — found live squeezed to 0 in a 5-player game because a grid with two
+ * min-content rows gives no priority between them, and the viewer's own
+ * (taller, more content) panel simply came first and ate the budget. `flex:
+ * 0 0 auto` pins opponents to its natural size; the viewer panel is the one
+ * that flexes and, if truly tight, scrolls internally instead. */
+.players-row { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+.player-panel.viewer { flex: 1 1 auto; min-height: 0; overflow: auto; }
 /* Opponents: a compact single-row strip of chips (see .opponent-chip below) —
  * shrinks before it ever wraps or scrolls, so 4-5 opponents always fit on one
  * line. Tapping a chip opens the full detail in a bottom sheet. */
-.opponents { display: flex; flex-wrap: nowrap; gap: var(--space-1); min-width: 0; overflow: hidden; }
+.opponents { flex: 0 0 auto; display: flex; flex-wrap: nowrap; gap: var(--space-1); min-width: 0; overflow: hidden; }
 .player-panel {
   min-width: 0; background: linear-gradient(135deg, var(--color-surface), #151e36); border-radius: var(--radius-md);
   padding: var(--space-3); border: 1px solid var(--overlay-2);
@@ -460,6 +486,26 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
  * for fewer rows instead of leaving the extra planets to scroll off — a legal
  * move target must never need a scroll to become visible. */
 .planet-row .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: min-content; justify-content: stretch; align-content: start; align-items: start; gap: var(--space-3); min-height: 0; overflow: auto; }
+/* Art-mode cards are real card scans at a tall ~1.4:1 (h:w) ratio — left at
+ * their natural width-driven height (the text-mode-only sizing above), a card
+ * ~380px wide renders 500px+ tall, several times the region's actual budget
+ * (found live on a tablet: 4 cards needing 1200px in a ~250px-tall container).
+ * `:has(.pc-art)` (only art-mode cards render that element, nothing from
+ * Board.tsx needs to know this) switches to *dividing* the available height
+ * instead of taking each card's natural size — `.cards` itself has to
+ * actually claim that height (`flex: 1 1 auto` in .planet-row's column) for
+ * there to be anything to divide; see .planet-card/.pc-art below for how each
+ * card fills its row and the image crops (object-fit) to match, rather than
+ * dictating it. */
+/* 4 columns even for the base ≤4 case (not just `.dense`): a card's ~350:500
+ * (w:h) natural ratio means a *narrower* cell is a *closer* match to it — 2
+ * wide-and-short columns (measured live: a 389x115 cell) forced cropping to
+ * ~20% of the image's height just to fill that shape; 4 narrower, tallerish
+ * columns land close enough to the card's own ratio that cropping is mostly
+ * gone. Still `object-fit: cover`, not `aspect-ratio` sized by width, so a
+ * genuine mismatch (a very short/wide `planets` area) safely crops instead of
+ * pushing the row's total height past its budget. */
+.planet-row .cards:has(.pc-art) { flex: 1 1 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); align-items: stretch; }
 /* 4 columns, not 3: at up to 7 planets (5 humans), 3 columns is still 3 rows
  * (3/3/1) — the 3rd row's cards were measured overflowing their own container
  * by ~50px on a 390px phone. 4 columns is at most 2 rows (4/3), which fits. */
@@ -469,8 +515,15 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   .planet-row .cards.dense { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 .planet-card { min-width: 0; background: var(--color-surface); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--overlay-2); box-shadow: 0 8px 22px var(--shade-1); }
-.pc-art { position: relative; }
-.pc-art img { width: 100%; display: block; }
+/* Flex column: the art fills the card's whole (grid-stretched) height — no
+ * text meta line to share it with any more (Board.tsx dropped it: the card
+ * scan already prints name/resource/colonize-cost/VP, so a text summary under
+ * a *cropped* copy of the same card was both redundant and the reason the
+ * image had less height than it needed). `movePills`, when actionable, is
+ * the only other possible child, sized to its own content underneath. */
+.planet-card:has(.pc-art) { display: flex; flex-direction: column; }
+.pc-art { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.pc-art img { width: 100%; height: 100%; display: block; object-fit: cover; }
 /* A legal target for whatever's currently being picked — a move destination
  * (MovePickerContext) or a ship to advance (AdvancePickerContext) — flags the
  * card itself so it's obvious at a glance before reading the pills/buttons. */

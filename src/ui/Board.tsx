@@ -228,10 +228,14 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
     <AdvancePickerContext.Provider value={{ picker: advPicker, setPicker: setAdvPicker }}>
     <div className="board">
       <header className="topbar">
-        <h1>Tiny Epic Galaxies</h1>
-        <div className="status">
-          <FullscreenButton />
-          {onReset && <ResetButton onReset={onReset} />}
+        {/* No title here on purpose: during an active game it's dead weight
+         *  the player already knows (they're the ones playing it) — the app
+         *  icon/PWA chrome already identifies it. The lobby keeps its <h1>.
+         *  Split into two groups (not one, left-aligned) so the header uses
+         *  its full width instead of leaving most of it empty on the right:
+         *  the turn indicator — the one piece of live info here — leads on
+         *  the left, Fullscreen/Reset trail as secondary utility on the right. */}
+        <div className="status-turn">
           {gameOver ? (
             <GameOver state={state} />
           ) : pending && pending.queue.length > 0 ? (
@@ -244,6 +248,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
               {activeP.name}'s turn {state.phase === 'finalRound' ? '· FINAL ROUND' : ''}
             </span>
           )}
+        </div>
+        <div className="status-tools">
+          <FullscreenButton />
+          {onReset && <ResetButton onReset={onReset} />}
         </div>
       </header>
 
@@ -953,11 +961,17 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
   }
   return (
     <div className={`planet-card ${actionable ? 'actionable' : ''}`}>
+      {/* No {meta} here on purpose: the actual VASSAL card art already prints
+       *  the name, resource icon, colonize cost and VP on its face — a text
+       *  summary under a *cropped* copy of that same card was both stealing
+       *  the room the image needed to not be cropped AND repeating what's
+       *  already on it. Ships here are conveyed by PlanetTokens instead
+       *  (colored icons placed on the card itself, not a separate text line).
+       *  Text mode has no art to read this off of, so it keeps {meta}. */}
       <div className="pc-art" onClick={() => setZoomOpen((v) => !v)}>
-        <img src={asset(`/cards/${planet.id}.jpg`)} alt={planet.name} loading="lazy" onError={() => setImgFailed(true)} />
+        <img src={asset(`/cards/${planet.id}.jpg`)} alt={`${planet.name} — ${planet.colonizeType}, colonize in ${planet.orbitTrackLength + 1}, ${planet.vp}VP`} loading="lazy" onError={() => setImgFailed(true)} />
         <PlanetTokens planet={planet} state={state} />
       </div>
-      {meta}
       {movePills}
       {/* Tap the art to enlarge (escapes the scrolling row via fixed positioning);
        *  an eligible advance gets its confirm/close buttons attached here too. */}
