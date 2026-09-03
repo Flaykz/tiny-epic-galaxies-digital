@@ -261,7 +261,14 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
           <h2>Discovered Planets</h2>
           <span>{state.centerRow.length} available</span>
         </div>
-        <div className="cards">
+        {/* The center row is only ever exactly 4 planets in solo (1 human) and
+         *  2-human games; a 3+ human game grows it (humanCount + 2 — up to 7 at
+         *  5 humans, see engine/setup.ts), which no longer fits the 2x2 grid's
+         *  row budget in portrait. `dense` switches to 3 columns (fewer rows for
+         *  the same count) and a tighter text clamp (see .cards.dense in
+         *  styles.css) rather than leaving the extra planets to scroll off —
+         *  a legal move target must never need a scroll to become visible. */}
+        <div className={`cards ${state.centerRow.length > 4 ? 'dense' : ''}`}>
           {state.centerRow.map((id) => (
             <PlanetCardView key={id} planet={PLANETS_BY_ID[id]} state={state} />
           ))}
