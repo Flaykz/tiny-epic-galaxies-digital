@@ -231,14 +231,22 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .board {
   flex: 1 1 auto; min-height: 0; min-width: 0;
   display: grid; gap: var(--space-2); overflow: hidden;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: repeat(12, minmax(0, 1fr));
   padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px))
                   max(var(--space-2), env(safe-area-inset-right, 0px));
 }
-.topbar { grid-area: topbar; }
-.players-row { grid-area: players; }
-.planet-row { grid-area: planets; }
-.play-area { grid-area: play; }
-.board-footer { grid-area: footer; }
+.play-area { display: contents; }
+
+/* Approved in the UI Layout Lab. The four explicit presets deliberately keep
+ * dice and actions as independent board regions instead of a shared `play`
+ * track, so each can spend exactly the grid budget chosen in the mock-up. */
+.topbar { grid-column: 1 / span 6; grid-row: 11 / span 2; }
+.players-row { grid-column: 1 / span 3; grid-row: 4 / span 7; }
+.planet-row { grid-column: 4 / span 9; grid-row: 4 / span 7; }
+.dice-tray { grid-column: 1 / span 6; grid-row: 1 / span 3; }
+.action-panel { grid-column: 7 / span 6; grid-row: 1 / span 3; }
+.board-footer { grid-column: 7 / span 6; grid-row: 11 / span 2; }
 /* A region that spends its budget scrolls internally, so its scrollbar is
  * part of the board's look — keep it hairline instead of a chrome-grey slab. */
 .players-row, .planet-row .cards, .dice-tray, .action-panel {
@@ -246,63 +254,33 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   scrollbar-color: var(--overlay-3) transparent;
 }
 
-@media (orientation: portrait) {
-  .board {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "topbar"
-      "players"
-      "planets"
-      "play"
-      "footer";
-    /* Hand-tuned fr ratios (1.9/1.5/.65) used to live here, calibrated against
-     * two viewport sizes (390x844, 1180x820) — on a real tablet with a
-     * different aspect ratio they gave the mostly-idle topbar/play areas way
-     * more room than their content needs while starving `planets`, which is
-     * the one region whose content is both variable (4-7 cards) and must
-     * never be cropped. Every OTHER row now sizes to its own content (`auto`
-     * — each already has its own overflow:auto fallback if that content is
-     * ever taller than the viewport itself), and `planets` gets whatever's
-     * actually left as `1fr`, so a taller/shorter/wider device just gives
-     * planets more or less room instead of clipping it to a guessed slice. */
-    /* `minmax(180px, 1fr)`, not `minmax(0, 1fr)`: pure "whatever's left" let
-     * planets collapse to 0 on a phone once players+play's own auto/content
-     * sizing (real card-art dice, two full panels) added up to more than the
-     * viewport — found live at 390x844 (cardsH: 0). This floor forces the
-     * *other* auto tracks to actually give up space (shrinking toward their
-     * own min-content, each already falling back to its own internal scroll
-     * if that's still not enough — same pattern already used everywhere else
-     * on this board) rather than the reverse. */
-    grid-template-rows: auto auto minmax(180px, 1fr) auto auto;
-  }
-  /* `minmax(96px, auto)`, not plain `auto`, on both rows: an `overflow:auto`
-   * cell (dice-tray/action-panel both are) is treated by grid sizing as
-   * shrinkable to 0 — "safe", it can scroll — so under pressure it lost
-   * almost everything to its sibling instead of both compressing evenly.
-   * A floor keeps the dice tray from vanishing to a sliver on a short phone. */
-  .play-area { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(96px, auto) minmax(96px, auto); }
+@media (orientation: landscape) and (max-height: 620px) {
+  .board { grid-template-rows: repeat(11, minmax(0, 1fr)) minmax(44px, auto); }
+  .topbar { grid-column: 7 / span 6; grid-row: 12 / span 1; }
+  .players-row { grid-column: 1 / span 3; grid-row: 1 / span 11; }
+  .planet-row { grid-column: 4 / span 5; grid-row: 1 / span 11; }
+  .dice-tray { grid-column: 9 / span 4; grid-row: 1 / span 4; }
+  .action-panel { grid-column: 9 / span 4; grid-row: 5 / span 7; }
+  .board-footer { grid-column: 1 / span 6; grid-row: 12 / span 1; }
 }
 
-@media (orientation: landscape) {
-  .board {
-    /* Narrow left column = who you are (you + opponents), wide right
-     * column = what you can do (planets, then dice + actions). */
-    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-    grid-template-areas:
-      "topbar  topbar"
-      "players planets"
-      "players play"
-      "footer  footer";
-    /* Same content-driven reasoning as portrait: `play` (dice tray + a status
-     * line) sizes to what it actually needs, `planets` takes the rest. Rows
-     * 2+3 combined are `players`' own budget (it spans both), which is
-     * comfortably more than its ~300px natural height in every case that
-     * matters — any leftover just sits blank under the player panel rather
-     * than starving something else. */
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
-  }
-  .opponents { grid-template-columns: minmax(0, 1fr); }
-  .play-area { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: auto; }
+@media (orientation: portrait) {
+  .topbar { grid-column: 7 / span 6; grid-row: 12 / span 1; }
+  .players-row { grid-column: 1 / span 6; grid-row: 1 / span 2; }
+  .planet-row { grid-column: 1 / span 12; grid-row: 3 / span 6; }
+  .dice-tray { grid-column: 7 / span 6; grid-row: 1 / span 2; }
+  .action-panel { grid-column: 1 / span 12; grid-row: 9 / span 3; }
+  .board-footer { grid-column: 1 / span 6; grid-row: 12 / span 1; }
+}
+
+@media (orientation: portrait) and (max-width: 620px) {
+  .board { grid-template-rows: repeat(11, minmax(0, 1fr)) minmax(44px, auto); }
+  .topbar { grid-column: 1 / span 6; grid-row: 12 / span 1; }
+  .players-row { grid-column: 1 / span 12; grid-row: 1 / span 2; }
+  .planet-row { grid-column: 1 / span 12; grid-row: 3 / span 5; }
+  .dice-tray { grid-column: 1 / span 6; grid-row: 8 / span 4; }
+  .action-panel { grid-column: 7 / span 6; grid-row: 8 / span 4; }
+  .board-footer { grid-column: 7 / span 6; grid-row: 12 / span 1; }
 }
 
 /* ---------- Board ---------- */
@@ -593,7 +571,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 /* Same fixed-centered "escape the scroll row" trick as .pc-zoom, but as a
  * column (image + confirm/close buttons) for the Diplomacy/Economy advance
  * flow — see AdvancePickerContext / PlanetCardView. No backdrop on purpose:
- * unlike the follow popup, the rest of the board should stay reachable. */
+ * the rest of the board should stay reachable. */
 .pc-zoom-wrap { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3000; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); max-width: 80vw; }
 .pc-zoom-img { width: 340px; max-width: 80vw; height: auto; border-radius: var(--radius-md); box-shadow: 0 24px 70px var(--shade-5), 0 0 0 2px var(--overlay-4); cursor: pointer; }
 .pc-zoom-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
@@ -601,12 +579,12 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .pc-ships { color: var(--color-success); }
 
 /* ---------- Play area ---------- */
-/* Dice tray and action panel each scroll on their own so a long action list
- * never steals the dice off screen (grid-template-* live in the two
- * orientation blocks above). */
-.play-area { display: grid; gap: var(--space-4); min-width: 0; min-height: 0; }
+/* The semantic wrapper does not create a box: dice and actions participate
+ * directly in the board's approved 12 × 12 layout and scroll independently. */
+.play-area { display: contents; }
 .dice-tray, .action-panel { background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-4); border: 1px solid var(--overlay-1); }
 .dice-tray, .action-panel { min-width: 0; min-height: 0; overflow: auto; }
+.action-panel { container-type: inline-size; }
 .dice-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
 .dice-head h3 { margin: 0; }
 .reroll-controls { display: flex; gap: var(--space-1); }
@@ -667,21 +645,9 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   0%, 100% { box-shadow: 0 0 0 0 #ff8a8200; }
   50% { box-shadow: 0 0 0 4px #ff8a8226, 0 0 16px #ff8a8244; }
 }
-/* The follow decision renders inside .modal-overlay/.modal-card (shared with
- * ReportDialog/GameOverDialog — see Dialogs.tsx) as a .follow-card variant, so it
- * pops up as an unmissable popup instead of sitting inline in the action panel.
- * Unlike those two (optional, self-contained dialogs), deciding to follow often
- * depends on info that lives on the board behind it — your own energy/culture
- * gauges, the next empire-upgrade cost, a planet's colonize track. A heavy dim +
- * blur (the default .modal-overlay look) hides exactly what the player needs to
- * read to decide, so this gets its own much lighter, blur-free backdrop instead —
- * still visually "a popup," just not one that blinds the page behind it.
- * .modal-overlay.follow-modal (not just .follow-modal): needs to out-specificity
- * the plain .modal-overlay background/blur rule below regardless of source order. */
-.modal-overlay.follow-modal { z-index: 2600; background: var(--scrim-1); backdrop-filter: none; }
-/* .modal-card.follow-card (not just .follow-card): needs to out-specificity the
- * plain .modal-card max-width/padding rule below regardless of source order. */
-.modal-card.follow-card { position: relative; overflow: hidden; max-width: 560px; padding: var(--space-4) var(--space-5) var(--space-5); border: 1px solid #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 20px 60px var(--shade-4); }
+/* Follow is a highlighted state of the Actions region, not a modal. The board
+ * remains readable because resources, ships and planet tracks inform the choice. */
+.action-panel.follow-card { position: relative; border-color: #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 8px 24px var(--shade-3); }
 .follow-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .22; background-image: radial-gradient(#fff 0.7px, transparent .7px); background-size: 13px 13px; mask-image: linear-gradient(135deg, #000, transparent 60%); }
 .follow-card > * { position: relative; }
 .follow-header { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--overlay-2); }
@@ -715,6 +681,15 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .follow-card .follow-decline { background: #211f31cc; border-color: var(--overlay-3); color: var(--color-ink-muted); }
 .follow-card .follow-decline:hover { color: var(--color-ink); border-color: #ff8a8266; background: #412b3d; }
 .follow-card .follow-decline .follow-action-icon { color: #ff9e96; background: #ff8a821c; font-size: var(--fs-600); }
+@container (max-width: 340px) {
+  .follow-header { grid-template-columns: 44px minmax(0, 1fr); gap: var(--space-2); }
+  .follow-die { width: 44px; height: 44px; }
+  .follow-cost { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: space-between; padding-left: 0; }
+  .follow-reward { align-items: flex-start; flex-direction: column; gap: var(--space-1); }
+  .follow-reward strong { align-items: flex-start; text-align: left; }
+  .follow-card .follow-choices { flex-direction: column; }
+  .follow-card .follow-choices > .act-btn { flex-basis: auto; width: 100%; min-height: 52px; }
+}
 .action-panel.choose { box-shadow: 0 0 0 2px var(--color-accent); }
 .ap-head { display: flex; align-items: center; justify-content: space-between; }
 .undo-btn { display: inline-flex; align-items: center; min-height: var(--tap-min); background: #3a2f00; color: var(--color-gold); border: 1px solid #ffcc4466; border-radius: var(--radius-sm); padding: var(--space-1) var(--space-4); font-weight: 700; cursor: pointer; touch-action: manipulation; }
@@ -997,16 +972,6 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   .toast-banner { animation: none; }
 }
 
-/* ---------- Centered modal (follow window only) ----------
- * The last centered-card popup in the app. ReportDialog and GameOverDialog used
- * to live here too and are bottom sheets now (see .sheet-* above and Dialogs.tsx),
- * which retired the whole .modal-x / .field / .field-check / .modal-actions
- * family with them — the follow window uses .follow-* + .act-btn instead, so
- * only the shell below is still referenced (from Board.tsx). */
-.modal-overlay { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; background: var(--scrim-2); backdrop-filter: blur(3px); padding: var(--space-4); }
-.modal-card { position: relative; max-width: 480px; width: 100%; background: var(--color-surface); border: 1px solid var(--overlay-3); border-radius: var(--radius-md); padding: var(--space-6); box-shadow: 0 20px 60px var(--shade-4); }
-.modal-card h2 { margin-top: 0; }
-
 /* ---------- Footer ---------- */
 /* Bottom-most element on screen, so it carries the home-indicator inset. */
 .board-footer {
@@ -1044,10 +1009,14 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
    * buttons keep their 44px height but lose horizontal padding and a type
    * step, which is what gets each of those rows down to a single line. Every
    * line they wrap is ~44px stolen from the play area's height budget. */
-  .board-footer { gap: var(--space-2); }
-  .topbar { gap: var(--space-1) var(--space-2); padding-block: var(--space-1); }
-  .topbar .ghost-btn, .board-footer .ghost-btn { padding-inline: var(--space-3); font-size: var(--fs-300); }
-  .turn-indicator { padding-inline: var(--space-3); font-size: var(--fs-300); }
+  .board-footer { align-items: center; flex-wrap: nowrap; gap: 4px; overflow: hidden; padding-block: 0; }
+  .board-footer .ghost-btn { justify-content: center; min-width: 38px; min-height: 38px; padding: 0; font-size: var(--fs-300); }
+  .board-footer .ghost-btn-label { display: none; }
+  .topbar { flex-wrap: nowrap; gap: 4px; overflow: hidden; padding-block: 0; }
+  .status-turn { flex: 1 1 auto; flex-wrap: nowrap; overflow: hidden; }
+  .status-tools { gap: 2px; }
+  .topbar .ghost-btn { min-width: 34px; min-height: 34px; padding: 0; }
+  .turn-indicator { min-width: 0; overflow: hidden; padding-inline: var(--space-2); font-size: var(--fs-200); text-overflow: ellipsis; white-space: nowrap; }
   .dice-tray, .action-panel { padding: var(--space-3); }
   .sheet-card { padding: 0 var(--space-4) max(var(--space-4), env(safe-area-inset-bottom, 0px)); }
   .follow-header { grid-template-columns: 50px minmax(0, 1fr) auto; gap: var(--space-2); }

@@ -133,8 +133,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
   // On-demand log drawer (sub-task 5) — the log used to be an always-visible
   // panel with its own permanent internal scroll; now it opens on demand.
   const [logOpen, setLogOpen] = useState(false);
-  // Lifted out of ActionPanel (same "escape the clipped panel" reasoning as
-  // the Follow popup below) so the orbit-abandon confirm can render as a
+  // Lifted out of ActionPanel so the orbit-abandon confirm can render as a
   // bottom sheet instead of window.confirm — see ActionPanel's `submit`.
   const [pendingConfirm, setPendingConfirm] = useState<{ action: Action; message: string } | null>(null);
 
@@ -241,7 +240,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
           ) : pending && pending.queue.length > 0 ? (
             <span className="turn-indicator follow">
               <span className="follow-indicator-die">{({ move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛' } as Record<DieFace, string>)[pending.face]}</span>
-              <span><strong>Follow window</strong> · {state.players.find((p) => p.id === pending.queue[0])!.name} · {FACE_LABEL[pending.face]}</span>
+              <span><strong>Follow action</strong> · {state.players.find((p) => p.id === pending.queue[0])!.name} · {FACE_LABEL[pending.face]}</span>
             </span>
           ) : (
             <span className={`turn-indicator ${activeP.color}`}>
@@ -365,17 +364,17 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
       <footer className="board-footer">
         {onUndo && (
           <button className="ghost-btn undo" disabled={!canUndo} onClick={onUndo} title="Take back your last move (until new info is revealed)">
-            ↶ Undo
+            ↶ <span className="ghost-btn-label">Undo</span>
           </button>
         )}
-        <button className="ghost-btn" onClick={() => setLogOpen(true)}>
-          📜 Log
+        <button className="ghost-btn" onClick={() => setLogOpen(true)} aria-label="Open log">
+          📜 <span className="ghost-btn-label">Log</span>
         </button>
-        <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))} title="Download log">
-          ⬇ Save
+        <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))} title="Download log" aria-label="Save log">
+          ⬇ <span className="ghost-btn-label">Save</span>
         </button>
-        <button className="ghost-btn" onClick={() => setReportOpen('bug')} title="Report a problem">
-          🐞 Report
+        <button className="ghost-btn" onClick={() => setReportOpen('bug')} title="Report a problem" aria-label="Report a problem">
+          🐞 <span className="ghost-btn-label">Report</span>
         </button>
       </footer>
 
@@ -1152,15 +1151,15 @@ function ActionPanel({
   canAct: boolean;
   legalActions: Action[];
   onAction: (a: Action) => void;
-  /** Escapes the clipped action panel (same reasoning as the Follow popup) —
-   *  Board renders the actual bottom-sheet confirm and calls onAction itself. */
+  /** Escapes the clipped action panel: Board renders the actual bottom-sheet
+   *  confirm and calls onAction itself. */
   onRequestConfirm: (action: Action, message: string) => void;
   viewerName: string;
   actorShips: import('../engine/index.js').ShipLocation[];
   selectedDie: number | null;
   /** Board is auto-declining the open follow window this render (its only legal
    *  answer was "decline" — see Board's autoDecline): don't put the accept/
-   *  decline popup on screen for the one frame before the state updates. */
+   *  decline controls on screen for the one frame before the state updates. */
   autoResolvingFollow?: boolean;
   canUndo?: boolean;
   onUndo?: () => void;
@@ -1325,7 +1324,7 @@ function ActionPanel({
       return (
         <div className="action-panel waiting">
           <h3>Actions</h3>
-          <p className="muted">Follow window — nothing you can copy; continuing…</p>
+          <p className="muted">Follow action — nothing you can copy; continuing…</p>
         </div>
       );
     }
@@ -1344,7 +1343,7 @@ function ActionPanel({
       : [];
     const follower = state.players.find((p) => p.id === state.turn.pendingFollow?.queue[0]);
     const card = (
-      <div className="modal-card follow-card">
+      <div className="action-panel follow-card">
         <FollowHeader face={face} sourceName={state.players.find((p) => p.id === state.turn.pendingFollow?.sourcePlayer)?.name ?? 'the active player'} follower={follower} state={state} />
         {face === 'move' ? (
           <MoveSteps
@@ -1370,19 +1369,10 @@ function ActionPanel({
         )}
       </div>
     );
-    // A Move follow needs to tap ships/planet cards that live OUTSIDE this panel
-    // (see MovePickerContext) — a blocking modal backdrop would make them
-    // unreachable, so render inline (same spot as the normal action panel)
-    // instead of as a popup for this one face. Every other face is fully
-    // self-contained (its choices are buttons right here), so those stay a true
-    // popup: the decision happens mid opponent-turn and is easy to miss
-    // otherwise, and there's nothing else on the board the player needs to reach.
-    if (face === 'move') return card;
-    return (
-      <div className="modal-overlay follow-modal" role="dialog" aria-modal="true">
-        {card}
-      </div>
-    );
+    // Follow is an action state, so every face stays in the board's Actions
+    // region. Keeping it inline also leaves the galaxy, resources and planets
+    // visible while the player decides whether copying the action is worthwhile.
+    return card;
   }
 
   // Reroll and Converter are handled in the dice tray (so the player can pick
@@ -1560,7 +1550,7 @@ function FollowHeader({ face, sourceName, follower, state }: { face: DieFace; so
           {artless ? <span>{glyph[face]}</span> : <img src={asset(DIE_IMG[face])} alt="" />}
         </div>
         <div className="follow-title">
-          <span className="eyebrow">Follow window</span>
+          <span className="eyebrow">Follow action</span>
           <h3>{sourceName} plays {FACE_LABEL[face]}</h3>
           <p>Copy this action on your turn</p>
         </div>
