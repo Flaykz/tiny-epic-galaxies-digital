@@ -41,19 +41,25 @@ export function actionLabel(a: Action, ships?: ShipLocation[], actor?: PlayerSta
     case 'reroll':
       return `Reroll ${a.dieIds.length} inactive dice (${a.free ? 'free' : '1 energy'})`;
     case 'follow': {
-      if (!a.accept) return 'Decline follow';
+      // No "Follow — " prefix and no "(pay 1 culture)" suffix: the follow-
+      // choices card these render in is already headed and bordered as a
+      // follow decision, and its cost is shown once in the header (see
+      // Board's FollowHeader) — repeating either on every button is exactly
+      // the extra width that was pushing 2-3 short choices onto separate rows.
+      if (!a.accept) return 'Decline';
       const p = a.params ?? {};
-      // Upgrade-empire follows come in two flavours — pay the upgrade cost with
-      // energy or with culture — on TOP of the 1-culture follow tax. Fold both
-      // costs into one clear label so the two options don't read as a duplicated
-      // "upgrade empire" entry.
-      if (p.pay) return `Follow → upgrade empire — pay ${p.pay} (+1 culture)`;
-      let what = 'copy action';
-      if (p.resource) what = `acquire ${p.resource}`;
-      else if (p.dest != null && p.shipIdx != null) what = `move ship (${ship(p.shipIdx)}) → ${locLabel(p.dest)}`;
-      else if (p.advance != null && p.shipIdx != null) what = `advance ship (${ship(p.shipIdx)}) — ${p.advance}`;
-      else if (p.planetId) what = `use colony ${PLANETS_BY_ID[p.planetId]?.name ?? p.planetId}`;
-      return `Follow — ${what} (pay 1 culture)`;
+      // Upgrade-empire follows come in two flavours — pay with energy or with
+      // culture; only the affordable one(s) are ever legal (see legalFollows
+      // in adapter.ts), so whichever shows up here is a real option.
+      if (p.pay) return `Upgrade empire — pay ${p.pay}`;
+      if (p.resource) return `Acquire ${p.resource}`;
+      if (p.dest != null && p.shipIdx != null) return `Move ship (${ship(p.shipIdx)}) → ${locLabel(p.dest)}`;
+      if (p.advance != null && p.shipIdx != null) return `Advance ship (${ship(p.shipIdx)}) — ${p.advance}`;
+      // What the colony's power actually does is the decision-relevant part —
+      // which planet it happens to be printed on is not, so show the power
+      // itself (the planet's name is still in the tooltip, see actionTooltip).
+      if (p.planetId) return PLANETS_BY_ID[p.planetId]?.action ?? `Use colony ${p.planetId}`;
+      return 'Copy action';
     }
     case 'resolvePlanet':
       return a.label ?? 'Choose this target';
