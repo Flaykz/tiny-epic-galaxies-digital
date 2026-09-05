@@ -237,6 +237,12 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- followKey is the identity of this one follow decision (see above); everything else read here is derived from the same render and must not re-trigger the submit.
   }, [followKey]);
 
+  // End Turn lives in the dice tray now (a 3rd icon button alongside Reroll/
+  // Converter, see DiceTray) rather than at the bottom of the action panel —
+  // it's legal at essentially every normal decision point (see adapter.ts's
+  // legalActions), so it reads better as a persistent tray control than as a
+  // button that comes and goes at the end of a growing action list.
+  const endTurnAction = legalActions.find((a): a is Extract<Action, { type: 'endTurn' }> => a.type === 'endTurn');
   // Forced End Turn: when ending the turn is the *only* legal action left (no
   // die, reroll or Converter left to use), there's no real decision to make —
   // submit it automatically instead of making the player tap a button that
@@ -371,6 +377,9 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
               setConverterSel(null);
             }}
             onCancelConverter={() => setConverterSel(null)}
+            endTurnAvailable={!!endTurnAction}
+            endTurnForced={!!forcedEndAction}
+            onEndTurn={() => endTurnAction && onAction(endTurnAction)}
           />
           <ActionPanel
             state={state}
@@ -512,7 +521,7 @@ const AdvancePickerContext = React.createContext<{ picker: AdvancePicker | null;
  * die, NAGATO, and PIEDES repeat-move. `extras` are extra buttons shown alongside
  * the ship list in step 1 (e.g. PIEDES's non-move repeats, NAGATO's "Done").
  */
-function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 'Move which ship?', verb = 'Move', extras, emptyText }: {
+function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 'Move which ship?', verb = 'Move', extras, emptyText, shipButtons }: {
   moves: MoveOption[];
   actorShips: ShipLocation[];
   moveShip: number | null;
@@ -522,6 +531,12 @@ function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 
   verb?: string;
   extras?: React.ReactNode;
   emptyText?: string;
+  /** Render step 1 (ship choice) as a follow-choices-style button list instead
+   *  of the default "tap a Fleet chip above" status line — used only by the
+   *  Move-die follow card, so it's self-contained like its sibling follow
+   *  faces (Energy/Culture/…) instead of pointing elsewhere on the board. The
+   *  normal Move-die/NAGATO/PIEDES call sites keep the on-board tap pattern. */
+  shipButtons?: boolean;
 }) {
   const { setPicker } = React.useContext(MovePickerContext);
   const shipIdxs = [...new Set(moves.map((m) => m.shipIdx))].sort((a, b) => a - b);
@@ -553,16 +568,31 @@ function MoveSteps({ moves, actorShips, moveShip, setMoveShip, submit, prompt = 
 
   if (moves.length === 0) {
     return (
-      <div className="actions">
+      <div className={shipButtons ? 'actions follow-choices' : 'actions'}>
         {!extras && emptyText && <p className="muted">{emptyText}</p>}
         {extras}
       </div>
     );
   }
 
-  // Step 1 — choose the ship (tap a Fleet chip above; also shown if a prior pick
-  // is no longer movable).
+  // Step 1 — choose the ship. Normally that's tapping a Fleet chip above (also
+  // shown if a prior pick is no longer movable); the follow-move card instead
+  // gets one button per ship, right here, matching its sibling follow faces.
   if (!shipPicked) {
+    if (shipButtons) {
+      return (
+        <div className="actions follow-choices">
+          {shipIdxs.map((idx) => (
+            <button key={idx} className="act-btn follow-accept" onClick={() => setMoveShip(idx)} title={`Ship #${idx + 1}: ${shipLocText(actorShips[idx])}`}>
+              <span className="follow-action-icon" aria-hidden="true">🚀</span>
+              <span className="follow-action-label">Ship #{idx + 1} — {shipLocText(actorShips[idx])}</span>
+              <span className="follow-action-arrow" aria-hidden="true">→</span>
+            </button>
+          ))}
+          {extras}
+        </div>
+      );
+    }
     return (
       <div className="actions move-status">
         <p className="muted small">{prompt} <span className="move-hint">Tap one of your ships above.</span></p>
@@ -1052,6 +1082,9 @@ function DiceTray({
   onToggleConverterDie,
   onConfirmConverter,
   onCancelConverter,
+  endTurnAvailable,
+  endTurnForced,
+  onEndTurn,
 }: {
   state: GameState;
   canAct: boolean;
@@ -1071,6 +1104,12 @@ function DiceTray({
   onToggleConverterDie: (id: number) => void;
   onConfirmConverter: (face: DieFace) => void;
   onCancelConverter: () => void;
+  /** End Turn is legal at essentially every normal decision point, so it lives
+   *  here as a persistent 3rd icon button next to Reroll/Converter instead of
+   *  at the bottom of the (separately scrolled) action panel. */
+  endTurnAvailable: boolean;
+  endTurnForced: boolean;
+  onEndTurn: () => void;
 }) {
   const asset = useAsset();
   const artless = useArtless();
@@ -1182,10 +1221,20 @@ function DiceTray({
         </div>
         {/* Stacked vertically at the card's right edge, out of the dice's way —
          *  entry points into reroll/converter mode; hidden once inside either. */}
-        {canAct && !rerolling && !converting && (rerollAvailable || converterAvailable) && (
+        {canAct && !rerolling && !converting && (rerollAvailable || converterAvailable || endTurnAvailable) && (
           <div className="dice-tools">
             {rerollAvailable && <button className="reroll-btn icon-btn" onClick={onEnterReroll} title="Reroll dice" aria-label="Reroll dice">↻</button>}
             {converterAvailable && <button className="reroll-btn icon-btn" onClick={onEnterConverter} title="Converter" aria-label="Converter">⚙</button>}
+            {endTurnAvailable && (
+              <button
+                className={`reroll-btn icon-btn end-turn-btn ${endTurnForced ? 'forced' : ''}`}
+                onClick={onEndTurn}
+                title="End your turn"
+                aria-label="End turn"
+              >
+                ⏭
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1389,8 +1438,14 @@ function ActionPanel({
     }
     const face = state.turn.pendingFollow.face;
     const decline = followActions.find((a) => a.type === 'follow' && !a.accept);
+    // Same markup as the "×" decline pill in the non-move follow-choices list
+    // below, so Decline looks identical whichever face is being followed.
     const declineBtn = decline && (
-      <button className="act-btn end" onClick={() => onAction(decline)} key="decline">Decline follow</button>
+      <button className="act-btn follow-decline" onClick={() => onAction(decline)} key="decline" title={actionTooltip(decline)}>
+        <span className="follow-action-icon" aria-hidden="true">×</span>
+        <span className="follow-action-label">{actionLabel(decline, actorShips, actor)}</span>
+        <span className="follow-action-arrow" aria-hidden="true" />
+      </button>
     );
     // Following a MOVE offers one option per ship×destination — use the same
     // two-step ship→destination picker as a normal move.
@@ -1418,7 +1473,8 @@ function ActionPanel({
             submit={onAction}
             verb="Follow move:"
             prompt="Follow the move — which ship?"
-            extras={declineBtn && React.cloneElement(declineBtn, { className: 'follow-decline' })}
+            shipButtons
+            extras={declineBtn}
           />
         ) : (
           <div className="actions follow-choices">
@@ -1439,9 +1495,9 @@ function ActionPanel({
     return card;
   }
 
-  // Reroll and Converter are handled in the dice tray (so the player can pick
-  // which dice go where), not as flat buttons here.
-  const global = legalActions.filter((a) => actionDieId(a) == null && a.type !== 'reroll' && a.type !== 'convert');
+  // Reroll, Converter and End Turn are all handled in the dice tray now (see
+  // DiceTray's dice-tools column), not as flat buttons here.
+  const global = legalActions.filter((a) => actionDieId(a) == null && a.type !== 'reroll' && a.type !== 'convert' && a.type !== 'endTurn');
   const forDie = (id: number) => legalActions.filter((a) => actionDieId(a) === id);
   const selectedDieFace = selectedDie != null ? state.turn.dice.find((d) => d.id === selectedDie)?.face : null;
   // Forced end of turn: ending the turn is the *only* legal action left — no die
@@ -1469,7 +1525,7 @@ function ActionPanel({
       {selectedDie == null ? (
         <p className="muted">
           {forcedEnd
-            ? 'No die can be used any more — end your turn.'
+            ? 'No die can be used any more — tap ⏭ in the dice tray to end your turn.'
             : noUsableDie
             ? 'No die can be used right now.'
             : 'Click one of your dice on the left to see what it can do.'}
@@ -1495,41 +1551,48 @@ function ActionPanel({
           emptyText="No ship is orbiting a matching planet right now."
         />
       ) : (
-        // As with the target-choice list above, a flat button list competes
-        // for the dice tray's vertical space when rendered inline — it opens
-        // as a bottom sheet once there's an actual list to show. The status
-        // line ("Selected die: X") always stays inline; it's just text.
+        // A flat button list of *multiple* choices competes for the dice
+        // tray's vertical space when rendered inline, so it opens as a bottom
+        // sheet once there's an actual list to show. A *single* legal option
+        // (the Energy/Culture die's own case almost every time — there's
+        // nothing to choose, just take the resource) isn't a list at all —
+        // it's a confirmation, and the button already names the actual gain
+        // (see actionLabel's "Acquire energy (+N)"), so it renders directly
+        // inline instead of behind a sheet-open/"show the option again" dance
+        // that only ever gated the one button anyone would tap anyway.
         (() => {
           const options = forDie(selectedDie);
           const galaxyUpgradeAvailable = selectedDieFace === 'colony' && options.some((a) => a.type === 'activateColonyGalaxy');
           const colonyDirectAvailable = selectedDieFace === 'colony' && options.some((a) => a.type === 'activateColonyPlanet');
-          // Single-choice automation, same reframing as the target list above: a
-          // one-option list becomes a confirmation with one prominent button.
           const single = options.length === 1;
           return (
             <div className="actions move-status">
               <p className="muted small">
                 Selected die: <strong>{selectedDieFace && FACE_LABEL[selectedDieFace]}</strong>
-                {options.length === 0 ? '' : (galaxyUpgradeAvailable || colonyDirectAvailable) ? ' — choose directly in Your galaxy.' : single ? ' — one option; confirm below.' : ' — tap a choice below.'}
+                {options.length === 0 ? '' : (galaxyUpgradeAvailable || colonyDirectAvailable) ? ' — choose directly in Your galaxy.' : single ? '' : ' — tap a choice below.'}
               </p>
               {options.length === 0 && <p className="muted">No legal use for this die right now.</p>}
               {(galaxyUpgradeAvailable || colonyDirectAvailable) && !colonyOptionsOpen ? (
                 <button className="act-btn single-choice" onClick={() => setColonyOptionsOpen(true)}>
                   Choose another Colony action
                 </button>
+              ) : single ? (
+                <button className="act-btn single-choice" onClick={() => submit(options[0])} title={actionTooltip(options[0])}>
+                  {actionLabel(options[0], actorShips, actor)}
+                </button>
               ) : options.length > 0 && (optionsClosed ? (
                 <button className="act-btn" onClick={() => setOptionsClosed(false)}>
-                  {single ? 'Show the option again' : `Show ${selectedDieFace ? FACE_LABEL[selectedDieFace] : 'die'} options`}
+                  Show {selectedDieFace ? FACE_LABEL[selectedDieFace] : 'die'} options
                 </button>
               ) : (
                 <Sheet
                   open
                   onClose={() => setOptionsClosed(true)}
-                  title={single ? 'Confirm' : selectedDieFace ? FACE_LABEL[selectedDieFace] : undefined}
+                  title={selectedDieFace ? FACE_LABEL[selectedDieFace] : undefined}
                 >
                   <div className="actions">
                     {options.map((a, i) => (
-                      <button key={i} className={`act-btn ${single ? 'single-choice' : ''}`} onClick={() => submit(a)} title={actionTooltip(a)}>
+                      <button key={i} className="act-btn" onClick={() => submit(a)} title={actionTooltip(a)}>
                         {actionLabel(a, actorShips, actor)}
                       </button>
                     ))}
@@ -1541,17 +1604,18 @@ function ActionPanel({
         })()
       )}
 
-      <div className="global-actions">
-        {global.map((a, i) => (
-          <button
-            key={i}
-            className={`act-btn ${a.type === 'endTurn' ? 'end' : 'global'}${forcedEnd && a.type === 'endTurn' ? ' forced' : ''}`}
-            onClick={() => onAction(a)} title={actionTooltip(a)}
-          >
-            {actionLabel(a, actorShips, actor)}
-          </button>
-        ))}
-      </div>
+      {/* endTurn is filtered out of `global` above (it's the dice tray's ⏭
+       *  button now) — in practice nothing else reaches this list during
+       *  normal play, but it stays here for any other global action. */}
+      {global.length > 0 && (
+        <div className="global-actions">
+          {global.map((a, i) => (
+            <button key={i} className="act-btn global" onClick={() => onAction(a)} title={actionTooltip(a)}>
+              {actionLabel(a, actorShips, actor)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

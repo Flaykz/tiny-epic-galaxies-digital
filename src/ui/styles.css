@@ -656,6 +656,13 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
  * reroll/converter controls that follow (Cancel, "Reroll N", face picks) keep
  * full text since they carry real information, not just a label. */
 .reroll-btn.icon-btn { padding: var(--space-1); min-width: var(--tap-min); justify-content: center; font-size: var(--fs-400); }
+/* End Turn is legal at almost every normal decision point, so it sits here as
+ * a 3rd, always-there icon button rather than at the bottom of the (further
+ * away, separately scrolled) action panel — same reddish "this ends things"
+ * tint and pulse-when-forced as the old .act-btn.end/.forced it replaces. */
+.reroll-btn.icon-btn.end-turn-btn { background: #3a2230; border-color: #ff8a8244; }
+.reroll-btn.icon-btn.end-turn-btn:hover { background: #4a2b3c; border-color: #ff8a8266; }
+.reroll-btn.icon-btn.end-turn-btn.forced { border-color: #ff8a8299; animation: end-turn-pulse 1.7s ease-in-out infinite; }
 .dice-tools { display: flex; flex-direction: column; gap: var(--space-1); justify-content: center; }
 .converter-controls { flex-wrap: wrap; align-items: center; }
 .die.converter-spend img, .die.converter-spend.text { outline: 3px solid var(--color-danger); outline-offset: 2px; border-radius: var(--radius-md); }
@@ -720,9 +727,8 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 }
 .act-btn.single-choice:hover { background: linear-gradient(90deg, #4a8ce4, #63c4ff); }
 /* Ending the turn is the only legal action left (no die is usable, no reroll, no
- * Converter): pulse the button so the dead end reads as "you're done" instead of
- * "the UI is stuck". Never auto-submitted — the player always ends their own turn. */
-.act-btn.end.forced { border-color: #ff8a8299; animation: end-turn-pulse 1.7s ease-in-out infinite; }
+ * Converter): pulse the dice tray's ⏭ button (see .end-turn-btn.forced above)
+ * so the dead end reads as "you're done" instead of "the UI is stuck". */
 @keyframes end-turn-pulse {
   0%, 100% { box-shadow: 0 0 0 0 #ff8a8200; }
   50% { box-shadow: 0 0 0 4px #ff8a8226, 0 0 16px #ff8a8244; }
@@ -990,7 +996,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 /* Honour a reduced-motion preference for the two *looping/attention* animations
  * added with the single-choice automation; one-shot slide-ins stay. */
 @media (prefers-reduced-motion: reduce) {
-  .act-btn.end.forced { animation: none; box-shadow: 0 0 0 2px #ff8a8255; }
+  .end-turn-btn.forced { animation: none; box-shadow: 0 0 0 2px #ff8a8255; }
   .toast-banner { animation: none; }
 }
 
