@@ -171,22 +171,17 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 /* ---------- Game shell ----------
  * The shell owns the viewport while a game is on screen: exactly one viewport
  * tall and overflow:hidden, so the *page* can never scroll during a decision.
- * The ← Lobby button sits above the board as a fixed-height row; the board
- * itself takes whatever is left. Because that row is the top-most content,
- * the top safe-area inset belongs here rather than on .topbar. Never give
- * this element (or .board) a transform/filter: .modal-overlay & friends are
- * position:fixed and must keep escaping it. */
+ * .board is its only child now — the ← Lobby button used to sit above it as
+ * its own fixed-height row, stealing that height from the board; it now lives
+ * in .board's own status-tools (see .lobby-btn) so the board can start right
+ * at the top. The shell still carries the top safe-area inset since .board
+ * fills it edge-to-edge. Never give this element (or .board) a transform/
+ * filter: .modal-overlay & friends are position:fixed and must keep escaping it. */
 .game-shell {
   display: flex; flex-direction: column;
   height: 100vh; height: 100dvh;
   overflow: hidden; overscroll-behavior: none;
   padding-top: env(safe-area-inset-top, 0px);
-}
-.exit-btn {
-  flex: 0 0 auto; align-self: flex-start;
-  background: var(--color-surface); border: 1px solid var(--overlay-3); color: var(--color-ink);
-  border-radius: var(--radius-sm); padding: var(--space-1) var(--space-3);
-  margin: var(--space-1) max(var(--space-2), env(safe-area-inset-left, 0px)) 0;
 }
 .loading { display: grid; place-items: center; height: 100dvh; font-size: var(--fs-600); color: var(--color-ink-muted); }
 
@@ -213,7 +208,13 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   flex: 1 1 auto; min-height: 0; min-width: 0;
   display: grid; gap: var(--space-2); overflow: hidden;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: repeat(12, minmax(0, 1fr));
+  /* 11 equal-height rows for the play area + one auto (44px-min) row for the
+   * status bar — not 12 equal rows with the bar spanning 2 of them. That old
+   * split gave the topbar/footer ~1/6th of the board's height on a tablet
+   * (the common case that hits no orientation/height media query below) for
+   * a bar that only ever holds a one-line turn indicator and a row of icon
+   * buttons. Matches the row budget the narrower breakpoints already use. */
+  grid-template-rows: repeat(11, minmax(0, 1fr)) minmax(44px, auto);
   padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px))
                   max(var(--space-2), env(safe-area-inset-right, 0px));
 }
@@ -222,12 +223,21 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 /* Approved in the UI Layout Lab. The four explicit presets deliberately keep
  * dice and actions as independent board regions instead of a shared `play`
  * track, so each can spend exactly the grid budget chosen in the mock-up. */
-.topbar { grid-column: 1 / span 6; grid-row: 11 / span 2; }
-.players-row { grid-column: 1 / span 3; grid-row: 4 / span 7; }
-.planet-row { grid-column: 4 / span 9; grid-row: 4 / span 7; }
-.dice-tray { grid-column: 1 / span 6; grid-row: 1 / span 3; }
-.action-panel { grid-column: 7 / span 6; grid-row: 1 / span 3; }
-.board-footer { grid-column: 7 / span 6; grid-row: 11 / span 2; }
+.topbar { grid-column: 1 / span 6; grid-row: 12 / span 1; }
+/* players-row spans the full height of the play area (row 1, not row 4) —
+ * dice-tray/action-panel used to sit as one band across the *entire* width
+ * above both players-row and planet-row, which is what forced "Your galaxy"
+ * into a short row 4-11 and made it scroll for a full 4-human roster. They
+ * now stack above planet-row only (same column range, 4/span9), freeing rows
+ * 1-3 in columns 1-3 for players-row to occupy instead. */
+.players-row { grid-column: 1 / span 3; grid-row: 1 / span 11; }
+.planet-row { grid-column: 4 / span 9; grid-row: 4 / span 8; }
+/* Narrower than an even split (4 of the 9 columns, not 5) so the die row wraps
+ * 4+3 instead of 5+2 at the empire's max 7 dice — a shorter, more square tray
+ * instead of a lopsided last row. action-panel picks up the column it gives up. */
+.dice-tray { grid-column: 4 / span 4; grid-row: 1 / span 3; }
+.action-panel { grid-column: 8 / span 5; grid-row: 1 / span 3; }
+.board-footer { grid-column: 7 / span 6; grid-row: 12 / span 1; }
 /* A region that spends its budget scrolls internally, so its scrollbar is
  * part of the board's look — keep it hairline instead of a chrome-grey slab. */
 .players-row, .planet-row .cards, .dice-tray, .action-panel {
@@ -271,17 +281,21 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); min-width: 0; padding-block: var(--space-2); }
 .status-turn { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; min-width: 0; }
 .status-tools { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; flex: 0 0 auto; }
+.lobby-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
 .fullscreen-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
 .reset-btn { min-height: var(--tap-min); min-width: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
 .reset-btn:hover { color: var(--color-danger); border-color: #e5544b66; }
-.turn-indicator { padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); font-weight: 700; background: var(--color-surface-2); }
-.turn-indicator.follow { display: inline-flex; align-items: center; gap: var(--space-1); background: linear-gradient(100deg, #4a3a00, #5c3b0b); color: var(--color-gold); border: 1px solid #ffcc4466; box-shadow: 0 4px 16px var(--shade-1); }
-.turn-indicator.follow strong { color: #ffe28a; }
-.follow-indicator-die { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: var(--radius-sm); background: var(--color-bg); border: 1px solid #ffcc4499; font-size: var(--fs-400); }
-.turn-indicator.blue { box-shadow: inset 0 0 0 2px var(--color-player-blue); }
-.turn-indicator.green { box-shadow: inset 0 0 0 2px var(--color-player-green); }
-.turn-indicator.red { box-shadow: inset 0 0 0 2px var(--color-player-red); }
-.turn-indicator.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
+.turn-indicator { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); font-weight: 700; font-size: var(--fs-500); background: var(--color-surface-2); }
+/* A filled, per-seat-color tint (not just a hairline ring) — "whose turn" has
+ * to read at a glance on a shared tablet, and the same blue-tinted pill for
+ * every player didn't say who. The dot + fill repeat the exact color already
+ * used for that player's name and Fleet ships elsewhere on the board, so this
+ * pill is the "which color is mine" legend rather than a fifth color to learn. */
+.turn-indicator::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: 0 0 auto; box-shadow: 0 0 6px currentColor; }
+.turn-indicator.blue { color: var(--color-player-blue-ink); background: #3a7bd52e; box-shadow: inset 0 0 0 2px var(--color-player-blue); }
+.turn-indicator.green { color: var(--color-player-green-ink); background: #3ad57b2e; box-shadow: inset 0 0 0 2px var(--color-player-green); }
+.turn-indicator.red { color: var(--color-player-red-ink); background: #e5544b2e; box-shadow: inset 0 0 0 2px var(--color-player-red); }
+.turn-indicator.yellow { color: var(--color-player-yellow-ink); background: #e5c04b2e; box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
 
 /* Player status region. Single column in both layouts: in landscape it *is*
  * the narrow left column, in portrait the panels are too wide to sit side by
@@ -307,7 +321,14 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   min-width: 0; background: linear-gradient(135deg, var(--color-surface), #151e36); border-radius: var(--radius-md);
   padding: var(--space-3); border: 1px solid var(--overlay-2);
 }
+/* The active frame is tinted with the player's own seat color, not a single
+ * generic accent blue — that's what lets "whose galaxy is framed" also read as
+ * "mine" vs "theirs" instead of just "someone's", see .turn-indicator above. */
 .player-panel.active { box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px #4db8ff33; }
+.player-panel.active.blue { box-shadow: 0 0 0 2px var(--color-player-blue), 0 0 20px #3a7bd533; }
+.player-panel.active.green { box-shadow: 0 0 0 2px var(--color-player-green), 0 0 20px #3ad57b33; }
+.player-panel.active.red { box-shadow: 0 0 0 2px var(--color-player-red), 0 0 20px #e5544b33; }
+.player-panel.active.yellow { box-shadow: 0 0 0 2px var(--color-player-yellow), 0 0 20px #e5c04b33; }
 .player-panel.blue .pp-name { color: var(--color-player-blue-ink); }
 .player-panel.green .pp-name { color: var(--color-player-green-ink); }
 .player-panel.red .pp-name { color: var(--color-player-red-ink); }
@@ -324,6 +345,10 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   font: inherit; cursor: pointer; touch-action: manipulation;
 }
 .opponent-chip.active { box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px #4db8ff33; }
+.opponent-chip.active.blue { box-shadow: 0 0 0 2px var(--color-player-blue), 0 0 20px #3a7bd533; }
+.opponent-chip.active.green { box-shadow: 0 0 0 2px var(--color-player-green), 0 0 20px #3ad57b33; }
+.opponent-chip.active.red { box-shadow: 0 0 0 2px var(--color-player-red), 0 0 20px #e5544b33; }
+.opponent-chip.active.yellow { box-shadow: 0 0 0 2px var(--color-player-yellow), 0 0 20px #e5c04b33; }
 .oc-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .opponent-chip.blue { color: var(--color-player-blue-ink); }
 .opponent-chip.green { color: var(--color-player-green-ink); }
@@ -601,6 +626,14 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .play-area { display: contents; }
 .dice-tray, .action-panel { background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-4); border: 1px solid var(--overlay-1); }
 .dice-tray, .action-panel { min-width: 0; min-height: 0; overflow: auto; }
+/* Whose dice these are is otherwise only spelled out in the topbar, a separate
+ * board region from the dice themselves — echo the same seat-color ring here
+ * (see .turn-indicator/.player-panel.active above) as a second, ambient
+ * reminder right where the player's hand is about to land. */
+.dice-tray.blue { box-shadow: inset 0 0 0 2px var(--color-player-blue); }
+.dice-tray.green { box-shadow: inset 0 0 0 2px var(--color-player-green); }
+.dice-tray.red { box-shadow: inset 0 0 0 2px var(--color-player-red); }
+.dice-tray.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
 .action-panel { container-type: inline-size; }
 /* .dice-body lays the die grid (.dice-main, grows) and the Reroll/Converter
  * entry points (.dice-tools) side by side, the latter a vertical stack pinned
@@ -613,7 +646,11 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .reroll-btn { display: inline-flex; align-items: center; min-height: var(--tap-min); background: var(--color-surface-2); color: var(--color-ink); border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-3); cursor: pointer; font-size: var(--fs-300); touch-action: manipulation; }
 .reroll-btn.primary { background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent)); color: #fff; font-weight: 700; border: none; }
 .reroll-btn:disabled { opacity: .4; cursor: not-allowed; }
-.die.reroll-pick img, .die.reroll-pick.text { outline: 3px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-md); }
+/* Gold, not blue: every inactive die is tappable while picking (to toggle it
+ * in/out), so they all carry the plain blue "usable" ring below regardless —
+ * reroll-pick needs its own color to actually read as "this one will reroll"
+ * instead of a second, near-identical blue ring around the same die. */
+.die.reroll-pick img, .die.reroll-pick.text { outline: 3px solid var(--color-gold); outline-offset: 2px; border-radius: var(--radius-md); }
 /* Icon-only Reroll/Converter entry points — a square tap target instead of a
  * wide text pill, so they don't crowd out the dice on a narrow screen. The
  * reroll/converter controls that follow (Cancel, "Reroll N", face picks) keep
@@ -623,7 +660,18 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .converter-controls { flex-wrap: wrap; align-items: center; }
 .die.converter-spend img, .die.converter-spend.text { outline: 3px solid var(--color-danger); outline-offset: 2px; border-radius: var(--radius-md); }
 .die.converter-target img, .die.converter-target.text { outline: 3px solid var(--color-gold); outline-offset: 2px; border-radius: var(--radius-md); }
-.die:not(.reroll-pick).usable.die { } /* dice not picked during reroll show normal */
+/* Mute the base blue "usable" ring on dice not (yet) picked while rerolling/
+ * converting — otherwise a merely-tappable die and a chosen one both show
+ * blue and differ only by an extra, same-color ring. Picked dice keep their
+ * distinct outline color (gold for reroll-pick/converter-target, red for
+ * converter-spend) as the one clear signal. */
+.dice.rerolling .die.usable:not(.reroll-pick) img,
+.dice.rerolling .die.usable:not(.reroll-pick).text,
+.dice.converting .die.usable:not(.converter-spend):not(.converter-target) img,
+.dice.converting .die.usable:not(.converter-spend):not(.converter-target).text {
+  border-color: var(--overlay-3);
+  box-shadow: none;
+}
 .dice { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-2); }
 .die { width: 64px; text-align: center; font-size: var(--fs-200); background: none; border: none; color: var(--color-ink); padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default; }
 .die img { width: 56px; height: 56px; border-radius: var(--radius-md); border: 2px solid var(--overlay-3); transition: transform .1s, border-color .1s, box-shadow .1s; }
@@ -684,30 +732,25 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .action-panel.follow-card { position: relative; border-color: #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 8px 24px var(--shade-3); }
 .follow-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .22; background-image: radial-gradient(#fff 0.7px, transparent .7px); background-size: 13px 13px; mask-image: linear-gradient(135deg, #000, transparent 60%); }
 .follow-card > * { position: relative; }
-.follow-header { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--overlay-2); }
+/* One row, sized to the die (58px) — die, the follow bonus (headline + a
+ * smaller detail line), and cost, side by side. The bonus text is capped to
+ * one line each with an ellipsis (title="..." on the block carries the full
+ * text) instead of wrapping: a wrapped line would grow this row taller than
+ * the die, which is exactly the height this header is held to. */
+.follow-header { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--overlay-2); }
 .follow-die { width: 58px; height: 58px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--color-bg); border: 2px solid var(--color-gold); box-shadow: 0 0 18px #ffcc4444; overflow: hidden; }
 .follow-die img { width: 100%; height: 100%; object-fit: cover; }
 .follow-die > span { font-size: var(--fs-700); }
-.follow-title h3 { margin: 0 0 2px; font-size: var(--fs-500); }
-.follow-title p { margin: 0; color: var(--color-ink-muted); font-size: var(--fs-300); }
 .follow-cost { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-left: var(--space-2); }
 .follow-cost span { color: var(--color-ink-muted); font-size: var(--fs-100); text-transform: uppercase; letter-spacing: .08em; }
 .follow-cost strong { color: var(--color-culture); font-size: var(--fs-500); white-space: nowrap; }
-.follow-cost-after { color: var(--color-ink-muted); font-size: var(--fs-100); white-space: nowrap; }
-.follow-reward { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: var(--space-3) 0 var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: linear-gradient(100deg, #3ad57b1f, #3ad57b08); border: 1px solid #3ad57b55; box-shadow: inset 0 1px var(--overlay-1); }
-.follow-reward span:first-child { color: var(--color-success); font-size: var(--fs-200); font-weight: 800; text-transform: uppercase; letter-spacing: .05em; flex: 0 0 auto; }
-.follow-reward strong { font-size: var(--fs-300); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
-.follow-net-gain { color: var(--color-success); font-size: var(--fs-500); line-height: 1; }
-.follow-reward-after { color: var(--color-ink-muted); font-size: var(--fs-200); font-weight: 500; }
+.follow-reward { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.follow-reward-label { display: block; color: var(--color-success); font-size: var(--fs-100); font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.follow-reward-headline { display: block; color: var(--color-success); font-size: var(--fs-400); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.follow-reward-detail { display: block; color: var(--color-ink-muted); font-size: var(--fs-100); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Still legal to follow, but there's nothing to gain (already capped, or no ships
  * positioned right now) — flag it instead of quietly showing a green "bonus". */
-.follow-reward.weak { background: linear-gradient(100deg, #ffcc441f, #ffcc4408); border-color: #ffcc4455; }
-.follow-reward.weak span:first-child { color: var(--color-gold); }
-.follow-resource-choices { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-2); }
-.follow-resource-choices .act-btn { min-height: var(--tap-min); font-size: var(--fs-300); }
-.follow-resource-header { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--overlay-2); color: var(--color-ink); }
-.follow-resource-header > span { font-size: var(--fs-500); }
-.follow-resource-header strong { font-size: var(--fs-400); }
+.follow-reward.weak .follow-reward-label, .follow-reward.weak .follow-reward-headline { color: var(--color-gold); }
 .follow-card .actions { margin-top: var(--space-2); }
 .follow-card .actions > .act-btn { width: min(100%, 460px); min-height: 52px; padding: var(--space-3); display: flex; align-items: center; line-height: 1.3; white-space: normal; touch-action: manipulation; }
 .follow-card .follow-choices { display: flex; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: var(--space-2); }
@@ -722,11 +765,11 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .follow-card .follow-decline:hover { color: #fff; border-color: #ffaaa3; background: linear-gradient(135deg, #79313a, #a4424b); transform: translateY(-1px); }
 .follow-card .follow-decline .follow-action-icon { color: #ff9e96; background: #ff8a821c; font-size: var(--fs-600); }
 @container (max-width: 340px) {
-  .follow-header { grid-template-columns: 44px minmax(0, 1fr); gap: var(--space-2); }
+  /* Still one row (the ellipsis on .follow-reward-headline/-detail is what
+   * actually keeps the height fixed) — just a smaller die and tighter gaps
+   * to leave the flexible reward column more room to breathe. */
+  .follow-header { grid-template-columns: 44px minmax(0, 1fr) auto; gap: var(--space-2); }
   .follow-die { width: 44px; height: 44px; }
-  .follow-cost { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: space-between; padding-left: 0; }
-  .follow-reward { align-items: flex-start; flex-direction: column; gap: var(--space-1); }
-  .follow-reward strong { align-items: flex-start; text-align: left; }
   .follow-card .follow-choices { flex-direction: column; }
   .follow-card .follow-choices > .act-btn { flex-basis: auto; width: 100%; min-height: 52px; }
 }
