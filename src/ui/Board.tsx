@@ -79,6 +79,17 @@ export function FullscreenButton() {
   );
 }
 
+/** Leave the game and return to the lobby — no confirmation needed: the game
+ *  keeps playing in the background and reloading/coming back resumes it (see
+ *  App.tsx's resumedState), unlike Reset below which actually discards it. */
+function LobbyButton({ onExit }: { onExit: () => void }) {
+  return (
+    <button type="button" className="ghost-btn lobby-btn" onClick={onExit} title="Back to the lobby" aria-label="Back to lobby">
+      ←
+    </button>
+  );
+}
+
 /** Abandon the current game and start a fresh one (same seats/settings) — local
  *  games only (see BoardProps.onReset). Confirms first (bottom sheet, not
  *  window.confirm — see ConfirmSheet): this discards all progress and can't
@@ -116,9 +127,11 @@ export interface BoardProps {
   onUndo?: () => void;
   /** Abandon the current game and start a fresh one with the same seats/settings. */
   onReset?: () => void;
+  /** Leave the game and return to the lobby (progress is kept — the lobby can resume it). */
+  onExit?: () => void;
 }
 
-export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, onUndo, onReset }: BoardProps) {
+export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, onUndo, onReset, onExit }: BoardProps) {
   const me = state.players.find((p) => p.id === viewer)!;
   const activeP = state.players.find((p) => p.id === state.turn.active)!;
   const pending = state.turn.pendingFollow;
@@ -224,6 +237,23 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- followKey is the identity of this one follow decision (see above); everything else read here is derived from the same render and must not re-trigger the submit.
   }, [followKey]);
 
+  // Forced End Turn: when ending the turn is the *only* legal action left (no
+  // die, reroll or Converter left to use), there's no real decision to make —
+  // submit it automatically instead of making the player tap a button that
+  // was never a choice. Same key-guarded pattern as autoDecline above.
+  const forcedEndAction = canAct && legalActions.length === 1 && legalActions[0].type === 'endTurn'
+    ? legalActions[0]
+    : null;
+  const forcedEndKey = forcedEndAction ? `${state.turnNumber}|${state.log.length}|${state.turn.active}` : null;
+  const forcedEndRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!forcedEndAction || !forcedEndKey) return;
+    if (forcedEndRef.current === forcedEndKey) return;
+    forcedEndRef.current = forcedEndKey;
+    onAction(forcedEndAction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- forcedEndKey is the identity of this turn's forced end (see autoDecline above); everything else read here is derived from the same render and must not re-trigger the submit.
+  }, [forcedEndKey]);
+
   return (
     <MovePickerContext.Provider value={{ picker, setPicker }}>
     <AdvancePickerContext.Provider value={{ picker: advPicker, setPicker: setAdvPicker }}>
@@ -239,18 +269,20 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
         <div className="status-turn">
           {gameOver ? (
             <GameOver state={state} />
-          ) : pending && pending.queue.length > 0 ? (
-            <span className="turn-indicator follow">
-              <span className="follow-indicator-die">{({ move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛' } as Record<DieFace, string>)[pending.face]}</span>
-              <span><strong>Follow action</strong> · {state.players.find((p) => p.id === pending.queue[0])!.name} · {FACE_LABEL[pending.face]}</span>
-            </span>
           ) : (
+            /* The follow-action case (a pending decision to copy another
+             *  player's die) used to get its own "Follow action · Name ·
+             *  Face" badge here — dropped as redundant: the follow decision
+             *  itself already renders in full below (see follow-header),
+             *  die face, reward and cost included, so this pill only ever
+             *  duplicated it. */
             <span className={`turn-indicator ${activeP.color}`}>
               {activeP.name}'s turn {state.phase === 'finalRound' ? '· FINAL ROUND' : ''}
             </span>
           )}
         </div>
         <div className="status-tools">
+          {onExit && <LobbyButton onExit={onExit} />}
           <FullscreenButton />
           {onReset && <ResetButton onReset={onReset} />}
         </div>
@@ -1055,8 +1087,12 @@ function DiceTray({
   // as grayed-out placeholders alongside their real ones, so the payoff of
   // upgrading is visible at a glance.
   const lockedDice = Math.max(0, empire(MAX_EMPIRE).dice - state.turn.dice.length);
+  // Tint the tray with the active player's seat color — same ambient "whose
+  // turn" reminder as the topbar and the players-row frame (see styles.css),
+  // just where the dice themselves are, since that's a separate board region.
+  const activeColor = state.players.find((p) => p.id === state.turn.active)?.color;
   return (
-    <div className="dice-tray">
+    <div className={`dice-tray ${activeColor ?? ''}`}>
       <div className="dice-body">
         <div className="dice-main">
           <div className="dice-head">
@@ -1098,7 +1134,7 @@ function DiceTray({
               </span>
             )}
           </div>
-          <div className="dice">
+          <div className={`dice ${rerolling ? 'rerolling' : ''} ${converting ? 'converting' : ''}`}>
             {state.turn.dice.map((d) => {
               const inactive = !d.activated && !d.inConverter;
               const usable = canAct && activatableDieIds.has(d.id);
@@ -1365,17 +1401,14 @@ function ActionPanel({
             : [])
       : [];
     const follower = state.players.find((p) => p.id === state.turn.pendingFollow?.queue[0]);
-    const resourceFollow = face === 'energy' || face === 'culture';
-    const resourceIcon = face === 'energy' ? '⚡' : '🏛';
-    const resourceName = face === 'energy' ? 'Energy' : 'Culture';
-    const resourceGain = resourceFollow && follower ? acquireCount(follower, face) : 0;
-    const resourceBefore = resourceFollow && follower ? (face === 'energy' ? follower.energy : follower.culture) : 0;
-    const resourceAfter = Math.min(RESOURCE_MAX, resourceBefore + resourceGain);
-    const resourceNet = resourceAfter - resourceBefore - (state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1);
-    const sourceName = state.players.find((p) => p.id === state.turn.pendingFollow?.sourcePlayer)?.name ?? 'the active player';
+    // Same card for every face — the rich FollowHeader (die, cost, net-gain
+    // banner) already covers energy/culture too, and the icon/label/arrow
+    // buttons below read fine for them via the generic actionLabel. Move is the
+    // one face that swaps its body for the ship→destination picker, since a
+    // followed move isn't a single button — it's a choice of ship and dest.
     const card = (
       <div className="action-panel follow-card">
-        {resourceFollow ? <div className="follow-resource-header"><span aria-hidden="true">{resourceIcon}</span><strong>{sourceName} plays {FACE_LABEL[face]}</strong></div> : <FollowHeader face={face} sourceName={sourceName} follower={follower} state={state} />}
+        <FollowHeader face={face} follower={follower} state={state} />
         {face === 'move' ? (
           <MoveSteps
             moves={followMoves}
@@ -1387,15 +1420,6 @@ function ActionPanel({
             prompt="Follow the move — which ship?"
             extras={declineBtn && React.cloneElement(declineBtn, { className: 'follow-decline' })}
           />
-        ) : resourceFollow ? (
-          <div className="actions follow-choices follow-resource-choices">
-            {followActions.map((a, i) => {
-              const accepting = a.type === 'follow' && a.accept;
-              return <button key={i} className={`act-btn ${accepting ? 'follow-accept' : 'follow-decline'}`} onClick={() => onAction(a)} title={actionTooltip(a)}>
-                {accepting ? `Follow · ${resourceNet >= 0 ? '+' : ''}${resourceNet} ${resourceIcon} ${resourceName}` : 'Decline follow'}
-              </button>;
-            })}
-          </div>
         ) : (
           <div className="actions follow-choices">
             {followActions.map((a, i) => (
@@ -1422,9 +1446,9 @@ function ActionPanel({
   const selectedDieFace = selectedDie != null ? state.turn.dice.find((d) => d.id === selectedDie)?.face : null;
   // Forced end of turn: ending the turn is the *only* legal action left — no die
   // has a legal use, and there's no reroll/Converter to fall back on either
-  // (both would appear in legalActions). Nudge the button with a pulse; never
-  // submit it for the player, ending your own turn stays a line you cross
-  // yourself.
+  // (both would appear in legalActions). Board submits this automatically (see
+  // its forcedEndAction effect); the pulse just covers the one render before
+  // that happens.
   const forcedEnd = legalActions.length === 1 && legalActions[0].type === 'endTurn';
   // No die can be activated, but something else still can (a reroll, the
   // Converter): don't tell the player to "click one of your dice" — the tray
@@ -1543,12 +1567,11 @@ const FOLLOW_REWARD: Partial<Record<DieFace, string>> = {
   colony: 'Trigger a colonized planet, or spend toward an empire upgrade',
 };
 
-function FollowHeader({ face, sourceName, follower, state }: { face: DieFace; sourceName: string; follower?: PlayerState; state: GameState }) {
+function FollowHeader({ face, follower, state }: { face: DieFace; follower?: PlayerState; state: GameState }) {
   const asset = useAsset();
   const artless = useArtless();
   const glyph: Record<DieFace, string> = { move: '🚀', energy: '⚡', culture: '🏛', diplomacy: '🕊', economy: '📈', colony: '🏛' };
   const cost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
-  const culture = follower?.culture;
 
   // Unlike a normal die, an Acquire follow doesn't gain a flat amount — it's +1
   // per ship on a matching planet (and +1 energy per ship still on the Galaxy
@@ -1564,56 +1587,55 @@ function FollowHeader({ face, sourceName, follower, state }: { face: DieFace; so
   // what pushes the follower up to affording their next empire upgrade.
   const unlocksUpgrade = next && before != null && after != null && before < next.upgradeCost && after >= next.upgradeCost;
 
-  let reward: React.ReactNode;
+  // headline is the one line that always fits; detail is a second, smaller
+  // line only shown for the real-gain case (there's an actual breakdown worth
+  // a second line for) — full is the same info as one string, in case either
+  // line above gets truncated (see .follow-reward-headline/-detail: single
+  // line, ellipsis) so hovering/long-pressing the block still reveals it all.
+  let headline: React.ReactNode;
+  let detail: string | null = null;
+  let full: string;
   let weak = false;
   if (gainFace && gain != null && before != null && after != null) {
     const icon = gainFace === 'energy' ? '⚡' : '🏛';
     if (before >= RESOURCE_MAX) {
       weak = true;
-      reward = <>Already at {RESOURCE_MAX} {icon} {gainFace} — following won't gain anything</>;
+      headline = `Already at ${RESOURCE_MAX}${icon}`;
+      full = `Already at ${RESOURCE_MAX} ${icon} ${gainFace} — following won't gain anything`;
     } else if (gain === 0) {
       weak = true;
-      reward = <>No ships positioned to gain {icon} {gainFace} right now — following would gain nothing</>;
+      headline = 'Nothing to gain';
+      full = `No ships positioned to gain ${icon} ${gainFace} right now — following would gain nothing`;
     } else {
       const net = after - before - cost;
-      reward = (
-        <>
-          <span className="follow-net-gain">{net >= 0 ? '+' : ''}{net} {icon} {gainFace}</span>
-          <small className="follow-reward-after">
-            Gain {gain} {icon} · cost {cost} 🏛 · {before} → {after} {icon}
-            {next && (unlocksUpgrade ? ` · unlocks the ${next.upgradeCost}${icon} empire upgrade!` : ` · upgrade needs ${next.upgradeCost}${icon}`)}
-          </small>
-        </>
-      );
+      headline = `${net >= 0 ? '+' : ''}${net} ${icon}`;
+      const upgradeNote = next ? (unlocksUpgrade ? ' · unlocks upgrade!' : ` · needs ${next.upgradeCost}${icon}`) : '';
+      detail = `Gain ${gain} · cost ${cost}🏛 · ${before}→${after}${upgradeNote}`;
+      full = `Gain ${gain} ${icon} · cost ${cost} 🏛 · ${before} → ${after} ${icon}${next ? (unlocksUpgrade ? ` · unlocks the ${next.upgradeCost}${icon} empire upgrade!` : ` · upgrade needs ${next.upgradeCost}${icon}`) : ''}`;
     }
   } else {
-    reward = FOLLOW_REWARD[face];
+    headline = FOLLOW_REWARD[face];
+    full = FOLLOW_REWARD[face] ?? '';
   }
 
   return (
-    <>
-      <div className="follow-header">
-        <div className="follow-die" aria-label={`${FACE_LABEL[face]} die`}>
-          {artless ? <span>{glyph[face]}</span> : <img src={asset(DIE_IMG[face])} alt="" />}
-        </div>
-        <div className="follow-title">
-          <span className="eyebrow">Follow action</span>
-          <h3>{sourceName} plays {FACE_LABEL[face]}</h3>
-          <p>Copy this action on your turn</p>
-        </div>
-        <div className="follow-cost">
-          <span>Cost</span>
-          <strong>{cost} 🏛</strong>
-          {culture != null && (
-            <small className="follow-cost-after">You have {culture} 🏛 → {Math.max(0, culture - cost)} 🏛 after</small>
-          )}
-        </div>
+    <div className="follow-header">
+      <div className="follow-die" aria-label={`${FACE_LABEL[face]} die`}>
+        {artless ? <span>{glyph[face]}</span> : <img src={asset(DIE_IMG[face])} alt="" />}
       </div>
-      <div className={`follow-reward ${weak ? 'weak' : ''}`}>
-        <span>{weak ? '⚠ Follow bonus' : '↗ Follow bonus'}</span>
-        <strong>{reward}</strong>
+      {/* Same row as the die and cost, not a banner underneath — a die face
+       *  and "copy this action" already say what's happening; what's worth
+       *  the header's height is what following actually gets you. */}
+      <div className={`follow-reward ${weak ? 'weak' : ''}`} title={full}>
+        <span className="follow-reward-label">{weak ? '⚠ Bonus' : '↗ Bonus'}</span>
+        <strong className="follow-reward-headline">{headline}</strong>
+        {detail && <small className="follow-reward-detail">{detail}</small>}
       </div>
-    </>
+      <div className="follow-cost">
+        <span>Cost</span>
+        <strong>{cost} 🏛</strong>
+      </div>
+    </div>
   );
 }
 

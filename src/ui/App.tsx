@@ -278,7 +278,6 @@ function LocalGame({ seats, seed, rogueDifficulty, rogueCard, resumedState, onEx
 
   return (
     <div className="game-shell">
-      <button className="exit-btn" onClick={onExit}>← Lobby</button>
       <Board
         state={state}
         viewer={viewer}
@@ -288,6 +287,7 @@ function LocalGame({ seats, seed, rogueDifficulty, rogueCard, resumedState, onEx
         canUndo={canAct && engine.canUndo()}
         onUndo={() => engine.undo()}
         onReset={onReset}
+        onExit={onExit}
       />
     </div>
   );
