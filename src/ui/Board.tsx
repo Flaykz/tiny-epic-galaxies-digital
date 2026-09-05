@@ -167,20 +167,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
 
   const rerolling = rerollSel != null;
   const converting = converterSel != null;
-  // Single-choice automation: when exactly one die can legally be activated there
-  // is no "which die" decision left to make, so it comes up preselected (very
-  // common on the last die of a turn). Deliberately a *derived* value rather
-  // than a setSelectedDie effect: the effects above already own that state, and
-  // an auto-select effect racing them is exactly the render-loop shape called
-  // out in MoveSteps below. Suppressed while rerolling/converting — those modes
-  // clear selectedDie on purpose (the dice tray owns the tray taps then, and the
-  // action panel must not open a sheet over it).
-  const autoDie = canAct && !rerolling && !converting && activatableDieIds.size === 1
-    ? [...activatableDieIds][0]
-    : null;
-  // What the tray highlights and the action panel is scoped to. An explicit pick
-  // always wins; the auto-pick only fills in the gap.
-  const activeDie = selectedDie ?? autoDie;
+  // What the tray highlights and the action panel is scoped to. Even when
+  // exactly one die can legally be activated, it is NOT preselected — the
+  // player still has to tap it in the tray, same as with any other die count.
+  const activeDie = selectedDie;
   const colonyUpgradeActions = activeDie != null
     && state.turn.dice.find((d) => d.id === activeDie)?.face === 'colony'
     ? legalActions.filter((a): a is Extract<Action, { type: 'activateColonyGalaxy' }> => a.type === 'activateColonyGalaxy' && a.dieId === activeDie)
@@ -301,7 +291,6 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
             canAct={canAct}
             activatableDieIds={activatableDieIds}
             selectedDie={activeDie}
-            autoSelected={autoDie != null}
             onSelect={(id) => setSelectedDie((cur) => (cur === id ? null : id))}
             rerollAvailable={!!rerollAction}
             rerollFree={!!rerollAction?.free}
@@ -1017,7 +1006,6 @@ function DiceTray({
   canAct,
   activatableDieIds,
   selectedDie,
-  autoSelected,
   onSelect,
   rerollAvailable,
   rerollFree,
@@ -1037,10 +1025,6 @@ function DiceTray({
   canAct: boolean;
   activatableDieIds: Set<number>;
   selectedDie: number | null;
-  /** True when `selectedDie` wasn't tapped by the player but derived because it
-   *  was the only activatable die (see Board's autoDie) — the header says so
-   *  instead of telling them to pick a die they've already been given. */
-  autoSelected: boolean;
   onSelect: (id: number) => void;
   rerollAvailable: boolean;
   rerollFree: boolean;
@@ -1067,94 +1051,107 @@ function DiceTray({
   // Converter is "armed" once 2 dice are in the slots and a third is chosen —
   // then the player picks the face to set it to.
   const converterReady = converting && converterSel!.spend.length === 2 && converterSel!.target != null;
+  // Show the dice this player hasn't unlocked yet (Empire Track tops out at 7)
+  // as grayed-out placeholders alongside their real ones, so the payoff of
+  // upgrading is visible at a glance.
+  const lockedDice = Math.max(0, empire(MAX_EMPIRE).dice - state.turn.dice.length);
   return (
     <div className="dice-tray">
-      <div className="dice-head">
-        <h3>Dice {canAct && !rerolling && !converting && (
-          <span className="muted small">
-            {autoSelected
-              ? '— only one die can be used; it’s selected'
-              : activatableDieIds.size === 0
-              ? '— no die can be used'
-              : '— click a die to activate it'}
-          </span>
-        )}
-          {rerolling && <span className="muted small">— pick which dice to reroll</span>}
-          {converting && <span className="muted small">— Converter: spend 2 dice, then set a 3rd</span>}</h3>
-        {canAct && !rerolling && !converting && (rerollAvailable || converterAvailable) && (
-          <span className="dice-tools">
-            {rerollAvailable && <button className="reroll-btn" onClick={onEnterReroll}>↻ Reroll…</button>}
-            {converterAvailable && <button className="reroll-btn" onClick={onEnterConverter}>⚙ Converter…</button>}
-          </span>
-        )}
-        {rerolling && (
-          <span className="reroll-controls">
-            <button className="reroll-btn primary" disabled={!rerollSel!.length} onClick={onConfirmReroll}>
-              Reroll {rerollSel!.length} ({rerollFree ? 'free' : '1 energy'})
-            </button>
-            <button className="reroll-btn" onClick={onCancelReroll}>Cancel</button>
-          </span>
-        )}
-        {converting && (
-          <span className="reroll-controls converter-controls">
-            {converterReady ? (
-              <>
-                <span className="muted small">Set it to:</span>
-                {FACE_ORDER.map((f) => (
-                  <button key={f} className="reroll-btn primary" onClick={() => onConfirmConverter(f)} title={`Change the chosen die to ${FACE_LABEL[f]}`}>
-                    {FACE_LABEL[f]}
-                  </button>
-                ))}
-              </>
-            ) : (
-              <span className="muted small">
-                {converterSel!.spend.length < 2
-                  ? `Pick ${2 - converterSel!.spend.length} die to spend`
-                  : 'Now pick the die to change'}
+      <div className="dice-body">
+        <div className="dice-main">
+          <div className="dice-head">
+            {/* Only worth a header when there's actual state to explain (reroll/
+             *  converter mode) — otherwise the dice tray already speaks for itself. */}
+            {(rerolling || converting) && (
+              <h3>
+                {rerolling && <span className="muted small">— pick which dice to reroll</span>}
+                {converting && <span className="muted small">— Converter: spend 2 dice, then set a 3rd</span>}
+              </h3>
+            )}
+            {rerolling && (
+              <span className="reroll-controls">
+                <button className="reroll-btn primary" disabled={!rerollSel!.length} onClick={onConfirmReroll}>
+                  Reroll {rerollSel!.length} ({rerollFree ? 'free' : '1 energy'})
+                </button>
+                <button className="reroll-btn" onClick={onCancelReroll}>Cancel</button>
               </span>
             )}
-            <button className="reroll-btn" onClick={onCancelConverter}>Cancel</button>
-          </span>
+            {converting && (
+              <span className="reroll-controls converter-controls">
+                {converterReady ? (
+                  <>
+                    <span className="muted small">Set it to:</span>
+                    {FACE_ORDER.map((f) => (
+                      <button key={f} className="reroll-btn primary" onClick={() => onConfirmConverter(f)} title={`Change the chosen die to ${FACE_LABEL[f]}`}>
+                        {FACE_LABEL[f]}
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <span className="muted small">
+                    {converterSel!.spend.length < 2
+                      ? `Pick ${2 - converterSel!.spend.length} die to spend`
+                      : 'Now pick the die to change'}
+                  </span>
+                )}
+                <button className="reroll-btn" onClick={onCancelConverter}>Cancel</button>
+              </span>
+            )}
+          </div>
+          <div className="dice">
+            {state.turn.dice.map((d) => {
+              const inactive = !d.activated && !d.inConverter;
+              const usable = canAct && activatableDieIds.has(d.id);
+              const rerollPick = rerolling && rerollSel!.includes(d.id);
+              const spendPick = converting && converterSel!.spend.includes(d.id);
+              const targetPick = converting && converterSel!.target === d.id;
+              const interactive = rerolling || converting ? inactive : usable;
+              const cls = [
+                'die',
+                artless ? 'text' : '',
+                d.activated ? 'activated' : '',
+                d.inConverter ? 'converter' : '',
+                interactive ? 'usable' : '',
+                !rerolling && !converting && selectedDie === d.id ? 'sel' : '',
+                rerollPick ? 'reroll-pick' : '',
+                spendPick ? 'converter-spend' : '',
+                targetPick ? 'converter-target' : '',
+              ].join(' ');
+              return (
+                <button
+                  key={d.id}
+                  className={cls}
+                  disabled={!interactive}
+                  onClick={() => { if (!interactive) return; rerolling ? onToggleReroll(d.id) : converting ? onToggleConverterDie(d.id) : onSelect(d.id); }}
+                  title={rerolling
+                    ? `${FACE_LABEL[d.face]}${rerollPick ? ' — will reroll' : ' — kept'}`
+                    : converting
+                    ? `${FACE_LABEL[d.face]}${spendPick ? ' — into the Converter' : targetPick ? ' — will change' : inactive ? ' — click to pick' : ''}`
+                    : `${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
+                >
+                  {artless
+                    ? <span className="die-glyph">{FACE_GLYPH[d.face]}</span>
+                    : <img src={asset(DIE_IMG[d.face])} alt={FACE_LABEL[d.face]} />}
+                  <span>{FACE_LABEL[d.face]}</span>
+                </button>
+              );
+            })}
+            {Array.from({ length: lockedDice }, (_, i) => (
+              <div key={`locked-${i}`} className={`die locked ${artless ? 'text' : ''}`} title="Not unlocked yet — upgrade your Empire Track to gain more dice">
+                <span className="die-glyph">🔒</span>
+                <span>Locked</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Stacked vertically at the card's right edge, out of the dice's way —
+         *  entry points into reroll/converter mode; hidden once inside either. */}
+        {canAct && !rerolling && !converting && (rerollAvailable || converterAvailable) && (
+          <div className="dice-tools">
+            {rerollAvailable && <button className="reroll-btn icon-btn" onClick={onEnterReroll} title="Reroll dice" aria-label="Reroll dice">↻</button>}
+            {converterAvailable && <button className="reroll-btn icon-btn" onClick={onEnterConverter} title="Converter" aria-label="Converter">⚙</button>}
+          </div>
         )}
-      </div>
-      <div className="dice">
-        {state.turn.dice.map((d) => {
-          const inactive = !d.activated && !d.inConverter;
-          const usable = canAct && activatableDieIds.has(d.id);
-          const rerollPick = rerolling && rerollSel!.includes(d.id);
-          const spendPick = converting && converterSel!.spend.includes(d.id);
-          const targetPick = converting && converterSel!.target === d.id;
-          const interactive = rerolling || converting ? inactive : usable;
-          const cls = [
-            'die',
-            artless ? 'text' : '',
-            d.activated ? 'activated' : '',
-            d.inConverter ? 'converter' : '',
-            interactive ? 'usable' : '',
-            !rerolling && !converting && selectedDie === d.id ? 'sel' : '',
-            rerollPick ? 'reroll-pick' : '',
-            spendPick ? 'converter-spend' : '',
-            targetPick ? 'converter-target' : '',
-          ].join(' ');
-          return (
-            <button
-              key={d.id}
-              className={cls}
-              disabled={!interactive}
-              onClick={() => { if (!interactive) return; rerolling ? onToggleReroll(d.id) : converting ? onToggleConverterDie(d.id) : onSelect(d.id); }}
-              title={rerolling
-                ? `${FACE_LABEL[d.face]}${rerollPick ? ' — will reroll' : ' — kept'}`
-                : converting
-                ? `${FACE_LABEL[d.face]}${spendPick ? ' — into the Converter' : targetPick ? ' — will change' : inactive ? ' — click to pick' : ''}`
-                : `${FACE_LABEL[d.face]}${d.activated ? ' (used)' : d.inConverter ? ' (in converter)' : usable ? ' — click to use' : ''}`}
-            >
-              {artless
-                ? <span className="die-glyph">{FACE_GLYPH[d.face]}</span>
-                : <img src={asset(DIE_IMG[d.face])} alt={FACE_LABEL[d.face]} />}
-              <span>{FACE_LABEL[d.face]}</span>
-            </button>
-          );
-        })}
       </div>
     </div>
   );
@@ -1196,11 +1193,10 @@ function ActionPanel({
   const [moveShip, setMoveShip] = useState<number | null>(null);
   // The selected die's option list opens in a sheet (it doesn't fit inline in
   // portrait). Using a die is never mandatory — ending the turn instead is
-  // always legal — and since Board now auto-selects a lone activatable die, that
-  // sheet can open without the player ever tapping a die: it has to be
-  // dismissible, or a single-usable-die turn would sit behind an overlay with no
-  // way to reach End Turn. (The pendingChoice sheet below stays mandatory: there
-  // the engine has no other legal action to offer.)
+  // always legal — so it has to be dismissible, or picking a die (even the only
+  // usable one) would sit behind an overlay with no way to reach End Turn.
+  // (The pendingChoice sheet below stays mandatory: there the engine has no
+  // other legal action to offer.)
   const [optionsClosed, setOptionsClosed] = useState(false);
   const [colonyOptionsOpen, setColonyOptionsOpen] = useState(false);
   // Reset the ship pick when the context changes: a different die selected, a new
