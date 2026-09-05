@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { UpdateBanner, VmodSetupDialog } from 'digital-boardgame-framework/client';
 import { AssetContext, useGameAssets, VMOD_URL } from '../client/assets.js';
-import { Board } from './Board.js';
+import { Board, FullscreenButton } from './Board.js';
 import { useLocalGame } from '../client/useLocalGame.js';
 import type { LocalSeat } from '../client/localEngine.js';
-import { MultiplayerApp } from './Multiplayer.js';
 import { ROGUE_CARDS, type RogueCardId } from '../engine/index.js';
 
 // The five Rogue Galaxy cards in difficulty order, for the solo selector.
@@ -12,23 +11,16 @@ const ROGUE_ORDER: RogueCardId[] = ['rothkel', 'artemis', 'zendica', 'hades', 'g
 
 type Mode =
   | { kind: 'lobby' }
-  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId }
-  | { kind: 'multiplayer' };
+  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId };
 
 export function App() {
-  // An invite link (?game=…&token=…) must open straight into the multiplayer
-  // game, not the lobby — otherwise the params are ignored and you bounce back.
-  const [mode, setMode] = useState<Mode>(() => {
-    const p = new URLSearchParams(window.location.search);
-    return p.get('game') && p.get('token') ? { kind: 'multiplayer' } : { kind: 'lobby' };
-  });
+  const [mode, setMode] = useState<Mode>({ kind: 'lobby' });
 
   const assets = useGameAssets();
 
   return (
     <AssetContext.Provider value={{ resolve: assets.resolve, artless: assets.artless }}>
       {mode.kind === 'lobby' && <Lobby onStart={setMode} />}
-      {mode.kind === 'multiplayer' && <MultiplayerApp onExit={() => setMode({ kind: 'lobby' })} />}
       {mode.kind === 'local' && (
         <LocalGame
           // Keying on `seed` forces a full remount (fresh LocalEngine — see
@@ -118,9 +110,9 @@ function InstallButton() {
   );
 }
 
-/** The three ways to start a game — one visible at a time, see LOBBY_TABS. */
-type LobbyTab = 'local' | 'solo' | 'multiplayer';
-const LOBBY_TABS: [LobbyTab, string][] = [['local', 'Local'], ['solo', 'Solo'], ['multiplayer', 'Multiplayer']];
+/** The two ways to start a game — one visible at a time, see LOBBY_TABS. */
+type LobbyTab = 'local' | 'solo';
+const LOBBY_TABS: [LobbyTab, string][] = [['local', 'Local'], ['solo', 'Solo']];
 
 function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
   const [tab, setTab] = useState<LobbyTab>('local');
@@ -153,7 +145,10 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
       <div className="lobby-card">
         <div className="lobby-head">
           <h1>Tiny Epic Galaxies</h1>
-          <InstallButton />
+          <div className="lobby-head-actions">
+            <FullscreenButton />
+            <InstallButton />
+          </div>
         </div>
         <p className="tagline">A digital port, with real card art from the VASSAL module.</p>
 
@@ -230,16 +225,6 @@ function Lobby({ onStart }: { onStart: (m: Mode) => void }) {
               : 'Advanced: the Rogue rerolls each unusable die once before discarding it.'}
           </p>
           <button className="primary" onClick={startSolo}>Start solo game</button>
-        </div>
-        )}
-
-        {tab === 'multiplayer' && (
-        <div className="lobby-section">
-          <h2>Async multiplayer</h2>
-          <p className="muted small">Create a game and share invite links. Requires the dev server (npm run server).</p>
-          <button className="primary" onClick={() => onStart({ kind: 'multiplayer' })}>
-            Multiplayer
-          </button>
         </div>
         )}
         </div>

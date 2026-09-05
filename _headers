@@ -1,8 +1,61 @@
-# Always revalidate the HTML + version manifest so a new deploy is picked up on a
-# normal reload (the hashed /assets/* files are immutable and cache fine).
+# NOTE: this file only has effect on hosts that honor a `_headers` file
+# (Cloudflare Pages, Netlify). The project's actual deploy target,
+# GitHub Pages (see .github/workflows/deploy-pages.yml), ignores it entirely
+# and forces `Cache-Control: max-age=600` on every response regardless —
+# verified against the live deploy. Cache-busting there instead relies on
+# two host-agnostic mechanisms that don't need header control at all:
+#   - Vite content-hashes every JS/CSS filename, so a code change always
+#     produces a brand-new URL (dist/assets/*-<hash>.js) — never a stale
+#     cache hit, on any host.
+#   - vite-plugin-pwa's generated service worker precaches the whole app
+#     shell (JS/CSS/HTML/icons) with a per-file content revision, and
+#     activates a new build immediately (skipWaiting + clientsClaim, via
+#     `registerType: 'autoUpdate'` in vite.config.ts) instead of waiting for
+#     every tab to close.
+# Kept below for whenever this deploys behind a host that does honor it.
 /
   Cache-Control: no-cache, must-revalidate
 /index.html
   Cache-Control: no-cache, must-revalidate
 /version.json
+  Cache-Control: no-cache, must-revalidate
+# Hashed JS/CSS bundles: the filename changes whenever the content does, so
+# these can be cached forever without ever going stale.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+# App icons (original SVG-derived design, not VASSAL art) and the VASSAL-
+# derived card/dice/mat/ship art some deploys ship in public/ — none of these
+# are content-hashed, but none of them change between builds either, so a
+# long cache is safe. (GitHub Pages doesn't ship the art at all — see
+# DBF_NO_ASSETS in deploy-pages.yml — visitors get it via the in-app VASSAL
+# import instead, cached in IndexedDB, which isn't HTTP caching at all.)
+/apple-touch-icon.png
+  Cache-Control: public, max-age=31536000, immutable
+/icon-192.png
+  Cache-Control: public, max-age=31536000, immutable
+/icon-512.png
+  Cache-Control: public, max-age=31536000, immutable
+/favicon.svg
+  Cache-Control: public, max-age=31536000, immutable
+/favicon.ico
+  Cache-Control: public, max-age=31536000, immutable
+/cards/*
+  Cache-Control: public, max-age=31536000, immutable
+/dice/*
+  Cache-Control: public, max-age=31536000, immutable
+/mats/*
+  Cache-Control: public, max-age=31536000, immutable
+/ships/*
+  Cache-Control: public, max-age=31536000, immutable
+# The service worker itself must always be revalidated — an old sw.js stuck
+# in a CDN cache would never notice a new build exists. (Browsers already
+# cap SW-script caching at 24h regardless of headers, but no point relying
+# on that when we can just say it outright.)
+/sw.js
+  Cache-Control: no-cache, must-revalidate
+/registerSW.js
+  Cache-Control: no-cache, must-revalidate
+/workbox-*.js
+  Cache-Control: no-cache, must-revalidate
+/manifest.webmanifest
   Cache-Control: no-cache, must-revalidate

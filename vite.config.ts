@@ -91,9 +91,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     // Honor a PORT assigned by the tooling (e.g. preview auto-port); else 5173.
     port: Number(process.env.PORT) || 5173,
-    proxy: {
-      // Forward API calls to the multiplayer GameServer during dev.
-      '/api': 'http://localhost:8787',
-    },
+    // Bind on 0.0.0.0, not just localhost, so another device on the same LAN
+    // (phone/tablet for real-device testing) can reach it via the machine's
+    // local IP — `npm run dev` prints that URL on startup.
+    host: true,
   },
 }));

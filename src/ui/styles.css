@@ -103,7 +103,6 @@ h1, h2, h3 { margin: 0 0 .4em; }
 button { font-family: inherit; cursor: pointer; }
 .muted { color: var(--color-ink-muted); }
 .small { font-size: var(--fs-300); }
-.error { color: var(--color-danger); }
 a { color: var(--color-accent); word-break: break-all; }
 code { background: var(--shade-2); padding: 1px 5px; border-radius: var(--radius-sm); }
 
@@ -111,10 +110,9 @@ code { background: var(--shade-2); padding: 1px 5px; border-radius: var(--radius
  * Same contract as the game shell below: exactly one viewport tall, never a
  * page scroll. A centred flex column rather than a grid so the card can be a
  * `flex: 0 1 auto; min-height: 0` item — it sits at its natural height when it
- * fits and scrolls *inside itself* when it can't (the 5-seat multiplayer invite
- * list is the only thing that ever does; it's opened on demand, not blocking a
- * live decision). The local-play lobby fits without that valve because only one
- * mode's controls are mounted at a time (see .lobby-tabs). */
+ * fits and scrolls *inside itself* on a very small/zoomed viewport instead of
+ * blowing past it. Only one mode's controls are mounted at a time (see
+ * .lobby-tabs), so that valve rarely engages in practice. */
 .lobby {
   height: 100vh; height: 100dvh; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2);
@@ -129,9 +127,9 @@ code { background: var(--shade-2); padding: 1px 5px; border-radius: var(--radius
   padding: var(--space-5); max-width: 480px; width: 100%; box-shadow: 0 20px 60px var(--shade-3);
   scrollbar-width: thin; scrollbar-color: var(--overlay-3) transparent;
 }
-.lobby > .signin-bar { flex: 0 0 auto; max-width: 480px; }
 .lobby-card h1 { font-size: clamp(1.5rem, 6vw, 2rem); background: linear-gradient(90deg, var(--color-accent), var(--color-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lobby-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.lobby-head-actions { display: flex; align-items: center; gap: var(--space-2); }
 .install-btn { min-height: var(--tap-min); white-space: nowrap; touch-action: manipulation; }
 .tagline { color: var(--color-ink-muted); margin: 0; font-size: var(--fs-400); }
 /* Full-width 3-up segmented control; the base .seg is an inline pill sized to
@@ -153,7 +151,7 @@ code { background: var(--shade-2); padding: 1px 5px; border-radius: var(--radius
 .difficulty label { flex: 0 0 auto; width: 100px; color: var(--color-ink-muted); }
 /* 16px, not a type-scale step: iOS Safari auto-zooms the page when a control
  * with a smaller font takes focus, which would break the no-scroll contract
- * from inside the viewport. Same reason on .sheet-field's inputs. */
+ * from inside the viewport. */
 .difficulty select {
   flex: 1; min-width: 0; min-height: var(--tap-min); background: var(--color-surface-2); color: var(--color-ink);
   border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
@@ -169,32 +167,15 @@ button.primary {
 }
 button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .play-count { margin-bottom: 0; }
-/* "Play vs AI (ranked)" — a second, differently-rated way to start, so it gets
- * a separator from the plain Create-game flow above it. */
-.vs-ai { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--overlay-2); }
-.invites ul { list-style: none; padding: 0; }
-.invites li { margin: var(--space-2) 0; padding: var(--space-2); background: var(--shade-1); border-radius: var(--radius-sm); }
-.invites button { min-height: var(--tap-min); border: none; background: var(--color-surface-2); color: var(--color-ink); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-3); touch-action: manipulation; }
-/* Two 44px buttons plus a seat name don't fit one line on a phone, and shrinking
- * them is not an option — so the name takes its own line and the buttons split
- * the next one evenly. */
-.invite-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.invite-row strong { flex: 1 1 100%; }
-.invite-row button { flex: 1 1 0; min-width: 0; }
-.invites button.primary.small { margin-top: 0; background: linear-gradient(90deg, var(--color-player-blue), var(--color-accent)); color: #fff; font-weight: 700; }
-.invite-link {
-  display: block; margin-top: var(--space-1); font-size: var(--fs-200); color: var(--color-ink-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal;
-}
 
 /* ---------- Game shell ----------
  * The shell owns the viewport while a game is on screen: exactly one viewport
  * tall and overflow:hidden, so the *page* can never scroll during a decision.
- * The ← Lobby button (and the multiplayer sign-in bar) sit above the board as
- * fixed-height rows; the board itself takes whatever is left. Because those
- * rows are the top-most content, the top safe-area inset belongs here rather
- * than on .topbar. Never give this element (or .board) a transform/filter:
- * .modal-overlay & friends are position:fixed and must keep escaping it. */
+ * The ← Lobby button sits above the board as a fixed-height row; the board
+ * itself takes whatever is left. Because that row is the top-most content,
+ * the top safe-area inset belongs here rather than on .topbar. Never give
+ * this element (or .board) a transform/filter: .modal-overlay & friends are
+ * position:fixed and must keep escaping it. */
 .game-shell {
   display: flex; flex-direction: column;
   height: 100vh; height: 100dvh;
@@ -886,50 +867,6 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 }
 .vmod-setup > div > button:last-child:hover { color: var(--color-ink); border-color: var(--color-accent); }
 
-/* ---------- Sign-in bar / ranked status (framework, unstyled) ----------
- * <SignInBar unstyled className="signin-bar"> renders a bare row of spans,
- * buttons, an optional name <input> and the leaderboard link — `unstyled`
- * really does drop every inline style here, so this is a clean reskin.
- * Used both above the multiplayer lobby card and above the board in a live
- * multiplayer game, where it is a fixed-height row of the .game-shell column. */
-.signin-bar {
-  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; min-width: 0; width: 100%;
-  gap: var(--space-1) var(--space-2);
-  padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px)) max(var(--space-2), env(safe-area-inset-right, 0px));
-  color: var(--color-ink-muted); font-size: var(--fs-300);
-}
-.signin-bar strong { color: var(--color-ink); }
-.signin-bar button {
-  display: inline-flex; align-items: center; min-height: var(--tap-min); padding: 0 var(--space-3);
-  background: var(--color-surface-2); border: 1px solid var(--overlay-3); border-radius: var(--radius-sm);
-  color: var(--color-ink); font-family: inherit; font-size: var(--fs-300); font-weight: 600;
-  cursor: pointer; touch-action: manipulation;
-}
-/* Icon-only affordances: the rename pencil and the dismiss ✕ keep the 44px
- * target but drop the chrome so they don't read as primary actions. */
-.signin-bar button[aria-label="Change name"], .signin-bar button[aria-label="Dismiss"] {
-  min-width: var(--tap-min); justify-content: center; padding: 0;
-  background: none; border: none; color: var(--color-ink-muted); font-size: var(--fs-500);
-}
-.signin-bar input {
-  min-height: var(--tap-min); width: 9rem; max-width: 100%;
-  background: var(--color-surface-sunken); color: var(--color-ink);
-  border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: 0 var(--space-2);
-  font-family: inherit; font-size: 16px; /* see .difficulty select — iOS focus zoom */
-}
-.signin-bar > a {
-  display: inline-flex; align-items: center; min-height: var(--tap-min); margin-left: auto;
-  padding-inline: var(--space-2); color: var(--color-accent); font-weight: 600;
-  text-decoration: none; white-space: nowrap; word-break: normal;
-}
-.ranked-status {
-  flex: 0 0 auto; margin: 0; text-align: center; font-size: var(--fs-300); color: var(--color-ink-muted);
-  background: var(--color-surface); border-top: 1px solid var(--overlay-2);
-  padding: var(--space-2) var(--space-4) max(var(--space-2), env(safe-area-inset-bottom, 0px));
-}
-.ranked-status.ok { color: var(--color-success); }
-.ranked-status.warn { color: var(--color-gold); }
-
 /* ---------- Bottom sheets (confirm / detail / drawer / contextual choice) ----------
  * Shared visual language for every popup that needs to escape a clipped grid
  * track: slide up from the bottom, rounded top corners, safe-area bottom
@@ -964,23 +901,6 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 }
 .sheet-body { display: flex; flex-direction: column; gap: var(--space-2); padding-bottom: var(--space-2); }
 .sheet-body .actions, .sheet-body .global-actions { margin-top: 0; }
-
-/* ---- Form controls inside a sheet (ReportDialog) ---- */
-.sheet-field { display: block; }
-.sheet-field > span { display: block; margin-bottom: var(--space-1); font-size: var(--fs-300); color: var(--color-ink-muted); }
-.sheet-field textarea, .sheet-field select {
-  width: 100%; background: var(--color-surface-sunken); color: var(--color-ink);
-  border: 1px solid var(--overlay-3); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
-  /* 16px, not a type-scale step: anything smaller makes iOS Safari zoom the
-   * page in when the control takes focus — a page scroll from the inside. */
-  font-family: inherit; font-size: 16px;
-}
-.sheet-field textarea { min-height: 88px; resize: vertical; line-height: 1.4; }
-.sheet-field select { min-height: var(--tap-min); touch-action: manipulation; }
-/* The whole label is the target, so it carries the 44px height rather than the
- * (deliberately still small, but enlarged) box itself. */
-.sheet-check { display: flex; align-items: center; gap: var(--space-3); min-height: var(--tap-min); font-size: var(--fs-400); cursor: pointer; touch-action: manipulation; }
-.sheet-check input { flex: 0 0 auto; width: 22px; height: 22px; accent-color: var(--color-accent); }
 
 /* ---- Final scores (GameOverDialog) ---- */
 .gameover-headline { margin: 0; font-size: clamp(1.15rem, 4vw, 1.5rem); }

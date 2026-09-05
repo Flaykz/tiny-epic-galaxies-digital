@@ -1,104 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { finalScore, type GameState } from '../engine/index.js';
-import { submitReport, captureScreenshot, downloadText, logText, problemReport } from '../client/report.js';
-
-type Severity = 'bug' | 'rules-question' | 'feedback';
-
-/**
- * Rich problem-report dialog: a description, a severity, and an auto-attached
- * screenshot + full game log/state. Submits to the server; falls back to a local
- * download if the server can't be reached (a report is never silently dropped).
- *
- * A dismissible bottom {@link Sheet}, like every other popup in the app: the
- * submit/cancel pair and the on-screen keyboard both live at the bottom of a
- * phone, so a centered card put the form as far from the thumb as possible.
- * Sheet is a dumb container, so the two-step form → submitted state stays here
- * as conditional children.
- */
-export function ReportDialog({
-  state,
-  defaultSeverity = 'bug',
-  title = 'Report a problem',
-  category,
-  onClose,
-}: {
-  state: GameState;
-  defaultSeverity?: Severity;
-  title?: string;
-  /** Triage bucket; 'game-log' keeps post-victory uploads out of the problem queue. */
-  category?: string;
-  onClose: () => void;
-}) {
-  const [message, setMessage] = useState('');
-  const [severity, setSeverity] = useState<Severity>(defaultSeverity);
-  const [attachShot, setAttachShot] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const screenshot = attachShot ? await captureScreenshot() : undefined;
-      const id = await submitReport({ message: message || '(no description)', severity, category, state, screenshot });
-      setDone(id);
-    } catch (e: any) {
-      // Don't lose the report — download it locally.
-      downloadText(`teg-report-turn${state.turnNumber}.json`, problemReport(state, message), 'application/json');
-      setError(`Couldn't reach the server, so a report file was downloaded instead — please attach it. (${e?.message ?? e})`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const fieldLabel = severity === 'feedback' ? 'Notes (optional)'
-    : severity === 'rules-question' ? 'Your rules question'
-    : 'What happened? (and what you expected)';
-  const placeholder = severity === 'feedback' ? 'Anything to add about this game? (optional)'
-    : severity === 'rules-question' ? 'Which rule seems wrong, and what did you expect?'
-    : 'Describe the problem and what you expected…';
-
-  return (
-    <Sheet open onClose={onClose} title={title}>
-      {done ? (
-        <>
-          <p>✅ Thanks! Submitted to the server.</p>
-          <p className="muted small">Report id <code>{done}</code></p>
-          <div className="sheet-actions">
-            <button type="button" className="sheet-btn primary" onClick={onClose}>Done</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <label className="sheet-field">
-            <span>{fieldLabel}</span>
-            <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} autoFocus
-              placeholder={placeholder} />
-          </label>
-          <label className="sheet-field">
-            <span>Type</span>
-            <select value={severity} onChange={(e) => setSeverity(e.target.value as Severity)}>
-              <option value="bug">Bug</option>
-              <option value="rules-question">Rules question</option>
-              <option value="feedback">Feedback</option>
-            </select>
-          </label>
-          <label className="sheet-check">
-            <input type="checkbox" checked={attachShot} onChange={(e) => setAttachShot(e.target.checked)} />
-            <span>Attach a screenshot</span>
-          </label>
-          <p className="muted small">The current game log and state are attached automatically.</p>
-          {error && <p className="error">{error}</p>}
-          <div className="sheet-actions">
-            <button type="button" className="sheet-btn primary" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit report'}</button>
-            <button type="button" className="sheet-btn ghost" onClick={onClose}>Cancel</button>
-          </div>
-        </>
-      )}
-    </Sheet>
-  );
-}
+import { downloadText, logText } from '../client/log.js';
 
 /**
  * Generic bottom-anchored sheet/drawer — the shared visual language for every
@@ -217,7 +119,7 @@ export function ConfirmSheet({
   );
 }
 
-/** End-of-game popup: who won/lost (from the viewer's seat) + submit/download log.
+/** End-of-game popup: who won/lost (from the viewer's seat) + a log download.
  *
  * A *mandatory* bottom {@link Sheet} (no `onClose`, so no ✕ and no
  * tap-outside): the explicit Close button below is the only way out, exactly as
@@ -228,12 +130,10 @@ export function ConfirmSheet({
 export function GameOverDialog({
   state,
   viewer,
-  onSubmitLog,
   onClose,
 }: {
   state: GameState;
   viewer: string;
-  onSubmitLog: () => void;
   onClose: () => void;
 }) {
   const winners = state.winners ?? [];
@@ -263,8 +163,7 @@ export function GameOverDialog({
         ))}
       </ul>
       <div className="sheet-actions">
-        <button type="button" className="sheet-btn primary" onClick={onSubmitLog}>⬆ Submit game log</button>
-        <button type="button" className="sheet-btn" onClick={() => downloadText('teg-final-log.txt', logText(state))}>⬇ Download log</button>
+        <button type="button" className="sheet-btn primary" onClick={() => downloadText('teg-final-log.txt', logText(state))}>⬇ Download log</button>
         <button type="button" className="sheet-btn ghost" onClick={onClose}>Close</button>
       </div>
     </Sheet>

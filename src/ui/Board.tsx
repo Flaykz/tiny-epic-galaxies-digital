@@ -17,9 +17,9 @@ import {
 } from '../engine/index.js';
 import { actionLabel, actionDieId, actionTooltip } from '../client/labels.js';
 import { PlanetTokens } from './Tokens.js';
-import { downloadText, logText } from '../client/report.js';
+import { downloadText, logText } from '../client/log.js';
 import { useAsset, useArtless } from '../client/assets.js';
-import { ReportDialog, GameOverDialog, Sheet, ConfirmSheet, Toast } from './Dialogs.js';
+import { GameOverDialog, Sheet, ConfirmSheet, Toast } from './Dialogs.js';
 
 const DIE_IMG: Record<DieFace, string> = {
   move: '/dice/move.jpg',
@@ -41,8 +41,10 @@ const FACE_LABEL: Record<DieFace, string> = {
 
 /** Toggle browser fullscreen — most useful on a tablet/phone, where the browser
  *  chrome eats real screen space. Self-hides if the Fullscreen API isn't
- *  available at all (e.g. iPhone Safari doesn't support it). */
-function FullscreenButton() {
+ *  available at all (e.g. iPhone Safari doesn't support it). Also used by the
+ *  lobby (App.tsx), not just the board — a tablet user reaching for this
+ *  should find it before starting a game, not only once one is running. */
+export function FullscreenButton() {
   const supported = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen && document.fullscreenEnabled !== false;
   const [isFullscreen, setIsFullscreen] = useState(() => supported && !!document.fullscreenElement);
 
@@ -109,26 +111,19 @@ export interface BoardProps {
   canAct: boolean;
   legalActions: Action[];
   onAction: (a: Action) => void;
-  /** Submit a problem report to the server (multiplayer). When absent, the
-   *  "Report a problem" button downloads a local JSON report instead. */
-  onReport?: (message: string) => Promise<string | void>;
-  /** Local games only: take back the last move (until new info is revealed). */
+  /** Take back the last move (until new info is revealed). */
   canUndo?: boolean;
   onUndo?: () => void;
-  /** Local games only: abandon the current game and start a fresh one with the
-   *  same seats/settings. Omitted for multiplayer — you can't unilaterally
-   *  discard other players' progress. */
+  /** Abandon the current game and start a fresh one with the same seats/settings. */
   onReset?: () => void;
 }
 
-export function Board({ state, viewer, canAct, legalActions, onAction, onReport, canUndo, onUndo, onReset }: BoardProps) {
+export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, onUndo, onReset }: BoardProps) {
   const me = state.players.find((p) => p.id === viewer)!;
   const activeP = state.players.find((p) => p.id === state.turn.active)!;
   const pending = state.turn.pendingFollow;
   const gameOver = state.phase === 'gameOver';
 
-  // Dialog state: report (with optional default severity) + the game-over popup.
-  const [reportOpen, setReportOpen] = useState<null | 'bug' | 'feedback'>(null);
   const [gameOverDismissed, setGameOverDismissed] = useState(false);
   // On-demand log drawer (sub-task 5) — the log used to be an always-visible
   // panel with its own permanent internal scroll; now it opens on demand.
@@ -390,9 +385,6 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         <button className="ghost-btn" onClick={() => downloadText(`teg-log-turn${state.turnNumber}.txt`, logText(state))} title="Download log" aria-label="Save log">
           ⬇ <span className="ghost-btn-label">Save</span>
         </button>
-        <button className="ghost-btn" onClick={() => setReportOpen('bug')} title="Report a problem" aria-label="Report a problem">
-          🐞 <span className="ghost-btn-label">Report</span>
-        </button>
       </footer>
 
       <Sheet open={logOpen} onClose={() => setLogOpen(false)} title="Log">
@@ -415,20 +407,10 @@ export function Board({ state, viewer, canAct, legalActions, onAction, onReport,
         onCancel={() => setPendingConfirm(null)}
       />
 
-      {reportOpen && (
-        <ReportDialog
-          state={state}
-          defaultSeverity={reportOpen === 'feedback' ? 'feedback' : 'bug'}
-          title={reportOpen === 'feedback' ? 'Submit game log' : 'Report a problem'}
-          category={reportOpen === 'feedback' ? 'game-log' : 'tiny-epic-galaxies'}
-          onClose={() => setReportOpen(null)}
-        />
-      )}
       {gameOver && !gameOverDismissed && (
         <GameOverDialog
           state={state}
           viewer={viewer}
-          onSubmitLog={() => { setGameOverDismissed(true); setReportOpen('feedback'); }}
           onClose={() => setGameOverDismissed(true)}
         />
       )}

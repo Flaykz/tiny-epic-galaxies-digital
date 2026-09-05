@@ -1,10 +1,7 @@
 name: Deploy to GitHub Pages
 
-# Static-only deploy: local hotseat and solo-vs-Rogue-Galaxy run entirely in the
-# browser, so GitHub Pages is enough for those. Async multiplayer and the
-# server-backed "report a problem" submission need the /api backend (see
-# server/server.ts or functions/api/), which GitHub Pages can't serve — those
-# features just won't work on this deploy.
+# Static-only deploy: everything (local hotseat, vs AI, solo-vs-Rogue-Galaxy)
+# runs entirely in the browser, so GitHub Pages is enough.
 on:
   push:
     branches: [main]

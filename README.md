@@ -21,7 +21,10 @@ built on the [`digital-boardgame-framework`](https://www.npmjs.com/package/digit
 | **Local hotseat** | 2–5 humans on one screen |
 | **vs AI** | mix humans + greedy-heuristic AI players |
 | **Solo (Rogue Galaxy)** | one human vs the automated Rogue opponent |
-| **Async multiplayer** | server-backed games with per-seat invite links |
+
+This is a browser-only, no-backend build: no async multiplayer, no game
+server, no problem-report submission. Everything runs client-side; the only
+"send data out" the app does is download a local log file on request.
 
 ## Running
 
@@ -31,37 +34,22 @@ npm install
 # One-time: download the card/dice/mat/ship art from the VASSAL module.
 npm run setup-assets
 
-# Local / AI / solo play (everything runs in the browser):
 npm run dev            # http://localhost:5173
-
-# Async multiplayer also needs the game server:
-npm run server         # http://localhost:8787  (Vite proxies /api to it)
-
 npm test               # engine unit + full self-play tests
 npm run build          # production bundle
 ```
 
-For multiplayer: open the app → **Multiplayer** → create a game → share each
-seat's invite link. The server persists games to `.data/` via the framework's
-`FsStore`, redacts opponents' secret missions per-seat, and validates turns.
-
 ## Deploying (GitHub Pages)
 
-Local hotseat and solo-vs-Rogue-Galaxy run entirely in the browser, so a plain
-static host is enough for those. `.github/workflows/deploy-pages.yml` builds
-with `DBF_NO_ASSETS=1` (never redistribute the copyrighted VASSAL art — visitors
-get the same in-app "bring your own module" dialog as local dev) and deploys
-`dist/` via GitHub's official Pages actions on every push to `main`.
+Everything runs entirely in the browser, so a plain static host is enough.
+`.github/workflows/deploy-pages.yml` builds with `DBF_NO_ASSETS=1` (never
+redistribute the copyrighted VASSAL art — visitors get the same in-app
+"bring your own module" dialog as local dev) and deploys `dist/` via GitHub's
+official Pages actions on every push to `main`.
 
 One-time repo setup: **Settings → Pages → Source → GitHub Actions**. The site
 then serves from `https://<owner>.github.io/tiny-epic-galaxies-digital/` —
 `vite.config.ts`'s `base` is set to that subpath for production builds.
-
-Async multiplayer and the server-backed "report a problem" submission need the
-`/api` backend (`npm run server`, or the Cloudflare Pages Functions in
-`functions/api/`) — GitHub Pages can't serve those, so they won't work on this
-deploy. The UI degrades gracefully: Multiplayer shows a "could not reach the
-server" message, and reports fall back to a local file download.
 
 ### Offline / installable (PWA)
 
@@ -96,16 +84,14 @@ src/engine/        Pure game logic (framework-agnostic)
   planetEffects.ts   Per-planet surface/colony action effects
   adapter.ts         GameAdapter: legalActions / applyAction / viewFor / result
   ai.ts              Greedy AI used for AI seats and the Rogue Galaxy
-src/client/        Local engine driver, React hook, HTTP client, labels
-src/ui/            React UI (lobby, board, multiplayer) + real card art
-server/            Node GameServer over FsStore (async multiplayer)
+src/client/        Local engine driver, React hook, labels
+src/ui/            React UI (lobby, board) + real card art
 tests/             Vitest engine + self-play tests
 ```
 
 The engine is a pure, deterministic `GameAdapter<GameState, Action, string>`:
 every action is fully specified and enumerable, randomness lives in a serialized
-seeded RNG inside the state, so the same framework powers both local play and the
-server with no game-specific server code.
+seeded RNG inside the state.
 
 ## Faithfulness notes
 
@@ -131,9 +117,8 @@ These are isolated in `planetEffects.ts` / `ai.ts` and don't affect the core loo
 
 ## Feedback & contributions
 
-The most useful thing you can send is an **in-game problem report** — the report
-button inside the game. Filed while you're playing, it captures the game state and
-context that make an issue reproducible, which helps far more than a code change.
+There's no in-game problem report — the game-over screen's **Download log**
+button is the way to grab a game's state/log for debugging.
 
 **Pull requests generally won't be merged.** This is a solo-maintained project, and
 reviewing and integrating outside code costs more than it saves. If you open a PR,
