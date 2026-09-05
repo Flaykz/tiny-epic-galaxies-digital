@@ -8,6 +8,7 @@ import {
   type GameState,
   type SeatSpec,
 } from '../engine/index.js';
+import { saveLocalGame } from './gameSave.js';
 
 export interface LocalSeat extends SeatSpec {
   /** 'human' seats are controlled via the UI; 'ai' and rogue seats auto-play. */
@@ -21,6 +22,9 @@ export interface LocalSeat extends SeatSpec {
 export class LocalEngine {
   state: GameState;
   private seats: LocalSeat[];
+  private seed: number;
+  private rogueDifficulty: 'beginner' | 'advanced';
+  private rogueCard?: import('../engine/index.js').RogueCardId;
   private listeners = new Set<() => void>();
   private aiTimer: ReturnType<typeof setTimeout> | null = null;
   aiThinkMs: number;
@@ -28,15 +32,30 @@ export class LocalEngine {
   // by the current human are undoable; revealing new info clears the stack.
   private undoStack: GameState[] = [];
 
-  constructor(seats: LocalSeat[], seed: number, aiThinkMs = 650, rogueDifficulty: 'beginner' | 'advanced' = 'beginner', rogueCard?: import('../engine/index.js').RogueCardId) {
+  /** `resumedState`, when given (a reload picked up a saved game — see
+   *  App.tsx/gameSave.ts), is played as-is instead of starting a fresh game
+   *  from `seed`; `seed` is then kept only for display/remount bookkeeping. */
+  constructor(seats: LocalSeat[], seed: number, aiThinkMs = 650, rogueDifficulty: 'beginner' | 'advanced' = 'beginner', rogueCard?: import('../engine/index.js').RogueCardId, resumedState?: GameState) {
     this.seats = seats;
+    this.seed = seed;
+    this.rogueDifficulty = rogueDifficulty;
+    this.rogueCard = rogueCard;
     this.aiThinkMs = aiThinkMs;
-    this.state = createInitialState({ seats, seed, rogueDifficulty, rogueCard });
-    // Best-effort play counter: a local game just started. 'ai' if any seat is
-    // AI/Rogue (vs-AI or solo), else 'hotseat'. Never throws or blocks.
-    const mode = seats.some((s) => s.control === 'ai' || s.isRogue) ? 'ai' : 'hotseat';
-    void recordPlay('tiny-epic-galaxies', mode);
+    this.state = resumedState ?? createInitialState({ seats, seed, rogueDifficulty, rogueCard });
+    if (!resumedState) {
+      // Best-effort play counter: a local game just started (not a resume from
+      // reload). 'ai' if any seat is AI/Rogue (vs-AI or solo), else 'hotseat'.
+      // Never throws or blocks.
+      const mode = seats.some((s) => s.control === 'ai' || s.isRogue) ? 'ai' : 'hotseat';
+      void recordPlay('tiny-epic-galaxies', mode);
+    }
+    this.persist();
     this.scheduleAi();
+  }
+
+  /** Save the current state so a page reload can resume it — see gameSave.ts. */
+  private persist(): void {
+    saveLocalGame({ seats: this.seats, seed: this.seed, rogueDifficulty: this.rogueDifficulty, rogueCard: this.rogueCard, state: this.state });
   }
 
   /** Whether the last human move can be taken back (no new info revealed since). */
@@ -58,6 +77,7 @@ export class LocalEngine {
   }
 
   private emit(): void {
+    this.persist();
     for (const l of this.listeners) l();
   }
 

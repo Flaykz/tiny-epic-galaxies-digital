@@ -4,17 +4,26 @@ import { AssetContext, useGameAssets, VMOD_URL } from '../client/assets.js';
 import { Board, FullscreenButton } from './Board.js';
 import { useLocalGame } from '../client/useLocalGame.js';
 import type { LocalSeat } from '../client/localEngine.js';
-import { ROGUE_CARDS, type RogueCardId } from '../engine/index.js';
+import { loadLocalGame, clearLocalGame } from '../client/gameSave.js';
+import { ROGUE_CARDS, type GameState, type RogueCardId } from '../engine/index.js';
 
 // The five Rogue Galaxy cards in difficulty order, for the solo selector.
 const ROGUE_ORDER: RogueCardId[] = ['rothkel', 'artemis', 'zendica', 'hades', 'gamelyn'];
 
 type Mode =
   | { kind: 'lobby' }
-  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId };
+  | { kind: 'local'; seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; resumedState?: GameState };
+
+/** On load, resume a game in progress (local or solo) instead of dropping the
+ *  player back to the lobby — see gameSave.ts. */
+function initialMode(): Mode {
+  const saved = loadLocalGame();
+  if (!saved) return { kind: 'lobby' };
+  return { kind: 'local', seats: saved.seats, seed: saved.seed, rogueDifficulty: saved.rogueDifficulty, rogueCard: saved.rogueCard, resumedState: saved.state };
+}
 
 export function App() {
-  const [mode, setMode] = useState<Mode>({ kind: 'lobby' });
+  const [mode, setMode] = useState<Mode>(initialMode);
 
   const assets = useGameAssets();
 
@@ -32,8 +41,9 @@ export function App() {
           seed={mode.seed}
           rogueDifficulty={mode.rogueDifficulty}
           rogueCard={mode.rogueCard}
-          onExit={() => setMode({ kind: 'lobby' })}
-          onReset={() => setMode((m) => (m.kind === 'local' ? { ...m, seed: Math.floor(Math.random() * 1e9) } : m))}
+          resumedState={mode.resumedState}
+          onExit={() => { clearLocalGame(); setMode({ kind: 'lobby' }); }}
+          onReset={() => setMode((m) => (m.kind === 'local' ? { ...m, seed: Math.floor(Math.random() * 1e9), resumedState: undefined } : m))}
         />
       )}
       {/* Bring-your-own-art: when the build ships no images, prompt the user to
@@ -250,8 +260,8 @@ function PlayCount() {
   return <p className="muted small play-count">{count.toLocaleString()} games played</p>;
 }
 
-function LocalGame({ seats, seed, rogueDifficulty, rogueCard, onExit, onReset }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; onExit: () => void; onReset: () => void }) {
-  const engine = useLocalGame({ seats, seed, rogueDifficulty, rogueCard });
+function LocalGame({ seats, seed, rogueDifficulty, rogueCard, resumedState, onExit, onReset }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; resumedState?: GameState; onExit: () => void; onReset: () => void }) {
+  const engine = useLocalGame({ seats, seed, rogueDifficulty, rogueCard, resumedState });
   const state = engine.state;
 
   const actor = engine.currentActor();
