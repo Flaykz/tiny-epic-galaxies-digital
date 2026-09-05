@@ -5,6 +5,7 @@ import { Board, FullscreenButton } from './Board.js';
 import { useLocalGame } from '../client/useLocalGame.js';
 import type { LocalSeat } from '../client/localEngine.js';
 import { loadLocalGame, clearLocalGame } from '../client/gameSave.js';
+import { useWakeLock } from '../client/useWakeLock.js';
 import { ROGUE_CARDS, type GameState, type RogueCardId } from '../engine/index.js';
 
 // The five Rogue Galaxy cards in difficulty order, for the solo selector.
@@ -263,6 +264,9 @@ function PlayCount() {
 function LocalGame({ seats, seed, rogueDifficulty, rogueCard, resumedState, onExit, onReset }: { seats: LocalSeat[]; seed: number; rogueDifficulty?: 'beginner' | 'advanced'; rogueCard?: import('../engine/index.js').RogueCardId; resumedState?: GameState; onExit: () => void; onReset: () => void }) {
   const engine = useLocalGame({ seats, seed, rogueDifficulty, rogueCard, resumedState });
   const state = engine.state;
+  // Keep the screen from locking for the whole time a game is on screen —
+  // tablets in particular tend to dim/lock mid-turn on a slow decision.
+  useWakeLock(true);
 
   const actor = engine.currentActor();
   // In hotseat, the screen "becomes" whichever human is on the clock so they see
