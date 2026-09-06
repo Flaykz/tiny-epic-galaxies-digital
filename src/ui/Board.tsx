@@ -5,6 +5,7 @@ import {
   MAX_EMPIRE,
   EMPIRE_TRACK,
   RESOURCE_MAX,
+  WIN_VP,
   baseVp,
   finalScore,
   empire,
@@ -370,6 +371,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
       </header>
 
       <section className="players-row" aria-label="Player status">
+        <Scoreboard state={state} viewer={viewer} />
         <PlayerPanel p={me} state={state} isViewer isActive={me.id === onTheClock} justChanged={turnFlash} upgradeActions={colonyUpgradeActions} colonyActions={colonyPlanetActions} onUpgrade={(a) => { onAction(a); setSelectedDie(null); }} onColonyAction={(a) => { onAction(a); setSelectedDie(null); }} />
         <div className="opponents" aria-label="Opponents">
           {state.players.filter((p) => p.id !== viewer).map((p) => (
@@ -732,6 +734,37 @@ function AdvanceSteps({ options, submit, verb, emptyText }: { options: AdvanceOp
   );
 }
 
+/** Side-by-side VP comparison for every seat, always visible at the top of
+ *  the players row — the individual pp-vp/oc-vp numbers still live inside
+ *  each player's own panel/chip (kept, they're still useful in that context),
+ *  but each is a different size in a different spot, so "who's ahead" was a
+ *  hunt-and-compare instead of a glance. One shared 0..WIN_VP bar per seat,
+ *  stacked (not a single shared track) so it scales the same from 2 players
+ *  to a full 5-human table. Uses baseVp (public info: empire level + colonized
+ *  planets) rather than finalScore — finalScore also folds in each player's
+ *  *secret* mission bonus, which this always-on strip must not leak. */
+function Scoreboard({ state, viewer }: { state: GameState; viewer: string }) {
+  const order = [viewer, ...state.order.filter((id) => id !== viewer)];
+  return (
+    <div className="scoreboard" aria-label="Victory points">
+      {order.map((id) => {
+        const p = state.players.find((pl) => pl.id === id)!;
+        const vp = baseVp(state, p);
+        const pct = Math.min(100, Math.round((vp / WIN_VP) * 100));
+        return (
+          <div key={id} className={`scoreboard-row ${p.color}`}>
+            <span className="scoreboard-label">{id === viewer ? 'You' : p.name}{p.isRogue ? ' ☠' : ''}</span>
+            <span className="scoreboard-bar" role="progressbar" aria-label={`${id === viewer ? 'Your' : p.name + '’s'} victory points`} aria-valuemin={0} aria-valuemax={WIN_VP} aria-valuenow={vp}>
+              <span className="scoreboard-fill" style={{ width: `${pct}%` }} />
+            </span>
+            <span className="scoreboard-value">{vp}<small>/{WIN_VP}</small></span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlayerPanel({ p, state, isViewer, isActive, justChanged, upgradeActions = [], colonyActions = [], onUpgrade, onColonyAction }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean; /** True for a brief window right after the active player changed — see Board's turnFlash. */ justChanged?: boolean; upgradeActions?: Array<Extract<Action, { type: 'activateColonyGalaxy' }>>; colonyActions?: Array<Extract<Action, { type: 'activateColonyPlanet' }>>; onUpgrade?: (action: Extract<Action, { type: 'activateColonyGalaxy' }>) => void; onColonyAction?: (action: Extract<Action, { type: 'activateColonyPlanet' }>) => void }) {
   const lvl = empire(p.empireLevel);
   const next = p.empireLevel < MAX_EMPIRE ? empire(p.empireLevel + 1) : null;
@@ -789,7 +822,6 @@ function PlayerPanel({ p, state, isViewer, isActive, justChanged, upgradeActions
         >
           <span className="oc-dot" aria-hidden="true" />
           <span className="oc-name">{p.name}{p.isRogue ? ' ☠' : ''}</span>
-          <span className="oc-vp">{baseVp(state, p)}<small>VP</small></span>
           <span className="oc-resources">
             <MiniGauge type="energy" value={p.energy} />
             <MiniGauge type="culture" value={p.culture} />
@@ -799,7 +831,6 @@ function PlayerPanel({ p, state, isViewer, isActive, justChanged, upgradeActions
         <Sheet open={detailOpen} onClose={() => setDetailOpen(false)} title={`${p.name}${p.isRogue ? ' ☠' : ''}`}>
           <div className="opponent-detail">
             <div className="opponent-stats">
-              <span className="resource-chip vp" title="Victory points"><b>{baseVp(state, p)}</b><small>VP</small></span>
               <ResourceGauge type="energy" value={p.energy} />
               <ResourceGauge type="culture" value={p.culture} />
               <span className="resource-chip empire-detail-gauge" title={`${lvl.dice} dice and ${lvl.ships} ships`}>
@@ -824,13 +855,13 @@ function PlayerPanel({ p, state, isViewer, isActive, justChanged, upgradeActions
   return (
     <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''} ${isActive && justChanged ? 'turn-flash' : ''}`}>
       <div className="pp-head">
-        <span><span className="eyebrow">Your galaxy</span><span className="pp-name">{p.name}</span></span>
-        <span className="pp-vp">{baseVp(state, p)} VP</span>
+        <span className="eyebrow">Your galaxy</span>
+        <span className="pp-name">{p.name}</span>
       </div>
       <div className="player-overview">
         <div className="key-stats">
-          <ResourceGauge type="energy" value={p.energy} />
-          <ResourceGauge type="culture" value={p.culture} />
+          <ResourceGauge type="energy" value={p.energy} shipYield={acquireCount(p, 'energy')} />
+          <ResourceGauge type="culture" value={p.culture} shipYield={acquireCount(p, 'culture')} />
         </div>
         <div className={`empire-track ${next && (p.energy >= next.upgradeCost || p.culture >= next.upgradeCost) ? 'affordable' : ''}`}>
           <div className="empire-track-row">
@@ -943,13 +974,30 @@ function MiniEmpireGauge({ level }: { level: number }) {
   );
 }
 
-function ResourceGauge({ type, value }: { type: 'energy' | 'culture'; value: number }) {
+/** `shipYield` (passed only for the viewer's own gauges — see key-stats above,
+ *  not the opponent-detail sheet's) is acquireCount(p, type): how much this
+ *  resource's die would produce right now, counting *every* ship that pays
+ *  into it — home-galaxy ships (energy always, or either for the Rogue, see
+ *  helpers.ts) plus any ship sitting on a matching-resourceType planet. That
+ *  spans both "your galaxy" (home ships) and "the planets" (orbiting/surface
+ *  ships), which is exactly why it wasn't obvious at a glance without it. */
+function ResourceGauge({ type, value, shipYield }: { type: 'energy' | 'culture'; value: number; shipYield?: number }) {
   const energy = type === 'energy';
   const label = energy ? 'Energy' : 'Culture';
   const icon = energy ? '⚡' : '🏛';
   return (
     <span className={`resource-chip resource-gauge ${type}`} title={`${label}: ${value}/${RESOURCE_MAX}`}>
-      <span className="gauge-head"><b>{icon}</b><small>{label}</small></span>
+      <span className="gauge-head">
+        <b>{icon}</b><small>{label}</small>
+        {shipYield != null && (
+          <span
+            className={`gauge-yield ${shipYield === 0 ? 'zero' : ''}`}
+            title={`${shipYield} ship${shipYield === 1 ? '' : 's'} would produce ${label.toLowerCase()} on an Acquire die`}
+          >
+            +{shipYield}
+          </span>
+        )}
+      </span>
       <span className="gauge-track" role="progressbar" aria-label={`${label}: ${value} of ${RESOURCE_MAX}`} aria-valuemin={0} aria-valuemax={RESOURCE_MAX} aria-valuenow={value}>
         {Array.from({ length: RESOURCE_MAX }, (_, i) => <span key={i} className={`gauge-segment ${i < value ? 'filled' : ''}`} />)}
         <strong>{value}<span>/{RESOURCE_MAX}</span></strong>
