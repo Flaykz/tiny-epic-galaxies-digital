@@ -314,6 +314,26 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
  * VP and resources) — the opponent grid pins its natural rows while the
  * viewer panel is the one that flexes and, if truly tight, scrolls internally. */
 .players-row { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+/* Scoreboard: every seat's VP on one shared 0..WIN_VP scale, stacked — see
+ * Board.tsx's Scoreboard component for why (baseVp, not finalScore; ordering;
+ * etc). Fixed height (doesn't flex/shrink) so the viewer panel below it stays
+ * the one region that grows/scrolls, per the comment above. */
+.scoreboard { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; padding: var(--space-2) var(--space-3); background: var(--color-surface-sunken); border: 1px solid var(--overlay-2); border-radius: var(--radius-md); }
+.scoreboard-row { display: grid; grid-template-columns: minmax(3.4em, auto) 1fr auto; align-items: center; gap: var(--space-2); font-size: var(--fs-200); font-weight: 700; }
+.scoreboard-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scoreboard-bar { position: relative; height: 10px; border-radius: var(--radius-pill); background: var(--shade-4); box-shadow: inset 0 1px var(--overlay-1); overflow: hidden; }
+.scoreboard-fill { position: absolute; inset: 0; width: 0; border-radius: inherit; background: var(--color-ink-muted); transition: width .4s ease; }
+.scoreboard-value { font-variant-numeric: tabular-nums; color: var(--color-ink); white-space: nowrap; }
+.scoreboard-value small { color: var(--color-ink-muted); font-weight: 600; }
+.scoreboard-row.blue { color: var(--color-player-blue-ink); }
+.scoreboard-row.blue .scoreboard-fill { background: var(--color-player-blue); }
+.scoreboard-row.green { color: var(--color-player-green-ink); }
+.scoreboard-row.green .scoreboard-fill { background: var(--color-player-green); }
+.scoreboard-row.red { color: var(--color-player-red-ink); }
+.scoreboard-row.red .scoreboard-fill { background: var(--color-player-red); }
+.scoreboard-row.yellow { color: var(--color-player-yellow-ink); }
+.scoreboard-row.yellow .scoreboard-fill { background: var(--color-player-yellow); }
+.scoreboard-row.black .scoreboard-fill { background: var(--color-player-black); }
 .player-panel.viewer { flex: 1 1 auto; min-height: 0; overflow: auto; }
 /* Opponents: a readable grid of persistent status cards (see .opponent-chip
  * below). Tapping a card opens the full detail in a bottom sheet. */
@@ -368,8 +388,6 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .opponent-chip.yellow { color: var(--color-player-yellow-ink); border: 2px solid var(--color-player-yellow); }
 .opponent-chip.black { border: 2px solid var(--color-player-black); }
 .oc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-300); font-weight: 700; color: var(--color-ink); }
-.oc-vp { justify-self: end; font-size: var(--fs-300); font-weight: 700; color: var(--color-gold); display: flex; align-items: baseline; gap: 2px; }
-.oc-vp small { font-size: var(--fs-100); color: var(--color-ink-muted); font-weight: 600; }
 .oc-resources { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 .oc-gauge { min-width: 0; }
 .oc-gauge-label { display: block; overflow: hidden; color: var(--color-ink-muted); font-size: var(--fs-100); line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
@@ -382,12 +400,14 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .oc-gauge.culture { color: var(--color-culture); }
 .oc-gauge.empire { color: var(--color-empire); }
 .oc-gauge.empire .oc-gauge-track { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.opponent-detail .pp-head { margin-bottom: var(--space-2); }
-.pp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); font-weight: 700; }
-.pp-head > span:first-child { display: flex; flex-direction: column; }
+/* Eyebrow + name on one row (not stacked) — this header used to also carry
+ * the VP figure on the far right (justify-content: space-between), which is
+ * why "Your galaxy"/name were themselves stacked in their own column to its
+ * left; now that VP lives only in the Scoreboard, that's one row of vertical
+ * space this panel doesn't need to spend any more. */
+.pp-head { display: flex; align-items: baseline; gap: var(--space-2); font-weight: 700; }
 .pp-name { font-size: var(--fs-500); }
 .eyebrow { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-.pp-vp { color: var(--color-gold); }
 /* Always one column: the left grid column is capped at 320px, so the old
  * two-column overview never has room in either layout. */
 .player-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); margin-top: var(--space-2); }
@@ -400,11 +420,15 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .resource-gauge.energy { color: var(--color-energy); }
 .resource-gauge.culture { color: var(--color-culture); }
 .resource-chip.dice b, .resource-chip.ships b, .resource-chip.empire b { color: var(--color-ink); }
-.resource-chip.vp b { color: var(--color-gold); }
 .resource-gauge { gap: var(--space-1); min-height: 76px; padding: var(--space-2); }
 .gauge-head { display: flex; align-items: center; gap: var(--space-1); line-height: 1; }
 .gauge-head b { font-size: var(--fs-400); }
 .gauge-head small { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+/* What an Acquire die would yield right now — home-galaxy ships plus any ship
+ * sitting on a matching-resourceType planet (see ResourceGauge's shipYield).
+ * Pushed to the far right of the head row, away from the icon/label pair. */
+.gauge-yield { margin-left: auto; padding: 0 5px; border-radius: var(--radius-pill); background: var(--overlay-1); color: var(--color-success); font-size: var(--fs-100); font-weight: 800; }
+.gauge-yield.zero { color: var(--color-ink-muted); }
 .gauge-track { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; min-height: 34px; width: 100%; padding: 3px; overflow: hidden; border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); background: var(--shade-3); box-shadow: inset 0 1px 3px #0008; }
 .gauge-segment { min-width: 0; border-radius: 3px; background: var(--shade-4); box-shadow: inset 0 1px var(--overlay-1); }
 .gauge-segment.filled { background: currentColor; box-shadow: inset 0 1px #ffffff66, 0 0 7px currentColor; }
@@ -446,7 +470,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .empire-upgrade-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1); }
 .empire-upgrade-btn { min-height: var(--tap-min); padding: var(--space-1) var(--space-2); border: 1px solid #3ad57b99; border-radius: var(--radius-sm); color: var(--color-ink); background: #247553; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 0 12px #3ad57b22; }
 .empire-upgrade-btn:hover, .empire-upgrade-btn:focus-visible { border-color: var(--color-success); background: #2d9668; }
-.opponent-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-2); }
+.opponent-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-2); }
 .opponent-stats .resource-chip { min-height: 52px; padding: var(--space-1); }
 .opponent-stats .resource-chip b { font-size: var(--fs-400); }
 .opponent-stats .empire-detail-gauge { gap: 3px; min-height: 76px; }
