@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "setup-assets": "node scripts/fetch-assets.mjs",
+    "predev": "node scripts/fetch-assets.mjs --if-missing",
     "dev": "vite",
+    "prebuild": "node scripts/fetch-assets.mjs --if-missing",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",

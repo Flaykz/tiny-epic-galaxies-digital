@@ -3,6 +3,7 @@ import {
   PLANETS_BY_ID,
   ROGUE_CARDS,
   MAX_EMPIRE,
+  EMPIRE_TRACK,
   RESOURCE_MAX,
   baseVp,
   finalScore,
@@ -136,6 +137,37 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
   const activeP = state.players.find((p) => p.id === state.turn.active)!;
   const pending = state.turn.pendingFollow;
   const gameOver = state.phase === 'gameOver';
+  // Who the screen is actually asking right now — the active player, unless a
+  // follow is pending, in which case it's the follower being asked to copy the
+  // die (see adapter.ts's currentActor(), which prioritises pendingFollow the
+  // same way — `viewer` in App.tsx already follows it there, becoming the
+  // follower's own screen). Hotseat has no separate device per player, so the
+  // "active" glow (below) is the only thing that can say "this is about you
+  // now" instead of still marking the original roller while the follower's
+  // own galaxy and decision are already on screen.
+  const onTheClock = pending && pending.queue.length > 0 ? pending.queue[0] : state.turn.active;
+
+  // A follow window the viewer cannot actually take up (culture spent since it
+  // opened, or no legal way to copy the face — e.g. an Economy die with no ship
+  // orbiting an economy planet) leaves exactly one legal answer: decline. This
+  // is the one decision the board resolves with zero taps, reporting it in a
+  // non-blocking toast instead of a modal the player can only dismiss one way.
+  // Computed up here (not just below, where it's also used) so the turnFlash
+  // effect can tell this case apart from a real hand-off — see its comment.
+  const followActs = legalActions.filter((a) => a.type === 'follow');
+  const followPlayer = pending?.queue.length ? state.players.find((p) => p.id === pending.queue[0]) : undefined;
+  const followResource = pending && (pending.face === 'energy' || pending.face === 'culture') ? pending.face : null;
+  const followCost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
+  const followBefore = followResource && followPlayer ? (followResource === 'energy' ? followPlayer.energy : followPlayer.culture) : 0;
+  const followGain = followResource && followPlayer ? acquireCount(followPlayer, followResource) : 0;
+  const followAfter = Math.min(RESOURCE_MAX, followBefore + followGain);
+  const followNet = followAfter - followBefore - followCost;
+  const autoDeclineResource = !!followResource && !!followPlayer && followNet < 1;
+  const declineAction = followActs.find((a) => a.type === 'follow' && !a.accept);
+  const autoDecline = canAct && pending && pending.queue.length > 0
+    && declineAction && (followActs.length === 1 || autoDeclineResource)
+    ? declineAction
+    : null;
 
   const [gameOverDismissed, setGameOverDismissed] = useState(false);
   // On-demand log drawer (sub-task 5) — the log used to be an always-visible
@@ -178,6 +210,53 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
     if (converterSel != null && !converterAction) setConverterSel(null);
   }, [converterSel, converterAction, state.turn.active]);
 
+  // Who's on the clock was otherwise conveyed only by a static glow (see
+  // .player-panel.active/.opponent-chip.active/.dice-tray.<color> in
+  // styles.css) that just pops from one player to the next with no
+  // transition — easy to miss when the change happens off-screen or between
+  // glances, and doubly so for a follow proposal in hotseat (see onTheClock
+  // above): the screen already silently becomes the follower's own galaxy and
+  // decision, with nothing marking that hand-off as it happens. This briefly
+  // flags the moment onTheClock changes — turn passing *or* a follow opening/
+  // resolving — so those same elements can play a one-shot pulse (see
+  // .turn-flash) instead of a silent swap. Skipped on first mount (a ref, not
+  // state, so it doesn't itself trigger a render) — nothing "changed" yet when
+  // the board first appears.
+  const [turnFlash, setTurnFlash] = useState(false);
+  const turnFlashMounted = React.useRef(false);
+  // Bumped alongside turnFlash, purely to give the center-screen announcement
+  // below a fresh `key` each time — remounting it (rather than toggling a
+  // class on a persistent node, like turnFlash does) is what makes its fade
+  // in/out CSS animation reliably replay even for back-to-back changes onto
+  // the *same* text (e.g. a 2-player game alternates turn/follow between just
+  // two names), which a class-based retrigger can silently no-op on.
+  const [turnBannerSeq, setTurnBannerSeq] = useState(0);
+  // A follow the board is about to auto-decline (see autoDecline above) never
+  // was a real hand-off — the toast already covers it, and a beat later
+  // onTheClock reverts right back on its own. Without this guard the player
+  // saw the flash/banner fire *twice* in a row for a turn that, from their
+  // point of view, never actually changed: once for "onTheClock → follower"
+  // (skipped below) and once more for "→ back to the active player" a render
+  // later (skipped here via the ref, since by then `pending` is already null
+  // and looks like an ordinary hand-off).
+  const suppressNextFlashRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!turnFlashMounted.current) { turnFlashMounted.current = true; return; }
+    if (autoDecline) { suppressNextFlashRef.current = true; return; }
+    if (suppressNextFlashRef.current) { suppressNextFlashRef.current = false; return; }
+    setTurnFlash(true);
+    setTurnBannerSeq((n) => n + 1);
+    const t = setTimeout(() => setTurnFlash(false), 700);
+    return () => clearTimeout(t);
+  }, [onTheClock]);
+  const clockPlayer = state.players.find((p) => p.id === onTheClock)!;
+  // Distinguish "it's your turn" from "you're being asked to follow" — the
+  // same onTheClock hand-off covers both (see above), but they're different
+  // asks and shouldn't share a caption.
+  const turnBannerText = pending && pending.queue[0] === onTheClock
+    ? `${clockPlayer.name}, follow?`
+    : `${clockPlayer.name}'s turn`;
+
   const rerolling = rerollSel != null;
   const converting = converterSel != null;
   // What the tray highlights and the action panel is scoped to. Even when
@@ -193,25 +272,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
     ? legalActions.filter((a): a is Extract<Action, { type: 'activateColonyPlanet' }> => a.type === 'activateColonyPlanet' && a.dieId === activeDie)
     : [];
 
-  // A follow window the viewer cannot actually take up (culture spent since it
-  // opened, or no legal way to copy the face — e.g. an Economy die with no ship
-  // orbiting an economy planet) leaves exactly one legal answer: decline. This
-  // is the one decision the board resolves with zero taps, reporting it in a
-  // non-blocking toast instead of a modal the player can only dismiss one way.
-  const followActs = legalActions.filter((a) => a.type === 'follow');
-  const followPlayer = pending?.queue.length ? state.players.find((p) => p.id === pending.queue[0]) : undefined;
-  const followResource = pending && (pending.face === 'energy' || pending.face === 'culture') ? pending.face : null;
-  const followCost = state.turn.oncePerTurn.includes('nibiru-follow-tax') ? 2 : 1;
-  const followBefore = followResource && followPlayer ? (followResource === 'energy' ? followPlayer.energy : followPlayer.culture) : 0;
-  const followGain = followResource && followPlayer ? acquireCount(followPlayer, followResource) : 0;
-  const followAfter = Math.min(RESOURCE_MAX, followBefore + followGain);
-  const followNet = followAfter - followBefore - followCost;
-  const autoDeclineResource = !!followResource && !!followPlayer && followNet < 1;
-  const declineAction = followActs.find((a) => a.type === 'follow' && !a.accept);
-  const autoDecline = canAct && pending && pending.queue.length > 0
-    && declineAction && (followActs.length === 1 || autoDeclineResource)
-    ? declineAction
-    : null;
+  // (followActs/autoDecline etc. now computed up near onTheClock, above.)
   // Identity of *this* follow decision. log.length is what separates two
   // otherwise-identical windows (same source, same face, same follower) opened
   // by two dice in one turn, and it also makes the key stable across
@@ -264,6 +325,20 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
     <MovePickerContext.Provider value={{ picker, setPicker }}>
     <AdvancePickerContext.Provider value={{ picker: advPicker, setPicker: setAdvPicker }}>
     <div className="board">
+      {/* Center-screen, self-fading announcement of the same onTheClock
+       *  hand-off as turnFlash above — that pulse is easy to miss if the
+       *  player's eyes are on the planets or the dice tray; this is squarely
+       *  in the middle so a hotseat hand-off (or a follow proposal — see
+       *  turnBannerText) is unmissable for a moment, then gets out of the way
+       *  on its own (aria-hidden + pointer-events: none in CSS — it never
+       *  blocks a tap). `key` remounts it every time so the CSS animation
+       *  always replays, even switching back to a name it just showed a
+       *  moment earlier. */}
+      {turnBannerSeq > 0 && (
+        <div key={turnBannerSeq} className={`turn-banner ${clockPlayer.color}`} aria-hidden="true">
+          {turnBannerText}
+        </div>
+      )}
       <header className="topbar">
         {/* No title here on purpose: during an active game it's dead weight
          *  the player already knows (they're the ones playing it) — the app
@@ -295,15 +370,15 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
       </header>
 
       <section className="players-row" aria-label="Player status">
-        <PlayerPanel p={me} state={state} isViewer isActive={me.id === state.turn.active} upgradeActions={colonyUpgradeActions} colonyActions={colonyPlanetActions} onUpgrade={(a) => { onAction(a); setSelectedDie(null); }} onColonyAction={(a) => { onAction(a); setSelectedDie(null); }} />
+        <PlayerPanel p={me} state={state} isViewer isActive={me.id === onTheClock} justChanged={turnFlash} upgradeActions={colonyUpgradeActions} colonyActions={colonyPlanetActions} onUpgrade={(a) => { onAction(a); setSelectedDie(null); }} onColonyAction={(a) => { onAction(a); setSelectedDie(null); }} />
         <div className="opponents" aria-label="Opponents">
           {state.players.filter((p) => p.id !== viewer).map((p) => (
-            <PlayerPanel key={p.id} p={p} state={state} isViewer={false} isActive={p.id === state.turn.active} />
+            <PlayerPanel key={p.id} p={p} state={state} isViewer={false} isActive={p.id === onTheClock} justChanged={turnFlash} />
           ))}
         </div>
       </section>
 
-      <section className="planet-row">
+      <section className={`planet-row ${clockPlayer.color}`}>
         <div className="section-heading">
           <h2>Discovered Planets</h2>
           <span>{state.centerRow.length} available</span>
@@ -327,6 +402,7 @@ export function Board({ state, viewer, canAct, legalActions, onAction, canUndo, 
           <DiceTray
             state={state}
             canAct={canAct}
+            turnFlash={turnFlash}
             activatableDieIds={activatableDieIds}
             selectedDie={activeDie}
             onSelect={(id) => setSelectedDie((cur) => (cur === id ? null : id))}
@@ -656,7 +732,7 @@ function AdvanceSteps({ options, submit, verb, emptyText }: { options: AdvanceOp
   );
 }
 
-function PlayerPanel({ p, state, isViewer, isActive, upgradeActions = [], colonyActions = [], onUpgrade, onColonyAction }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean; upgradeActions?: Array<Extract<Action, { type: 'activateColonyGalaxy' }>>; colonyActions?: Array<Extract<Action, { type: 'activateColonyPlanet' }>>; onUpgrade?: (action: Extract<Action, { type: 'activateColonyGalaxy' }>) => void; onColonyAction?: (action: Extract<Action, { type: 'activateColonyPlanet' }>) => void }) {
+function PlayerPanel({ p, state, isViewer, isActive, justChanged, upgradeActions = [], colonyActions = [], onUpgrade, onColonyAction }: { p: PlayerState; state: GameState; isViewer: boolean; isActive: boolean; /** True for a brief window right after the active player changed — see Board's turnFlash. */ justChanged?: boolean; upgradeActions?: Array<Extract<Action, { type: 'activateColonyGalaxy' }>>; colonyActions?: Array<Extract<Action, { type: 'activateColonyPlanet' }>>; onUpgrade?: (action: Extract<Action, { type: 'activateColonyGalaxy' }>) => void; onColonyAction?: (action: Extract<Action, { type: 'activateColonyPlanet' }>) => void }) {
   const lvl = empire(p.empireLevel);
   const next = p.empireLevel < MAX_EMPIRE ? empire(p.empireLevel + 1) : null;
   const asset = useAsset();
@@ -669,10 +745,6 @@ function PlayerPanel({ p, state, isViewer, isActive, upgradeActions = [], colony
   // Read unconditionally (before the isViewer branch below) — Rules of Hooks.
   // Only the viewer's own Fleet chips act as tap targets for the picker.
   const { picker } = React.useContext(MovePickerContext);
-  const nextBenefits = next ? [
-    next.dice > lvl.dice ? `+${next.dice - lvl.dice} die` : null,
-    next.ships > lvl.ships ? `+${next.ships - lvl.ships} ship` : null,
-  ].filter(Boolean).join(' · ') : '';
   // Shared between the viewer's own colonies section and an opponent's detail
   // sheet — a compact thumbnail/text list of colonized planets.
   const renderColonies = (pl: PlayerState) => pl.colonized.length > 0 && (
@@ -711,7 +783,7 @@ function PlayerPanel({ p, state, isViewer, isActive, upgradeActions = [], colony
       <>
         <button
           type="button"
-          className={`opponent-chip ${p.color} ${isActive ? 'active' : ''}`}
+          className={`opponent-chip ${p.color} ${isActive ? 'active' : ''} ${isActive && justChanged ? 'turn-flash' : ''}`}
           onClick={() => setDetailOpen(true)}
           title={`${p.name} — tap for details`}
         >
@@ -750,7 +822,7 @@ function PlayerPanel({ p, state, isViewer, isActive, upgradeActions = [], colony
   }
 
   return (
-    <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''}`}>
+    <div className={`player-panel ${p.color} ${isActive ? 'active' : ''} ${isViewer ? 'viewer' : ''} ${isActive && justChanged ? 'turn-flash' : ''}`}>
       <div className="pp-head">
         <span><span className="eyebrow">Your galaxy</span><span className="pp-name">{p.name}</span></span>
         <span className="pp-vp">{baseVp(state, p)} VP</span>
@@ -760,21 +832,20 @@ function PlayerPanel({ p, state, isViewer, isActive, upgradeActions = [], colony
           <ResourceGauge type="energy" value={p.energy} />
           <ResourceGauge type="culture" value={p.culture} />
         </div>
-        <div className={`empire-summary ${next && (p.energy >= next.upgradeCost || p.culture >= next.upgradeCost) ? 'affordable' : ''}`}>
-          <div className="empire-current">
-            <span className="eyebrow">Empire</span>
+        <div className={`empire-track ${next && (p.energy >= next.upgradeCost || p.culture >= next.upgradeCost) ? 'affordable' : ''}`}>
+          <div className="empire-track-row">
+            <span className="empire-track-label">Level</span>
             <EmpireLevelMeter level={p.empireLevel} />
-            <span>{lvl.vp} VP</span>
           </div>
-          {next ? (
-            <div className="empire-next">
-              <span className="eyebrow">Next upgrade cost</span>
-              <strong>{next.upgradeCost}</strong>
-              <span>Unlocks {nextBenefits}</span>
-            </div>
-          ) : (
-            <div className="empire-next maxed"><span className="eyebrow">Empire</span><strong>Maximum level</strong><span>All dice and ships unlocked</span></div>
-          )}
+          <EmpireTrackRow label="VP" values={EMPIRE_TRACK.map((l) => l.vp)} level={p.empireLevel} />
+          <EmpireTrackRow
+            label="Cost"
+            values={EMPIRE_TRACK.map((l) => l.upgradeCost)}
+            level={p.empireLevel}
+            nextAffordable={next ? p.energy >= next.upgradeCost || p.culture >= next.upgradeCost : undefined}
+          />
+          <EmpireTrackRow label="Dice" values={EMPIRE_TRACK.map((l) => l.dice)} level={p.empireLevel} markGains />
+          <EmpireTrackRow label="Ships" values={EMPIRE_TRACK.map((l) => l.ships)} level={p.empireLevel} markGains />
           {isViewer && upgradeActions.length > 0 && (
             <div className="empire-upgrade-actions">
               <span className="eyebrow">Upgrade now</span>
@@ -893,6 +964,44 @@ function EmpireLevelMeter({ level }: { level: number }) {
       {Array.from({ length: MAX_EMPIRE }, (_, i) => <span key={i} className={`empire-level-segment ${i < level ? 'filled' : ''}`} />)}
       <strong>L{level}<small>/{MAX_EMPIRE}</small></strong>
     </span>
+  );
+}
+
+/** One row of the "Your galaxy" empire track: the same MAX_EMPIRE-wide grid as
+ *  EmpireLevelMeter above it (so columns line up across rows), but showing the
+ *  actual per-level value (VP / cost / dice / ships) in every cell instead of a
+ *  filled/unfilled bar — those aren't cumulative like the level itself, a
+ *  player only ever has *one* level's worth of them, so "filled up to here"
+ *  would misleadingly read as a running total. `current` just marks which
+ *  column that one value is; `nextAffordable` (cost row only) separately marks
+ *  the very next column so the upcoming price is a glance to the right of
+ *  "current", not a second lookup — green when the player can already pay it.
+ *  `markGains` (dice/ships rows) flags the *first* cell whose value is higher
+ *  than the one before it — dice go 4,5,5,6,6,7 and ships 2,2,3,3,4,4, each
+ *  repeated once before the next bump, so a plain value diff lands exactly on
+ *  the levels that actually hand out a new die/ship, with no per-row special-
+ *  casing of which numbers those are. */
+function EmpireTrackRow({ label, values, level, nextAffordable, markGains }: { label: string; values: number[]; level: number; nextAffordable?: boolean; markGains?: boolean }) {
+  return (
+    <div className="empire-track-row">
+      <span className="empire-track-label">{label}</span>
+      <div className="empire-track-cells" role="img" aria-label={`${label} per empire level: ${values.map((v, i) => `${i + 1}: ${v}`).join(', ')} — currently level ${level}`}>
+        {values.map((v, i) => {
+          const cellLevel = i + 1;
+          const isNext = nextAffordable !== undefined && cellLevel === level + 1;
+          const isGain = !!markGains && i > 0 && v > values[i - 1];
+          return (
+            <span
+              key={i}
+              className={`empire-track-cell ${cellLevel === level ? 'current' : ''} ${isNext ? `next ${nextAffordable ? 'affordable' : ''}` : ''} ${isGain ? 'gain' : ''}`}
+              title={isGain ? `Level ${cellLevel}: a new ${label.toLowerCase().replace(/s$/, '')} unlocks` : undefined}
+            >
+              {v}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -1066,6 +1175,7 @@ function PlanetCardView({ planet, state }: { planet: Planet; state: GameState })
 function DiceTray({
   state,
   canAct,
+  turnFlash,
   activatableDieIds,
   selectedDie,
   onSelect,
@@ -1088,6 +1198,8 @@ function DiceTray({
 }: {
   state: GameState;
   canAct: boolean;
+  /** True for a brief window right after the active player changed — see Board's turnFlash. */
+  turnFlash?: boolean;
   activatableDieIds: Set<number>;
   selectedDie: number | null;
   onSelect: (id: number) => void;
@@ -1130,8 +1242,41 @@ function DiceTray({
   // turn" reminder as the topbar and the players-row frame (see styles.css),
   // just where the dice themselves are, since that's a separate board region.
   const activeColor = state.players.find((p) => p.id === state.turn.active)?.color;
+  // Which dice just landed on a new face — a fresh turn-start roll (every id
+  // gets a new face) and a single reroll/Converter change (just that id) both
+  // show up here the same way: a ref snapshot of last-seen face per id (die
+  // ids are just array indices, reused turn to turn — see setup.ts's
+  // rollForActive — so "id 2's face changed" is exactly "die 2 was (re)rolled",
+  // whether that's this player's whole hand at turn start or one die mid-turn)
+  // is diffed against the incoming dice in an effect (not during render — this
+  // mutates a ref), and the changed ids drive a one-shot .rolling animation
+  // (see .die.rolling) before the ref is updated to the new snapshot.
+  const [justRolled, setJustRolled] = useState<Set<number>>(new Set());
+  const prevFacesRef = React.useRef<Map<number, DieFace> | null>(null);
+  React.useEffect(() => {
+    const prev = prevFacesRef.current;
+    const changed = new Set<number>();
+    if (prev) {
+      for (const d of state.turn.dice) {
+        if (prev.get(d.id) !== undefined && prev.get(d.id) !== d.face) changed.add(d.id);
+      }
+    }
+    prevFacesRef.current = new Map(state.turn.dice.map((d) => [d.id, d.face]));
+    if (changed.size === 0) return;
+    setJustRolled(changed);
+    const t = setTimeout(() => setJustRolled(new Set()), 500);
+    return () => clearTimeout(t);
+  }, [state.turn.dice]);
+  // Spent dice (activated, or currently held in the Converter) sort to the
+  // left, still-available ones to the right — a stable sort (both groups keep
+  // their original relative order) so only *crossing the used/unused boundary*
+  // moves a die, not every activation reshuffling the whole tray.
+  const sortedDice = [...state.turn.dice].sort((a, b) => {
+    const used = (d: typeof a) => (d.activated || d.inConverter ? 0 : 1);
+    return used(a) - used(b);
+  });
   return (
-    <div className={`dice-tray ${activeColor ?? ''}`}>
+    <div className={`dice-tray ${activeColor ?? ''} ${turnFlash ? 'turn-flash' : ''}`}>
       <div className="dice-body">
         <div className="dice-main">
           <div className="dice-head">
@@ -1174,7 +1319,7 @@ function DiceTray({
             )}
           </div>
           <div className={`dice ${rerolling ? 'rerolling' : ''} ${converting ? 'converting' : ''}`}>
-            {state.turn.dice.map((d) => {
+            {sortedDice.map((d) => {
               const inactive = !d.activated && !d.inConverter;
               const usable = canAct && activatableDieIds.has(d.id);
               const rerollPick = rerolling && rerollSel!.includes(d.id);
@@ -1191,6 +1336,7 @@ function DiceTray({
                 rerollPick ? 'reroll-pick' : '',
                 spendPick ? 'converter-spend' : '',
                 targetPick ? 'converter-target' : '',
+                justRolled.has(d.id) ? 'rolling' : '',
               ].join(' ');
               return (
                 <button
@@ -1295,9 +1441,18 @@ function ActionPanel({
     state.turn.pendingFollow?.face,
   ]);
 
+  // Same seat-color ring as .player-panel.active/.dice-tray (see styles.css) —
+  // whoever's actions these are (the active player, or the follower during a
+  // pendingFollow — see Board's onTheClock, recomputed here since ActionPanel
+  // doesn't otherwise take that prop) gets it here too, on every one of this
+  // component's several early-return panels.
+  const clockPending = state.turn.pendingFollow;
+  const clockId = clockPending && clockPending.queue.length > 0 ? clockPending.queue[0] : state.turn.active;
+  const clockColor = state.players.find((p) => p.id === clockId)?.color ?? '';
+
   if (!canAct) {
     return (
-      <div className="action-panel waiting">
+      <div className={`action-panel waiting ${clockColor}`}>
         <h3>Actions</h3>
         <p className="muted">Waiting for {state.players.find((p) => p.id === state.turn.active)!.name}…</p>
       </div>
@@ -1353,7 +1508,7 @@ function ActionPanel({
           : []);
       const others = choiceActions.filter((a) => !(a.type === 'resolvePlanet' && a.choice.dest));
       return (
-        <div className="action-panel choose">
+        <div className={`action-panel choose ${clockColor}`}>
           {head}
           <MoveSteps
             moves={repeatMoves}
@@ -1378,7 +1533,7 @@ function ActionPanel({
     // family as ConfirmSheet/the log drawer. The head (title + planet blurb)
     // stays inline since it's just a couple of lines, not a list.
     return (
-      <div className="action-panel choose">
+      <div className={`action-panel choose ${clockColor}`}>
         {head}
         <p className="muted small">{singleChoice ? 'Only one option — confirm below.' : 'Tap a target below.'}</p>
         <Sheet open title={singleChoice ? 'Confirm' : planet?.name}>
@@ -1405,7 +1560,7 @@ function ActionPanel({
     const nagatoMoves = moveActions.flatMap((a) => (a.type === 'nagatoMove' ? [{ shipIdx: a.shipIdx, dest: a.dest, action: a }] : []));
     const stop = moveActions.find((a) => a.type === 'endMoves');
     return (
-      <div className="action-panel choose">
+      <div className={`action-panel choose ${clockColor}`}>
         <h3>NAGATO — move a ship ({state.turn.pendingMoves.left} left)</h3>
         <p>Move one of your ships to a different planet, or stop.</p>
         <MoveSteps
@@ -1430,7 +1585,7 @@ function ActionPanel({
     // one answer. The toast explains it; the state update lands immediately.
     if (autoResolvingFollow) {
       return (
-        <div className="action-panel waiting">
+        <div className={`action-panel waiting ${clockColor}`}>
           <h3>Actions</h3>
           <p className="muted">Follow action — nothing you can copy; continuing…</p>
         </div>
@@ -1462,7 +1617,7 @@ function ActionPanel({
     // one face that swaps its body for the ship→destination picker, since a
     // followed move isn't a single button — it's a choice of ship and dest.
     const card = (
-      <div className="action-panel follow-card">
+      <div className={`action-panel follow-card ${clockColor}`}>
         <FollowHeader face={face} follower={follower} state={state} />
         {face === 'move' ? (
           <MoveSteps
@@ -1512,7 +1667,7 @@ function ActionPanel({
   const noUsableDie = !legalActions.some((a) => actionDieId(a) != null);
 
   return (
-    <div className="action-panel">
+    <div className={`action-panel ${clockColor}`}>
       <div className="ap-head">
         <h3>Your actions</h3>
         {onUndo && (

@@ -83,7 +83,13 @@ export default defineConfig(({ mode }) => ({
         // Precache the whole app shell (JS/CSS/HTML + our icons — copyAppIcons()
         // above runs early enough that they're already in dist/ by the time this
         // scans it) so local/solo play works with zero network after first load.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        // `jpg` matters here too: cards/dice/mats (public/cards, public/dice,
+        // public/mats — see scripts/fetch-assets.mjs) are all .jpg, only ships
+        // are .png. Missing it meant those images were never precached — fine
+        // (silently) whenever the network happened to be up on reload, but a
+        // real, reproducible offline/flaky-network failure otherwise, despite
+        // this build claiming to be fully offline-capable.
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,ico,webmanifest}'],
         navigateFallback: 'index.html',
       },
     }),
