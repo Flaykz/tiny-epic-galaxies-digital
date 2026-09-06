@@ -64,8 +64,22 @@ export function useGameAssets(): GameAssets {
   }, []);
   // ?artless=1 forces the text UI (for testing/preview) without the setup dialog.
   const force = typeof location !== 'undefined' && new URLSearchParams(location.search).get('artless') === '1';
-  const noArt = served === false && !vmod.ready;
-  const ready = !force && (served === true || vmod.ready);
+  // vmod.ready is all-or-nothing (see digital-boardgame-framework's vmod-assets.js
+  // hydrate(): `have === paths.length`) — if the browser ever loses even one of the
+  // ~60 cached files (storage eviction under pressure, a manifest entry added since
+  // the user last loaded their module, a one-off IndexedDB hiccup, ...), `ready`
+  // flips to false and this used to drop the *whole* board to text mode and
+  // re-show the "load your module" dialog, even though almost everything was still
+  // cached and would resolve fine — the "sometimes on reload the art is gone as if
+  // I'd never loaded the module" symptom. Recount from the manifest instead of
+  // trusting that flag: `vmod.resolve` already falls back path-by-path, and
+  // PlanetCardView already falls back per-card on its own `onError` — so the
+  // *global* artless/setup-dialog decision only needs "do we have some art
+  // cached", not "do we have literally all of it".
+  const cachedCount = Object.keys(TEG_MANIFEST.files).filter((p) => vmod.resolve(p) !== p).length;
+  const haveArt = cachedCount > 0;
+  const noArt = served === false && !haveArt;
+  const ready = !force && (served === true || haveArt);
   const resolve = served === true ? (p: string) => p : vmod.resolve;
   // Show the dialog only until the user loads a module or chooses to skip.
   const needsSetup = !force && noArt && !dismissed;

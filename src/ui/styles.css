@@ -27,6 +27,7 @@
   --color-danger: #e5544b;
   --color-energy: #ffd34d;
   --color-culture: #6fd0ff;
+  --color-empire: #c792ff;
 
   /* ---- Player seat colors (same values as before, semantic names) ---- */
   --color-player-blue: #3a7bd5;
@@ -319,7 +320,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .opponents { flex: 0 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-2); min-width: 0; }
 .player-panel {
   min-width: 0; background: linear-gradient(135deg, var(--color-surface), #151e36); border-radius: var(--radius-md);
-  padding: var(--space-3); border: 1px solid var(--overlay-2);
+  padding: var(--space-3); border: 1px solid var(--overlay-2); transition: box-shadow .3s ease;
 }
 /* The active frame is tinted with the player's own seat color, not a single
  * generic accent blue — that's what lets "whose galaxy is framed" also read as
@@ -333,6 +334,17 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .player-panel.green .pp-name { color: var(--color-player-green-ink); }
 .player-panel.red .pp-name { color: var(--color-player-red-ink); }
 .player-panel.yellow .pp-name { color: var(--color-player-yellow-ink); }
+/* Every seat's own card is bordered in their color, always — not just while
+ * they're active (the stronger glow above). Otherwise, mid-turn, everyone
+ * *but* the active player reads as anonymous gray — there was no way to tell
+ * "this is player 1's galaxy" while looking at player 2's turn. Plain
+ * `border` (not box-shadow), so it stays visually a notch under the active
+ * ring rather than competing with it when both apply at once. */
+.player-panel.blue { border: 2px solid var(--color-player-blue); }
+.player-panel.green { border: 2px solid var(--color-player-green); }
+.player-panel.red { border: 2px solid var(--color-player-red); }
+.player-panel.yellow { border: 2px solid var(--color-player-yellow); }
+.player-panel.black { border: 2px solid var(--color-player-black); }
 
 /* ---- Opponent chip (compact row) + detail sheet ----
  * A glanceable strip: color dot, name, VP, and two mini resource gauges —
@@ -342,7 +354,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 5px var(--space-1); min-width: 0; width: 100%;
   min-height: 136px; padding: var(--space-3); background: var(--color-surface-3);
   border: 1px solid var(--overlay-1); border-radius: var(--radius-md); color: var(--color-ink);
-  font: inherit; cursor: pointer; touch-action: manipulation;
+  font: inherit; cursor: pointer; touch-action: manipulation; transition: box-shadow .3s ease;
 }
 .opponent-chip.active { box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px #4db8ff33; }
 .opponent-chip.active.blue { box-shadow: 0 0 0 2px var(--color-player-blue), 0 0 20px #3a7bd533; }
@@ -350,10 +362,11 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .opponent-chip.active.red { box-shadow: 0 0 0 2px var(--color-player-red), 0 0 20px #e5544b33; }
 .opponent-chip.active.yellow { box-shadow: 0 0 0 2px var(--color-player-yellow), 0 0 20px #e5c04b33; }
 .oc-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
-.opponent-chip.blue { color: var(--color-player-blue-ink); }
-.opponent-chip.green { color: var(--color-player-green-ink); }
-.opponent-chip.red { color: var(--color-player-red-ink); }
-.opponent-chip.yellow { color: var(--color-player-yellow-ink); }
+.opponent-chip.blue { color: var(--color-player-blue-ink); border: 2px solid var(--color-player-blue); }
+.opponent-chip.green { color: var(--color-player-green-ink); border: 2px solid var(--color-player-green); }
+.opponent-chip.red { color: var(--color-player-red-ink); border: 2px solid var(--color-player-red); }
+.opponent-chip.yellow { color: var(--color-player-yellow-ink); border: 2px solid var(--color-player-yellow); }
+.opponent-chip.black { border: 2px solid var(--color-player-black); }
 .oc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-300); font-weight: 700; color: var(--color-ink); }
 .oc-vp { justify-self: end; font-size: var(--fs-300); font-weight: 700; color: var(--color-gold); display: flex; align-items: baseline; gap: 2px; }
 .oc-vp small { font-size: var(--fs-100); color: var(--color-ink-muted); font-weight: 600; }
@@ -367,7 +380,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .oc-gauge-track strong span { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 700; }
 .oc-gauge.energy { color: var(--color-energy); }
 .oc-gauge.culture { color: var(--color-culture); }
-.oc-gauge.empire { color: var(--color-gold); }
+.oc-gauge.empire { color: var(--color-empire); }
 .oc-gauge.empire .oc-gauge-track { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .opponent-detail .pp-head { margin-bottom: var(--space-2); }
 .pp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); font-weight: 700; }
@@ -397,20 +410,39 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .gauge-segment.filled { background: currentColor; box-shadow: inset 0 1px #ffffff66, 0 0 7px currentColor; }
 .gauge-track strong { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1px; color: var(--color-ink); font-size: var(--fs-400); line-height: 1; text-shadow: 0 1px 3px #000; }
 .gauge-track strong span { color: var(--color-ink-muted); font-size: var(--fs-200); font-weight: 700; }
-.empire-summary { display: grid; grid-template-columns: .8fr 1.2fr; overflow: hidden; background: var(--color-surface-sunken); border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); }
-.empire-current, .empire-next { display: flex; flex-direction: column; justify-content: center; padding: var(--space-1) var(--space-3); }
-.empire-current { border-right: 1px solid var(--overlay-2); }
-.empire-current strong, .empire-next strong { font-size: var(--fs-400); }
-.empire-level-meter { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; min-height: 30px; margin: 4px 0; padding: 3px; overflow: hidden; border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); background: var(--shade-3); box-shadow: inset 0 1px 3px #0008; color: var(--color-gold); }
+/* Empire track: the Galaxy Mat's own layout — one row per stat (level, VP,
+ * upgrade cost, dice, ships), each a MAX_EMPIRE-wide strip of cells sharing the
+ * same label-column width, so every row's 6 cells land in the same 6 physical
+ * columns. Scanning down any one column tells you everything about a level;
+ * the highlighted "current" column is what actually reads as *a track*
+ * instead of 5 unrelated stat lines. */
+.empire-track { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: var(--space-2) var(--space-3); background: var(--color-surface-sunken); border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); }
+.empire-track-row { display: grid; grid-template-columns: 2.6em 1fr; align-items: center; gap: var(--space-2); }
+.empire-track-label { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.empire-track-cells { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.empire-track-cell { position: relative; min-width: 0; min-height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 3px; background: var(--shade-4); box-shadow: inset 0 1px var(--overlay-1); color: var(--color-ink-muted); font-size: var(--fs-200); font-weight: 700; font-variant-numeric: tabular-nums; }
+.empire-track-cell.current { background: var(--color-empire); color: #1a1226; box-shadow: inset 0 1px #ffffff66, 0 0 7px var(--color-empire); }
+/* The next cell over from `current` is the upcoming upgrade's price — a
+ * dashed outline marks it as "not yet reached" even before we know whether
+ * it's affordable; `affordable` (energy or culture already covers it) swaps
+ * that for the same green the Pay buttons below use. */
+.empire-track-cell.next { outline: 1px dashed var(--overlay-4); outline-offset: -1px; }
+.empire-track-cell.next.affordable { outline: 1px solid var(--color-success); color: var(--color-success); box-shadow: 0 0 6px #3ad57b55; }
+/* Dice/ships repeat a value once before the next bump (4,5,5,6,6,7 /
+ * 2,2,3,3,4,4) — this dashed frame marks only the level that actually hands
+ * out the *new* one, independent of (and layered over, via outline rather
+ * than border so it doesn't fight .current's box-shadow) current/next, which
+ * are about the player's position, not the track's own shape. Gold, not the
+ * green already used for "affordable" or the purple for "current" — a third,
+ * unambiguous "new unlock" color. */
+.empire-track-cell.gain { outline: 2px dashed var(--color-gold); outline-offset: -2px; }
+.empire-level-meter { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; min-height: 30px; overflow: hidden; border: 1px solid var(--overlay-2); border-radius: var(--radius-sm); background: var(--shade-3); box-shadow: inset 0 1px 3px #0008; color: var(--color-empire); }
 .empire-level-segment { min-width: 0; border-radius: 3px; background: var(--shade-4); box-shadow: inset 0 1px var(--overlay-1); }
 .empire-level-segment.filled { background: currentColor; box-shadow: inset 0 1px #ffffff66, 0 0 7px currentColor; }
 .empire-level-meter > strong { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1px; color: var(--color-ink); font-size: var(--fs-300); line-height: 1; text-shadow: 0 1px 3px #000; }
 .empire-level-meter > strong small { color: var(--color-ink-muted); font-size: var(--fs-100); font-weight: 700; }
-.empire-current > span:last-child, .empire-next > span:last-child { color: var(--color-ink-muted); font-size: var(--fs-200); }
-.empire-summary.affordable { border-color: #3ad57b66; box-shadow: inset 0 0 16px #3ad57b0b; }
-.empire-summary.affordable .empire-next strong { color: var(--color-success); }
-.empire-next.maxed strong { color: var(--color-gold); }
-.empire-upgrade-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-top: 1px solid #3ad57b66; background: #3ad57b12; }
+.empire-track.affordable { border-color: #3ad57b66; box-shadow: inset 0 0 16px #3ad57b0b; }
+.empire-upgrade-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin: 2px calc(var(--space-3) * -1) calc(var(--space-2) * -1); padding: var(--space-2) var(--space-3); border-top: 1px solid #3ad57b66; border-radius: 0 0 var(--radius-sm) var(--radius-sm); background: #3ad57b12; }
 .empire-upgrade-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1); }
 .empire-upgrade-btn { min-height: var(--tap-min); padding: var(--space-1) var(--space-2); border: 1px solid #3ad57b99; border-radius: var(--radius-sm); color: var(--color-ink); background: #247553; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 0 12px #3ad57b22; }
 .empire-upgrade-btn:hover, .empire-upgrade-btn:focus-visible { border-color: var(--color-success); background: #2d9668; }
@@ -486,7 +518,16 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 /* ---------- Planet row ---------- */
 /* The heading stays put and only the card area scrolls, so the region's height
  * budget is spent on cards rather than on a scrolled-away title. */
-.planet-row { display: flex; flex-direction: column; min-width: 0; min-height: 0; container-type: inline-size; container-name: planet-row; }
+.planet-row { display: flex; flex-direction: column; min-width: 0; min-height: 0; container-type: inline-size; container-name: planet-row; padding: var(--space-2); border-radius: var(--radius-md); }
+/* Same seat-color ring as .dice-tray/.action-panel/.player-panel.active — a
+ * small padding (not the full panel padding those use) so the ring has some
+ * breathing room from the heading/cards without eating much into this row's
+ * already-tight height budget (see the scrolled-card comments below). */
+.planet-row.blue { box-shadow: inset 0 0 0 2px var(--color-player-blue); }
+.planet-row.green { box-shadow: inset 0 0 0 2px var(--color-player-green); }
+.planet-row.red { box-shadow: inset 0 0 0 2px var(--color-player-red); }
+.planet-row.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
+.planet-row.black { box-shadow: inset 0 0 0 2px var(--color-player-black); }
 .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-2); }
 .section-heading h2 { margin: 0; font-size: var(--fs-500); }
 .section-heading span { color: var(--color-ink-muted); font-size: var(--fs-200); }
@@ -502,26 +543,26 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
  * for fewer rows instead of leaving the extra planets to scroll off — a legal
  * move target must never need a scroll to become visible. */
 .planet-row .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: min-content; justify-content: stretch; align-content: start; align-items: start; gap: var(--space-3); min-height: 0; overflow: auto; }
-/* Art-mode cards are real card scans at a tall ~1.4:1 (h:w) ratio — left at
- * their natural width-driven height (the text-mode-only sizing above), a card
- * ~380px wide renders 500px+ tall, several times the region's actual budget
- * (found live on a tablet: 4 cards needing 1200px in a ~250px-tall container).
+/* Art-mode cards are real card scans at a tall ~1.4:1 (h:w) ratio. They keep
+ * that natural, width-driven height (same idea as .pc-zoom-img's `height:
+ * auto`) instead of being stretched/cropped to divide up the region's full
+ * height — a card is a fixed, recognizable shape, not elastic filler.
  * `:has(.pc-art)` (only art-mode cards render that element, nothing from
- * Board.tsx needs to know this) switches to *dividing* the available height
- * instead of taking each card's natural size — `.cards` itself has to
- * actually claim that height (`flex: 1 1 auto` in .planet-row's column) for
- * there to be anything to divide; see .planet-card/.pc-art below for how each
- * card fills its row and the image crops (object-fit) to match, rather than
- * dictating it. */
+ * Board.tsx needs to know this) still has `.cards` claim the region's height
+ * (`flex: 1 1 auto` in .planet-row's column), but only so the *block* of cards
+ * can be centered in it (`align-content: safe center` below) when the natural
+ * card heights add up to less than the available space; `align-items: start`
+ * (not `stretch`) is what leaves each card at its own natural height rather
+ * than the row's. `overflow: auto` on `.cards` (base rule above) is the
+ * fallback if natural heights ever exceed the budget on a very short region —
+ * it scrolls instead of overflowing the page, and `safe center` degrades to
+ * start-aligned in that same case so the first row never scrolls out of
+ * reach. */
 /* 4 columns even for the base ≤4 case (not just `.dense`): a card's ~350:500
- * (w:h) natural ratio means a *narrower* cell is a *closer* match to it — 2
- * wide-and-short columns (measured live: a 389x115 cell) forced cropping to
- * ~20% of the image's height just to fill that shape; 4 narrower, tallerish
- * columns land close enough to the card's own ratio that cropping is mostly
- * gone. Still `object-fit: cover`, not `aspect-ratio` sized by width, so a
- * genuine mismatch (a very short/wide `planets` area) safely crops instead of
- * pushing the row's total height past its budget. */
-.planet-row .cards:has(.pc-art) { flex: 1 1 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); align-items: stretch; }
+ * (w:h) natural ratio means a *narrower* cell is a *closer* match to it —
+ * fewer, wider columns would just make each card's natural (now uncropped)
+ * height that much taller. */
+.planet-row .cards:has(.pc-art) { flex: 1 1 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: min-content; align-items: start; align-content: safe center; }
 /* 4 columns, not 3: at up to 7 planets (5 humans), 3 columns is still 3 rows
  * (3/3/1) — the 3rd row's cards were measured overflowing their own container
  * by ~50px on a 390px phone. 4 columns is at most 2 rows (4/3), which fits. */
@@ -531,17 +572,16 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   .planet-row .cards.dense { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 .planet-card { min-width: 0; background: var(--color-surface); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--overlay-2); box-shadow: 0 8px 22px var(--shade-1); }
-/* Flex column: the art fills the card's whole (grid-stretched) height — no
+/* Flex column: the art sits at its own natural (width-driven) height — no
  * text meta line to share it with any more (Board.tsx dropped it: the card
  * scan already prints name/resource/colonize-cost/VP, so a text summary under
- * a *cropped* copy of the same card was both redundant and the reason the
- * image had less height than it needed). `movePills`, when actionable, is
+ * a copy of the same card was redundant). `movePills`, when actionable, is
  * the only other possible child, sized to its own content underneath. */
 .planet-card:has(.pc-art) { display: flex; flex-direction: column; }
-.pc-art { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.pc-art img { width: 100%; height: 100%; display: block; object-fit: cover; }
-/* Ship tokens share the card artwork container, but must keep their native
- * aspect ratio instead of inheriting the artwork's full-height crop. */
+.pc-art { position: relative; overflow: hidden; }
+.pc-art img { width: 100%; height: auto; display: block; }
+/* Ship tokens share the card artwork container, but are sized by their own
+ * width % (see .ship-tok below), not the artwork img rule above. */
 .pc-art .ship-tok { height: auto; object-fit: contain; }
 /* A legal target for whatever's currently being picked — a move destination
  * (MovePickerContext) or a ship to advance (AdvancePickerContext) — flags the
@@ -626,6 +666,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .play-area { display: contents; }
 .dice-tray, .action-panel { background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-4); border: 1px solid var(--overlay-1); }
 .dice-tray, .action-panel { min-width: 0; min-height: 0; overflow: auto; }
+.dice-tray { transition: box-shadow .3s ease; }
 /* Whose dice these are is otherwise only spelled out in the topbar, a separate
  * board region from the dice themselves — echo the same seat-color ring here
  * (see .turn-indicator/.player-panel.active above) as a second, ambient
@@ -634,6 +675,53 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .dice-tray.green { box-shadow: inset 0 0 0 2px var(--color-player-green); }
 .dice-tray.red { box-shadow: inset 0 0 0 2px var(--color-player-red); }
 .dice-tray.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
+.dice-tray.black { box-shadow: inset 0 0 0 2px var(--color-player-black); }
+/* Same ring on the action panel — "whose actions these are" (the active
+ * player, or the follower during a pendingFollow, see ActionPanel's
+ * clockColor) deserves the same at-a-glance cue as the dice tray right next
+ * to it and Your Galaxy above. */
+.action-panel.blue { box-shadow: inset 0 0 0 2px var(--color-player-blue); }
+.action-panel.green { box-shadow: inset 0 0 0 2px var(--color-player-green); }
+.action-panel.red { box-shadow: inset 0 0 0 2px var(--color-player-red); }
+.action-panel.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow); }
+.action-panel.black { box-shadow: inset 0 0 0 2px var(--color-player-black); }
+/* The turn-change pulse (see Board's turnFlash) — a soft gold bloom + a tiny
+ * pop, layered via `filter`/`transform` rather than box-shadow so it doesn't
+ * fight (or get silently replaced by) the seat-color rings/insets above; works
+ * the same way on .player-panel and .opponent-chip below since none of them
+ * use those two properties for anything else. Runs once (not infinite) and
+ * settles back to nothing, not to some mid-pulse frame, if the flash window
+ * ends mid-animation. */
+@keyframes turn-pulse {
+  0% { filter: drop-shadow(0 0 14px var(--color-gold)) brightness(1.08); transform: scale(1.015); }
+  100% { filter: drop-shadow(0 0 0 transparent) brightness(1); transform: scale(1); }
+}
+.turn-flash { animation: turn-pulse .7s ease-out; }
+/* Center-screen turn/follow announcement (see Board's turnBannerSeq) — plays
+ * once on mount (a fresh `key` per hand-off forces a real remount, so the
+ * animation always restarts, even repeating the same two names) and needs no
+ * JS to remove itself: `forwards` just leaves it at the fully-transparent end
+ * frame. `pointer-events: none` throughout its life — it announces, it never
+ * blocks the tap that's often already landing underneath it. */
+.turn-banner {
+  position: fixed; top: 45%; left: 50%; z-index: 4000; pointer-events: none;
+  padding: var(--space-3) var(--space-5); border-radius: var(--radius-lg);
+  background: var(--scrim-2); border: 1px solid var(--overlay-3);
+  color: var(--color-ink); font-size: var(--fs-700); font-weight: 800; text-align: center; white-space: nowrap;
+  box-shadow: 0 20px 60px var(--shade-5);
+  opacity: 0; animation: turn-banner-fade 1.8s ease-out forwards;
+}
+.turn-banner.blue { border-color: var(--color-player-blue); box-shadow: 0 0 0 1px var(--color-player-blue), 0 20px 60px var(--shade-5); }
+.turn-banner.green { border-color: var(--color-player-green); box-shadow: 0 0 0 1px var(--color-player-green), 0 20px 60px var(--shade-5); }
+.turn-banner.red { border-color: var(--color-player-red); box-shadow: 0 0 0 1px var(--color-player-red), 0 20px 60px var(--shade-5); }
+.turn-banner.yellow { border-color: var(--color-player-yellow); box-shadow: 0 0 0 1px var(--color-player-yellow), 0 20px 60px var(--shade-5); }
+.turn-banner.black { border-color: var(--color-player-black); box-shadow: 0 0 0 1px var(--color-player-black), 0 20px 60px var(--shade-5); }
+@keyframes turn-banner-fade {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.92); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.04); }
+}
 .action-panel { container-type: inline-size; }
 /* .dice-body lays the die grid (.dice-main, grows) and the Reroll/Converter
  * entry points (.dice-tools) side by side, the latter a vertical stack pinned
@@ -691,6 +779,17 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
 .die.converter { opacity: .5; }
 .die.converter img { border-color: var(--color-danger); box-shadow: none; }
 .die:disabled { cursor: default; }
+/* A landed roll (turn start rolls every die, a reroll/Converter change just
+ * one — see DiceTray's justRolled) gets a quick tumble, not an instant face
+ * swap. Targets the face image/glyph only, not the whole button — the face
+ * label text underneath (e.g. "Energy") shouldn't spin along with it. */
+@keyframes die-roll {
+  0% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(200deg) scale(1.18); }
+  65% { transform: rotate(330deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.die.rolling img, .die.rolling .die-glyph { animation: die-roll .5s ease-out; }
 /* Dice not yet unlocked (Empire Track upgrades add more, up to 7) — shown
  * grayed-out alongside the player's real dice, same idea as .ship.locked.
  * In image mode there's no die face to gray out, so the glyph gets a boxed
@@ -734,8 +833,24 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   50% { box-shadow: 0 0 0 4px #ff8a8226, 0 0 16px #ff8a8244; }
 }
 /* Follow is a highlighted state of the Actions region, not a modal. The board
- * remains readable because resources, ships and planet tracks inform the choice. */
-.action-panel.follow-card { position: relative; border-color: #ffcc4455; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 0 0 1px #ffcc4422, 0 8px 24px var(--shade-3); }
+ * remains readable because resources, ships and planet tracks inform the choice.
+ * No border/ring of its own on purpose (used to be a fixed gold one) — the
+ * whole point of a follow window is "someone else gets to copy this die", so
+ * its border is whichever seat is being asked (.action-panel.<color>'s ring,
+ * driven by ActionPanel's clockColor — the follower during a pendingFollow),
+ * not a color that's the same regardless of who that is. */
+.action-panel.follow-card { position: relative; background: linear-gradient(145deg, #26213a, #182341); box-shadow: 0 8px 24px var(--shade-3); }
+/* box-shadow doesn't merge across separate rules — .action-panel.<color>'s
+ * ring and .follow-card's drop shadow above would just have one silently
+ * replace the other (whichever wins the cascade), not combine. Spelling out
+ * both values together per color, at higher specificity (3 classes) than
+ * either rule alone, is what actually keeps both: the seat ring *and* the
+ * depth shadow. */
+.action-panel.follow-card.blue { box-shadow: inset 0 0 0 2px var(--color-player-blue), 0 8px 24px var(--shade-3); }
+.action-panel.follow-card.green { box-shadow: inset 0 0 0 2px var(--color-player-green), 0 8px 24px var(--shade-3); }
+.action-panel.follow-card.red { box-shadow: inset 0 0 0 2px var(--color-player-red), 0 8px 24px var(--shade-3); }
+.action-panel.follow-card.yellow { box-shadow: inset 0 0 0 2px var(--color-player-yellow), 0 8px 24px var(--shade-3); }
+.action-panel.follow-card.black { box-shadow: inset 0 0 0 2px var(--color-player-black), 0 8px 24px var(--shade-3); }
 .follow-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .22; background-image: radial-gradient(#fff 0.7px, transparent .7px); background-size: 13px 13px; mask-image: linear-gradient(135deg, #000, transparent 60%); }
 .follow-card > * { position: relative; }
 /* One row, sized to the die (58px) — die, the follow bonus (headline + a
@@ -779,7 +894,12 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   .follow-card .follow-choices { flex-direction: column; }
   .follow-card .follow-choices > .act-btn { flex-basis: auto; width: 100%; min-height: 52px; }
 }
-.action-panel.choose { box-shadow: 0 0 0 2px var(--color-accent); }
+/* Used to be its own fixed accent-blue ring here — same box-shadow-doesn't-
+ * merge issue as .follow-card above (see its comment): whichever rule won the
+ * cascade fully replaced the other, so this silently hid the seat-color ring
+ * from .action-panel.<color> the whole time you were picking a ship/
+ * destination. No accent of its own needed, unlike follow-card's drop shadow
+ * — dropping this rule entirely just lets the seat ring show through. */
 .ap-head { display: flex; align-items: center; justify-content: space-between; }
 .undo-btn { display: inline-flex; align-items: center; min-height: var(--tap-min); background: #3a2f00; color: var(--color-gold); border: 1px solid #ffcc4466; border-radius: var(--radius-sm); padding: var(--space-1) var(--space-4); font-weight: 700; cursor: pointer; touch-action: manipulation; }
 .undo-btn:hover:not(:disabled) { background: #4a3d00; }
