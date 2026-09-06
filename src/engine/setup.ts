@@ -69,7 +69,13 @@ export function createInitialState(opts: SetupOptions): GameState {
     empireLevel: 1,
     energy: seat.isRogue ? 0 : 2,
     culture: seat.isRogue ? 0 : 1,
-    ships: initialShips(1),
+    // The Rogue Galaxy starts with all 4 ships already on its Galaxy Mat (no
+    // locked ships to unlock via empire upgrades) — rulebook p.10. A normal
+    // player starts at empire level 1 (2 of 4 ships unlocked, see
+    // initialShips/empire.ts); the Rogue never goes through that ramp-up.
+    ships: seat.isRogue
+      ? Array.from({ length: SHIP_COUNT }, () => ({ kind: 'galaxy' }) as ShipLocation)
+      : initialShips(1),
     colonized: [],
   }));
 

@@ -186,13 +186,15 @@ function regressHuman(s: GameState, n: number): string {
 // ---- Per-die Rogue actions ----
 
 /** Advance EVERY Rogue ship orbiting a `type`-colonize planet one space. */
-function advanceAll(s: GameState, type: 'economy' | 'diplomacy'): string {
+function advanceAll(s: GameState, type: 'economy' | 'diplomacy'): { usable: boolean; log: string } {
   const r = rogue(s)!;
   let n = 0;
   r.ships.forEach((sh, i) => {
     if (sh.kind === 'orbit' && PLANET(sh.planetId)?.colonizeType === type) { if (advanceShip(s, r, i, type, 1)) n++; }
   });
-  return n > 0 ? `Rogue advanced ${n} ship(s) (${type})` : `Rogue: no ${type} ships to advance`;
+  return n > 0
+    ? { usable: true, log: `Rogue advanced ${n} ship(s) (${type})` }
+    : { usable: false, log: `Rogue: no ${type} ships to advance` };
 }
 
 /** Move a Rogue ship from its Galaxy to the leftmost planet with no Rogue ship
@@ -208,27 +210,48 @@ function rogueMoveShip(s: GameState): { usable: boolean; log: string } {
 }
 
 /**
- * Resolve one Rogue die. Returns whether it was usable (an unusable die is
- * discarded with no effect — and can't be followed). `bonus` marks the max-culture
- * bonus actions, where Acquire-Culture dice are unusable.
+ * Resolve one Rogue die. Returns whether it was usable — per rulebook p.10, a
+ * die whose action does nothing (0 resource gained, 0 ship advanced) is
+ * discarded with no effect, exactly like an unusable die on a human's turn:
+ * it can't be followed, and it's what the 'advanced' difficulty's reroll-once
+ * check (adapter.ts) is actually looking at. Previously every non-Move,
+ * non-Colony die reported `usable: true` unconditionally, which silently
+ * neutered 'advanced' (nothing was ever unusable enough to reroll) and hung a
+ * Follow prompt on the human off a die that changed nothing.
  */
-export function resolveRogueDie(state: GameState, face: DieFace, bonus = false): { usable: boolean } {
+export function resolveRogueDie(state: GameState, face: DieFace): { usable: boolean } {
   const r = rogue(state)!;
   switch (face) {
     case 'economy':
-    case 'diplomacy':
-      logEvent(state, 'rogue.advance', advanceAll(state, face), { type: face }, state.rogueId);
-      return { usable: true };
+    case 'diplomacy': {
+      const a = advanceAll(state, face);
+      logEvent(state, 'rogue.advance', a.log, { type: face, usable: a.usable }, state.rogueId);
+      return { usable: a.usable };
+    }
     case 'energy': {
-      const got = acquireFromGalaxy(state, r, 'energy');
-      logEvent(state, 'rogue.acquire', `Rogue acquired ${got} energy`, { resource: 'energy', amount: got }, state.rogueId);
-      return { usable: true };
+      // acquireFromGalaxy's return value is the theoretical yield (ships that
+      // produce it), not the actual change — it's already clamped to
+      // RESOURCE_MAX *inside* addResource, so a Rogue already sitting at max
+      // would report a nonzero "got" while genuinely gaining nothing. Diff
+      // the real before/after (same pattern as Board.tsx's FollowHeader
+      // preview) so an already-maxed Acquire is correctly unusable.
+      const before = r.energy;
+      acquireFromGalaxy(state, r, 'energy');
+      const gained = r.energy - before;
+      logEvent(state, 'rogue.acquire', `Rogue acquired ${gained} energy`, { resource: 'energy', amount: gained }, state.rogueId);
+      return { usable: gained > 0 };
     }
     case 'culture': {
-      if (bonus) { logEvent(state, 'rogue.acquire', 'Rogue: Acquire Culture unusable (culture maxed)', { resource: 'culture', unusable: true }, state.rogueId); return { usable: false }; }
-      const got = acquireFromGalaxy(state, r, 'culture');
-      logEvent(state, 'rogue.acquire', `Rogue acquired ${got} culture`, { resource: 'culture', amount: got }, state.rogueId);
-      return { usable: true };
+      // No special-casing needed for the max-culture bonus turn (see
+      // rogueEndOfTurn): culture is only reset to 0 *after* those 3 dice
+      // resolve, so it's still sitting at RESOURCE_MAX while they run — the
+      // before/after diff below naturally comes out to 0 gained, same as any
+      // other already-maxed Acquire.
+      const before = r.culture;
+      acquireFromGalaxy(state, r, 'culture');
+      const gained = r.culture - before;
+      logEvent(state, 'rogue.acquire', `Rogue acquired ${gained} culture`, { resource: 'culture', amount: gained }, state.rogueId);
+      return { usable: gained > 0 };
     }
     case 'move': {
       const m = rogueMoveShip(state);
@@ -236,7 +259,12 @@ export function resolveRogueDie(state: GameState, face: DieFace, bonus = false):
       return { usable: m.usable };
     }
     case 'colony': {
-      const lvl = Math.min(Math.max(r.empireLevel, 1), 5); // ladders run levels 1..5
+      // Ladders are only defined for levels 1..5 (see ROGUE_CARDS above) even
+      // though MAX_EMPIRE is 6 — the official cards' colony-action ladders
+      // stop at 5 rungs, so level 6 reuses the 5th (not a gap to "fix" to 6:
+      // that would index colony[6], which doesn't exist on any card, and
+      // crash). Left as its own clamp (not MAX_EMPIRE) so that stays explicit.
+      const lvl = Math.min(Math.max(r.empireLevel, 1), 5);
       logEvent(state, 'rogue.colonyAction', rogueCardOf(state).colony[lvl](state), { card: rogueCardOf(state).id, level: lvl }, state.rogueId);
       return { usable: true };
     }
@@ -267,7 +295,7 @@ export function rogueEndOfTurn(state: GameState): void {
   if (r.culture >= RESOURCE_MAX) {
     logEvent(state, 'rogue.bonus', 'Rogue culture maxed — taking 3 bonus actions', { actions: 3 }, state.rogueId);
     withRng(state, (rng) => {
-      for (let i = 0; i < 3; i++) resolveRogueDie(state, FACES[rng.int(6)], true);
+      for (let i = 0; i < 3; i++) resolveRogueDie(state, FACES[rng.int(6)]);
     });
     addResource(r, 'culture', -r.culture); // back to zero
   }
